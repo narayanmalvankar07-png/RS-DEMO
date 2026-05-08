@@ -7,6 +7,16 @@ import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import Spin from "../components/ui/Spin.jsx";
 
+// ─── Logo renderer ────────────────────────────────────────────────
+function Logo({ src, size = 56, radius = 16, fontSize = 28 }) {
+  const isImg = src && (src.startsWith("data:") || src.startsWith("http"));
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize, flexShrink: 0, overflow: "hidden" }}>
+      {isImg ? <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="logo" /> : (src || "🚀")}
+    </div>
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────
 const genRefCode = name =>
   name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5).toUpperCase() +
@@ -118,7 +128,7 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
                   <button key={e} onClick={() => set("logo", e)} style={{ fontSize: 20, background: form.logo === e ? "#3b82f618" : "none", border: form.logo === e ? "2px solid #3b82f6" : "2px solid transparent", borderRadius: 8, width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{e}</button>
                 ))}
               </div>
-              <div style={{ width: 56, height: 56, borderRadius: 14, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "10px auto 0" }}>{form.logo}</div>
+              <div style={{ margin: "10px auto 0", width: "fit-content" }}><Logo src={form.logo} size={56} radius={14} fontSize={28} /></div>
             </div>
             {[{ k: "name", l: "Startup Name *", p: "e.g. SkillSwap" }, { k: "description", l: "Description *", p: "What are you building and why?", rows: 4 }].map(({ k, l, p, rows }) => (
               <div key={k} style={{ marginBottom: 12 }}>
@@ -213,7 +223,7 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
             {startup && (
               <div style={{ background: th.surf2, borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid #10b98130" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 11, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{startup.logo || "🚀"}</div>
+                  <Logo src={startup.logo} size={42} radius={11} fontSize={22} />
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 15, color: th.txt }}>{startup.name}</div>
                     <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>✓ Valid startup</div>
@@ -370,7 +380,7 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       <div style={{ background: dk ? "linear-gradient(135deg,#1e3a8a22,#5b21b622)" : "linear-gradient(135deg,#dbeafe,#ede9fe)", border: `1px solid ${dk ? "#3b82f630" : "#bfdbfe"}`, borderRadius: 18, padding: 18, marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <div style={{ width: 60, height: 60, borderRadius: 16, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0 }}>{startup.logo || "🚀"}</div>
+            <Logo src={startup.logo} size={60} radius={16} fontSize={30} />
             <div>
               <div style={{ fontWeight: 900, fontSize: 20, color: th.txt }}>{startup.name}</div>
               <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{isFounder ? "Founder Dashboard" : "Member"} · {pages.length} Pages · {members.length} Members</div>
@@ -704,7 +714,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
             {myStartups.map(s => (
               <button key={s.id} onClick={() => setSelected(s)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer" }}>
-                <div style={{ fontSize: 20 }}>{s.logo || "🚀"}</div>
+                <Logo src={s.logo} size={28} radius={8} fontSize={16} />
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{s.name}</div>
                   <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>{s.referral_code}</div>
@@ -742,7 +752,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
             <Card dk={dk} anim={false}>
               <div onClick={() => setSelected(s)} style={{ cursor: "pointer" }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 12 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>{s.logo || "🚀"}</div>
+                  <Logo src={s.logo} size={56} radius={16} fontSize={28} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
                       <div style={{ fontWeight: 800, fontSize: 16, color: th.txt }}>{s.name}</div>
