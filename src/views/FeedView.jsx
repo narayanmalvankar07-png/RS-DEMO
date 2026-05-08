@@ -80,8 +80,14 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   };
 
   const addComment = async (id, text) => {
+    const post = posts.find(p => p.id === id);
     const saved = await db.post("rs_comments", { post_id: id, uid: me, text });
-    if (saved) setPosts(ps => ps.map(x => x.id === id ? { ...x, comments: [...x.comments, { ...saved, uid: me }] } : x));
+    if (saved) {
+      setPosts(ps => ps.map(x => x.id === id ? { ...x, comments: [...x.comments, { ...saved, uid: me }] } : x));
+      if (post && post.uid !== me) {
+        try { await db.post("rs_notifications", { uid: post.uid, type: "comment", msg: "Someone commented on your post", read: false }); } catch {}
+      }
+    }
   };
 
   const deletePost = async id => {
@@ -132,14 +138,16 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
         ))}
       </div>
       {loading ? <Spin dk={dk} msg="Loading feed..." /> : getFiltered().length === 0 ? (
-        <div style={{ textAlign: "center", padding: 48, color: th.txt3 }}>
+        <div style={{ textAlign: "center", padding: 48, color: th.txt3, animation: "fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both" }}>
           <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
             {tab === "Bookmarks" ? <Bookmark size={24} color="#6366f1" /> : <Sparkles size={24} color="#6366f1" />}
           </div>
           <p style={{ fontSize: 15 }}>{tab === "Bookmarks" ? "No bookmarks yet. Save posts to see them here." : activeTag ? `No posts with ${activeTag}` : "No posts yet. Be the first!"}</p>
         </div>
-      ) : getFiltered().map(p => (
-        <PostCard key={p.id + p.ts} post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} />
+      ) : getFiltered().map((p, i) => (
+        <div key={p.id + p.ts} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 550)}ms both` }}>
+          <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} />
+        </div>
       ))}
     </div>
   );

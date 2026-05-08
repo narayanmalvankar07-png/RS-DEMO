@@ -10,7 +10,7 @@ export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll }) {
 
   useEffect(() => {
     if (!onPoll) return;
-    const t = setInterval(onPoll, 30000);
+    const t = setInterval(onPoll, 15000);
     return () => clearInterval(t);
   }, [onPoll]);
 

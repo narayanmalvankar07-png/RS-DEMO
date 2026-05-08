@@ -90,7 +90,7 @@ export default function App() {
 
   useEffect(() => {
     if (screen !== "app" || !me) return;
-    const timer = setInterval(() => loadNotifs(me), 30000);
+    const timer = setInterval(() => loadNotifs(me), 15000);
     return () => clearInterval(timer);
   }, [screen, me]);
   const unread = notifs.filter(n => !n.read).length;
@@ -369,7 +369,7 @@ export default function App() {
           {isMobile && mobileSearchOpen ? (
             <>
               <button onClick={() => setMobileSearchOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center", flexShrink: 0 }}><X size={18} /></button>
-              <div style={{ flex: 1 }}><SearchBar dk={dk} profiles={profiles} onProfile={p => { openProfile(p); setMobileSearchOpen(false); }} onTag={t => { handleTag(t); setMobileSearchOpen(false); }} autoFocus /></div>
+              <div className="rs-search-expand" style={{ flex: 1 }}><SearchBar dk={dk} profiles={profiles} onProfile={p => { openProfile(p); setMobileSearchOpen(false); }} onTag={t => { handleTag(t); setMobileSearchOpen(false); }} autoFocus /></div>
             </>
           ) : (
             <>
@@ -391,7 +391,7 @@ export default function App() {
               {/* Right controls */}
               <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 5 : 8, marginLeft: "auto", position: "relative", flexShrink: 0 }}>
                 {isMobile && (
-                  <button onClick={() => setMobileSearchOpen(true)} className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 7px", cursor: "pointer", color: th.txt2, display: "flex", alignItems: "center" }}><Search size={15} /></button>
+                  <button onClick={() => setMobileSearchOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: "6px 5px", display: "flex", alignItems: "center" }}><Search size={18} /></button>
                 )}
                 <button onClick={() => navTo("wallet")} style={{ display: "flex", alignItems: "center", gap: 4, background: "linear-gradient(135deg,#78350f,#d97706)", border: "none", borderRadius: 10, padding: isMobile ? "5px 9px" : "5px 12px", cursor: "pointer", boxShadow: "0 0 12px rgba(245,158,11,.3)" }}>
                   <span style={{ fontSize: 12, color: "#fff" }}>◈</span>

@@ -41,7 +41,7 @@ function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBook
 
   const handleEditClick = () => {
     if (!canEdit) {
-      setEditError("Posts can only be edited within 5 minutes of posting.");
+      setEditError("You cannot edit a post more than 5 minutes after posting.");
       setTimeout(() => setEditError(""), 3500);
       setShowMenu(false); return;
     }

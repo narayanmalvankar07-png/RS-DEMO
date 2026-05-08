@@ -49,8 +49,12 @@ export default function GlobalCSS({ dk }) {
         to   { opacity: 1; transform: translateY(0) scale(1); }
       }
       @keyframes pageIn {
-        from { opacity: 0; transform: translateY(10px) scale(0.99); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
+        from { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(2px); }
+        to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      }
+      @keyframes searchExpand {
+        from { opacity: 0; transform: scaleX(0.85); }
+        to   { opacity: 1; transform: scaleX(1); }
       }
       @keyframes iconBounce {
         0%   { transform: scale(1) rotate(0); }
@@ -75,7 +79,8 @@ export default function GlobalCSS({ dk }) {
       .rs-slide-in     { animation: slideInLeft 0.35s cubic-bezier(0.22,1,0.36,1) both; }
       .rs-float-top    { animation: floatTopIn  0.45s cubic-bezier(0.22,1,0.36,1) both; }
       .rs-float-bottom { animation: floatBottomIn 0.45s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.08s; }
-      .rs-page-in      { animation: pageIn 0.38s cubic-bezier(0.22,1,0.36,1) both; }
+      .rs-page-in      { animation: pageIn 0.42s cubic-bezier(0.22,1,0.36,1) both; }
+      .rs-search-expand { animation: searchExpand 0.25s cubic-bezier(0.22,1,0.36,1) both; transform-origin: left center; }
 
       /* Stagger children */
       .rs-stagger > * { animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }

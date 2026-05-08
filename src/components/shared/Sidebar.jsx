@@ -124,14 +124,16 @@ export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, 
       <>
         {open && (
           <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex" }}>
-            <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(6px)" }} />
+            <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }} />
             <div className="rs-slide-in" style={{
-              position: "relative", zIndex: 1, width: 220, height: "100%",
-              display: "flex", flexDirection: "column",
+              position: "relative", zIndex: 1, width: 240, maxWidth: "80vw",
+              height: "100%", display: "flex", flexDirection: "column",
               background: th.side,
               backdropFilter: th.blur, WebkitBackdropFilter: th.blur,
               borderRight: `1px solid ${th.bdr}`,
+              borderTopRightRadius: 20, borderBottomRightRadius: 20,
               boxShadow: "12px 0 60px rgba(0,0,0,.4)",
+              overflow: "hidden",
             }}>
               {innerContent}
             </div>
