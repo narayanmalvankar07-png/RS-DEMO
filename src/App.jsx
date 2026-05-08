@@ -337,7 +337,7 @@ export default function App() {
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
       case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
-      case "colab": return <ColabView me={me} dk={dk} profiles={profiles} onProfile={openProfile} addNotif={addNotif} />;
+      case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} />;
     }
   };
