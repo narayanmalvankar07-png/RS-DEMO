@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { PlusCircle, Search, Bookmark, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, Users, FileText, Bell, BarChart3, Edit2, Trash2, ChevronRight } from "lucide-react";
+import { PlusCircle, Search, Bookmark, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, Users, FileText, Bell, BarChart3, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import { ago } from "../utils/helpers.js";
@@ -24,10 +24,12 @@ const genRefCode = name =>
   "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
 
 const PAGE_TYPES = [
-  { id: "community", label: "Community",  desc: "Open community discussions",   c: "#3b82f6", e: "💬" },
-  { id: "product",   label: "Product",    desc: "Product updates & roadmap",     c: "#10b981", e: "🚀" },
-  { id: "tech",      label: "Tech",       desc: "Technical docs & discussions",  c: "#8b5cf6", e: "⚡" },
-  { id: "investment",label: "Investment", desc: "Investor updates & decks",      c: "#f59e0b", e: "💰" },
+  { id: "community",  label: "Community",  desc: "Public audience — announcements, community engagement",        c: "#3b82f6", e: "🌐" },
+  { id: "product",    label: "Product",    desc: "Product updates & roadmap",                                    c: "#10b981", e: "🚀" },
+  { id: "tech",       label: "Tech",       desc: "Engineers — dev logs, architecture, code discussions",         c: "#8b5cf6", e: "🤖" },
+  { id: "investment", label: "Investment", desc: "Investors & advisors — pitch decks, funding updates, traction",c: "#f59e0b", e: "💰" },
+  { id: "marketing",  label: "Marketing",  desc: "Growth team — campaigns, content strategy, analytics",         c: "#ec4899", e: "📣" },
+  { id: "sales",      label: "Sales",      desc: "Sales team — deals, pipeline, customer outreach",              c: "#06b6d4", e: "🤝" },
 ];
 
 const JOIN_ROLES = [
@@ -69,7 +71,6 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.name.trim() && form.description.trim();
-
   const EMOJIS = ["🚀","💡","⚡","🎯","💰","🌍","🔥","🤝","📊","🎨","🛠️","🧠","💎","🌱","🔬","📱"];
 
   const save = async () => {
@@ -119,7 +120,6 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
             {[1, 2].map(s => <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, background: s <= step ? "#3b82f6" : th.bdr, transition: "all 0.3s" }} />)}
           </div>
         )}
-
         {step === 1 && (
           <>
             <div style={{ marginBottom: 14 }}>
@@ -134,10 +134,7 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
             {[{ k: "name", l: "Startup Name *", p: "e.g. SkillSwap" }, { k: "description", l: "Description *", p: "What are you building and why?", rows: 4 }].map(({ k, l, p, rows }) => (
               <div key={k} style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>{l}</label>
-                {rows
-                  ? <textarea value={form[k]} onChange={e => set(k, e.target.value)} placeholder={p} rows={rows} style={{ ...inp, resize: "vertical" }} />
-                  : <input value={form[k]} onChange={e => set(k, e.target.value)} placeholder={p} style={inp} />
-                }
+                {rows ? <textarea value={form[k]} onChange={e => set(k, e.target.value)} placeholder={p} rows={rows} style={{ ...inp, resize: "vertical" }} /> : <input value={form[k]} onChange={e => set(k, e.target.value)} placeholder={p} style={inp} />}
               </div>
             ))}
             <div style={{ display: "flex", gap: 10 }}>
@@ -148,7 +145,6 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
             </div>
           </>
         )}
-
         {step === 2 && (
           <>
             {[{ k: "website", l: "Website", p: "https://…" }, { k: "github_link", l: "GitHub", p: "https://github.com/…" }, { k: "twitter", l: "Twitter / X", p: "https://twitter.com/…" }, { k: "linkedin", l: "LinkedIn", p: "https://linkedin.com/company/…" }].map(({ k, l, p }) => (
@@ -182,7 +178,7 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
   const [startup, setStartup] = useState(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
-  const [step, setStep] = useState("code"); // code | roles
+  const [step, setStep] = useState("code");
   const [roles, setRoles] = useState([]);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -214,7 +210,6 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: th.txt }}>{step === "code" ? "Join via Code" : "Select Your Role"}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, display: "flex" }}><X size={18} /></button>
         </div>
-
         {step === "code" ? (
           <>
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -264,8 +259,327 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
   );
 }
 
-// ─── Startup Detail / Founder Dashboard ───────────────────────────
-function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
+// ─── Non-Founder (Visitor/Member) Detail View ─────────────────────
+function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
+  const th = T(dk);
+  const [pages, setPages] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [updates, setUpdates] = useState([]);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [myRequest, setMyRequest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [joinRoles, setJoinRoles] = useState([]);
+  const [joinMsg, setJoinMsg] = useState("");
+  const [submittingJoin, setSubmittingJoin] = useState(false);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  const isApproved = myRequest?.status === "approved";
+
+  useEffect(() => {
+    (async () => {
+      const [reqs, pgs, mbs, upds, fbs] = await Promise.all([
+        db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
+        db.get("rs_startup_pages", `startup_id=eq.${startup.id}&order=created_at.asc`),
+        db.get("rs_page_access", `startup_id=eq.${startup.id}&status=eq.approved`),
+        db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
+        db.get("rs_startup_feedback", `startup_id=eq.${startup.id}&order=created_at.desc`),
+      ]);
+      setMyRequest(reqs?.[0] || null);
+      setPages(pgs || []);
+      setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
+      setUpdates(upds || []);
+      setFeedbacks(fbs || []);
+      setLoading(false);
+    })();
+  }, [startup.id, me]);
+
+  const submitJoin = async () => {
+    if (!joinRoles.length) return;
+    setSubmittingJoin(true);
+    const saved = await db.post("rs_page_access_requests", { startup_id: startup.id, user_id: me, selected_roles: joinRoles, message: joinMsg.trim(), status: "pending" });
+    if (saved) { setMyRequest(saved); addNotif?.({ type: "success", msg: "Join request sent!" }); }
+    setSubmittingJoin(false);
+    setShowJoinForm(false);
+  };
+
+  const submitFeedback = async () => {
+    if (!feedbackText.trim()) return;
+    setSubmittingFeedback(true);
+    const saved = await db.post("rs_startup_feedback", { startup_id: startup.id, user_id: me, content: feedbackText.trim() });
+    if (saved) { setFeedbacks(f => [saved, ...f]); setFeedbackText(""); setShowFeedbackForm(false); addNotif?.({ type: "success", msg: "Feedback submitted!" }); }
+    setSubmittingFeedback(false);
+  };
+
+  const founders = (startup.founders || [startup.created_by]).filter(Boolean);
+
+  // Combine founders + members for the team display
+  const teamUids = [...new Set([...founders, ...members.map(m => m.user_id)])];
+
+  const headerBg = dk
+    ? "linear-gradient(135deg,rgba(30,58,138,0.25),rgba(91,33,182,0.2))"
+    : "linear-gradient(135deg,#e0e7ff,#ede9fe)";
+  const headerBorder = dk ? "1px solid rgba(99,102,241,0.2)" : "1px solid #c7d2fe";
+
+  return (
+    <div style={{ animation: "fadeUp 0.3s ease both" }}>
+      <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", color: th.txt2, fontSize: 13, fontWeight: 600, padding: "0 0 14px" }}>
+        <ArrowLeft size={15} /> Back to Colab
+      </button>
+
+      {/* ── Header ── */}
+      <div style={{ background: headerBg, border: headerBorder, borderRadius: 20, padding: "18px 20px", marginBottom: 16 }}>
+        {/* Top row: logo + name + join button */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Logo src={startup.logo} size={64} radius={16} fontSize={32} />
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 22, color: th.txt, lineHeight: 1.2 }}>{startup.name}</div>
+              <div style={{ fontSize: 13, color: th.txt2, marginTop: 3 }}>{startup.description?.slice(0, 80)}{startup.description?.length > 80 ? "…" : ""}</div>
+            </div>
+          </div>
+
+          {/* Join / Status button */}
+          {!myRequest ? (
+            <button
+              onClick={() => setShowJoinForm(v => !v)}
+              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}
+              data-testid="button-join-startup"
+            >
+              Join Startup
+            </button>
+          ) : (
+            <div style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
+              {myRequest.status === "approved" ? "✅ Member" : myRequest.status === "rejected" ? "❌ Not approved" : "⏳ Request pending"}
+            </div>
+          )}
+        </div>
+
+        {/* Social links */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: teamUids.length ? 14 : 0 }}>
+          {startup.website && (
+            <a href={startup.website} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.7)", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}>
+              <Globe size={12} /> Website
+            </a>
+          )}
+          {startup.github_link && (
+            <a href={startup.github_link} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.7)", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}>
+              <Github size={12} /> GitHub
+            </a>
+          )}
+          {startup.social_links?.twitter && (
+            <a href={startup.social_links.twitter} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 8, padding: "5px 10px", textDecoration: "none" }}>
+              <Twitter size={13} color="#1da1f2" />
+            </a>
+          )}
+          {startup.social_links?.linkedin && (
+            <a href={startup.social_links.linkedin} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#0a66c215", border: "1px solid #0a66c230", borderRadius: 8, padding: "5px 10px", textDecoration: "none" }}>
+              <Linkedin size={13} color="#0a66c2" />
+            </a>
+          )}
+        </div>
+
+        {/* Team row */}
+        {teamUids.length > 0 && (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {teamUids.slice(0, 6).map(uid => {
+              const prof = profiles[uid] || { name: "Member" };
+              const isFounderMember = founders.includes(uid);
+              return (
+                <div key={uid} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <Av profile={prof} size={30} />
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: th.txt, lineHeight: 1.2 }}>{prof.name?.split(" ")[0] || "Member"}</div>
+                    <div style={{ fontSize: 10, color: th.txt3 }}>{isFounderMember ? "Founder" : "Member"}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Join Role Selector ── */}
+      {showJoinForm && !myRequest && (
+        <Card dk={dk} anim={false} style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: th.txt }}>Select your role(s)</div>
+            <button onClick={() => setShowJoinForm(false)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={16} /></button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+            {JOIN_ROLES.map(r => {
+              const sel = joinRoles.includes(r.id);
+              return (
+                <button key={r.id} onClick={() => setJoinRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])}
+                  style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px 8px", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}>
+                  <div style={{ fontSize: 18, marginBottom: 3 }}>{r.e}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: sel ? r.c : th.txt2 }}>{r.label}</div>
+                </button>
+              );
+            })}
+          </div>
+          <textarea value={joinMsg} onChange={e => setJoinMsg(e.target.value)} placeholder="Why do you want to join? (optional)" rows={2} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10 }} />
+          <button onClick={submitJoin} disabled={!joinRoles.length || submittingJoin} style={{ width: "100%", padding: "10px", background: joinRoles.length ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : th.surf2, border: "none", borderRadius: 10, cursor: joinRoles.length ? "pointer" : "default", color: joinRoles.length ? "#fff" : th.txt3, fontWeight: 700, fontSize: 14 }}>
+            {submittingJoin ? "Sending…" : "Send Request"}
+          </button>
+        </Card>
+      )}
+
+      {loading ? <Spin dk={dk} msg="Loading…" /> : (
+        <>
+          {/* ── Pages Section ── */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <FileText size={16} color={th.txt2} />
+              <span style={{ fontSize: 16, fontWeight: 800, color: th.txt }}>Pages</span>
+            </div>
+
+            {pages.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "24px 0", color: th.txt3, fontSize: 13 }}>No pages added yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {pages.map(pg => {
+                  const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
+                  const unlocked = isApproved;
+                  return (
+                    <div key={pg.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                          {pt.e}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: th.txt, marginBottom: 2 }}>{pg.name}</div>
+                          <div style={{ fontSize: 12, color: th.txt3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pg.description || pt.desc}</div>
+                        </div>
+                      </div>
+                      {!unlocked && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, color: th.txt3, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                          <Lock size={13} />
+                          <span>Locked</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Request access button */}
+            {!isApproved && (
+              <button
+                onClick={() => { if (!myRequest) setShowJoinForm(true); }}
+                style={{ width: "100%", marginTop: 10, padding: "12px", background: "transparent", border: `1.5px dashed ${th.bdr}`, borderRadius: 14, cursor: myRequest ? "default" : "pointer", color: myRequest ? th.txt3 : "#6366f1", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                data-testid="button-request-access"
+              >
+                <PlusCircle size={14} />
+                {myRequest ? "Access request pending…" : "+ Request access to more pages"}
+              </button>
+            )}
+          </div>
+
+          {/* ── Updates Section ── */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <Megaphone size={16} color={th.txt2} />
+              <span style={{ fontSize: 16, fontWeight: 800, color: th.txt }}>Updates</span>
+            </div>
+
+            {updates.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "24px 0", color: th.txt3, fontSize: 13 }}>No updates posted yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {updates.map(u => {
+                  const prof = profiles[u.created_by] || { name: "Founder" };
+                  return (
+                    <div key={u.id} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <Av profile={prof} size={36} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 5 }}>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt }}>{prof.name?.split(" ")[0] || "Founder"}</span>
+                            <span style={{ fontSize: 12, color: th.txt3 }}>{ago(new Date(u.created_at).getTime())}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{u.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── Feedback Section ── */}
+          <div style={{ marginBottom: 24 }}>
+            <div
+              onClick={() => setFeedbackOpen(v => !v)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px", cursor: "pointer", userSelect: "none" }}
+              data-testid="section-feedback"
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <MessageSquare size={16} color={th.txt2} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: th.txt }}>Feedback</span>
+                {feedbacks.length > 0 && (
+                  <span style={{ background: "#6366f118", color: "#6366f1", fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: "1px solid #6366f130" }}>
+                    {feedbacks.length}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); setShowFeedbackForm(v => !v); setFeedbackOpen(true); }}
+                style={{ width: 28, height: 28, borderRadius: "50%", background: "#6366f118", border: "1px solid #6366f130", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontWeight: 700, fontSize: 18, lineHeight: 1 }}
+                data-testid="button-add-feedback"
+              >+</button>
+            </div>
+
+            {feedbackOpen && (
+              <div style={{ border: `1px solid ${th.bdr}`, borderTop: "none", borderRadius: "0 0 14px 14px", padding: "14px 16px", background: th.surf }}>
+                {showFeedbackForm && (
+                  <div style={{ marginBottom: 12 }}>
+                    <textarea value={feedbackText} onChange={e => setFeedbackText(e.target.value)} placeholder="Share your feedback…" rows={2} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 8 }} />
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button onClick={() => { setShowFeedbackForm(false); setFeedbackText(""); }} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600 }}>Cancel</button>
+                      <button onClick={submitFeedback} disabled={!feedbackText.trim() || submittingFeedback} style={{ padding: "7px 14px", background: feedbackText.trim() ? "#6366f1" : th.surf2, border: "none", borderRadius: 8, cursor: feedbackText.trim() ? "pointer" : "default", color: feedbackText.trim() ? "#fff" : th.txt3, fontSize: 12, fontWeight: 700 }}>
+                        {submittingFeedback ? "Posting…" : "Submit"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {feedbacks.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "16px 0", color: th.txt3, fontSize: 13 }}>No feedback yet. Be the first!</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {feedbacks.map(fb => {
+                      const prof = profiles[fb.user_id] || { name: "User" };
+                      return (
+                        <div key={fb.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                          <Av profile={prof} size={30} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name?.split(" ")[0] || "User"}</span>
+                              <span style={{ fontSize: 11, color: th.txt3 }}>{ago(new Date(fb.created_at).getTime())}</span>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.5 }}>{fb.content}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Founder Dashboard ────────────────────────────────────────────
+function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
   const th = T(dk);
   const [startup, setStartup] = useState(initialStartup);
   const [tab, setTab] = useState("overview");
@@ -280,13 +594,6 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const [showAddPage, setShowAddPage] = useState(false);
   const [newPageName, setNewPageName] = useState("");
   const [newPageType, setNewPageType] = useState("community");
-  const [myRequest, setMyRequest] = useState(null);
-  const [showJoinReq, setShowJoinReq] = useState(false);
-  const [joinRoles, setJoinRoles] = useState([]);
-  const [joinMsg, setJoinMsg] = useState("");
-  const [submittingJoin, setSubmittingJoin] = useState(false);
-
-  const isFounder = startup.created_by === me || (startup.founders || []).includes(me);
 
   const load = useCallback(async () => {
     const [reqs, pgs, mbs, upds] = await Promise.all([
@@ -299,12 +606,8 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     setPages(pgs || []);
     setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
     setUpdates(upds || []);
-    if (!isFounder) {
-      const myReq = (reqs || []).find(r => r.user_id === me);
-      setMyRequest(myReq || null);
-    }
     setLoading(false);
-  }, [startup.id, me, isFounder]);
+  }, [startup.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -336,11 +639,6 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     addNotif?.({ type: "success", msg: "Update posted!" });
   };
 
-  const deleteUpdate = async (id) => {
-    await db.del("rs_startup_updates", `id=eq.${id}`);
-    setUpdates(us => us.filter(u => u.id !== id));
-  };
-
   const addPage = async () => {
     if (!newPageName.trim()) return;
     const pt = PAGE_TYPES.find(p => p.id === newPageType) || PAGE_TYPES[0];
@@ -355,19 +653,14 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     setPages(ps => ps.filter(p => p.id !== id));
   };
 
-  const submitJoin = async () => {
-    if (!joinRoles.length) return;
-    setSubmittingJoin(true);
-    const saved = await db.post("rs_page_access_requests", { startup_id: startup.id, user_id: me, selected_roles: joinRoles, message: joinMsg.trim(), status: "pending" });
-    if (saved) { setMyRequest(saved); addNotif?.({ type: "success", msg: "Join request sent!" }); }
-    setSubmittingJoin(false);
-    setShowJoinReq(false);
-  };
-
   const pendingCount = requests.filter(r => r.status === "pending").length;
-  const TABS = isFounder
-    ? [{ id: "overview", label: "Overview" }, { id: "requests", label: `Requests${pendingCount ? ` (${pendingCount})` : ""}` }, { id: "pages", label: "Pages" }, { id: "members", label: "Members" }, { id: "updates", label: "Updates" }]
-    : [{ id: "overview", label: "Overview" }, { id: "updates", label: "Updates" }];
+  const TABS = [
+    { id: "overview", label: "Overview" },
+    { id: "requests", label: `Requests${pendingCount ? ` (${pendingCount})` : ""}` },
+    { id: "pages", label: "Pages" },
+    { id: "members", label: "Members" },
+    { id: "updates", label: "Updates" },
+  ];
 
   const inp = { width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
@@ -379,28 +672,24 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
         <ArrowLeft size={15} /> Back to Colab
       </button>
 
-      {/* Startup header */}
+      {/* Header */}
       <div style={{ background: dk ? "linear-gradient(135deg,#1e3a8a22,#5b21b622)" : "linear-gradient(135deg,#dbeafe,#ede9fe)", border: `1px solid ${dk ? "#3b82f630" : "#bfdbfe"}`, borderRadius: 18, padding: 18, marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             <Logo src={startup.logo} size={60} radius={16} fontSize={30} />
             <div>
               <div style={{ fontWeight: 900, fontSize: 20, color: th.txt }}>{startup.name}</div>
-              <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{isFounder ? "Founder Dashboard" : "Member"} · {pages.length} Pages · {members.length} Members</div>
+              <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>Founder Dashboard · {pages.length} Pages · {members.length} Members</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {isFounder && (
-              <>
-                <div style={{ background: "#f59e0b18", border: "1px solid #f59e0b40", borderRadius: 10, padding: "6px 14px" }}>
-                  <div style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700 }}>REFERRAL CODE</div>
-                  <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>{startup.referral_code}</div>
-                </div>
-                <CopyBtn text={startup.referral_code} label="Copy Code" />
-                <CopyBtn text={`${window.location.origin}?join=${startup.referral_code}`} label="Copy Link" />
-                <button onClick={() => setShowEdit(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "6px 12px", cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600 }}><Edit2 size={12} /> Edit</button>
-              </>
-            )}
+            <div style={{ background: "#f59e0b18", border: "1px solid #f59e0b40", borderRadius: 10, padding: "6px 14px" }}>
+              <div style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700 }}>REFERRAL CODE</div>
+              <div style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>{startup.referral_code}</div>
+            </div>
+            <CopyBtn text={startup.referral_code} label="Copy Code" />
+            <CopyBtn text={`${window.location.origin}?join=${startup.referral_code}`} label="Copy Link" />
+            <button onClick={() => setShowEdit(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "6px 12px", cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600 }}><Edit2 size={12} /> Edit</button>
           </div>
         </div>
       </div>
@@ -414,78 +703,31 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
       {loading ? <Spin dk={dk} msg="Loading…" /> : (
         <>
-          {/* Overview */}
           {tab === "overview" && (
             <div>
-              {isFounder && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
-                  {[{ l: "Members", v: members.length, c: "#3b82f6", e: "👥" }, { l: "Pages", v: pages.length, c: "#8b5cf6", e: "📄" }, { l: "Pending", v: pendingCount, c: "#f59e0b", e: "📬" }].map(s => (
-                    <div key={s.l} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px" }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>{s.e}</div>
-                      <div style={{ fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
-                      <div style={{ fontSize: 11, color: th.txt3 }}>{s.l}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+                {[{ l: "Members", v: members.length, c: "#3b82f6", e: "👥" }, { l: "Pages", v: pages.length, c: "#8b5cf6", e: "📄" }, { l: "Pending", v: pendingCount, c: "#f59e0b", e: "📬" }].map(s => (
+                  <div key={s.l} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 22, marginBottom: 4 }}>{s.e}</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
+                    <div style={{ fontSize: 11, color: th.txt3 }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
               <Card dk={dk} anim={false}>
                 <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: th.txt }}>About</h4>
                 <p style={{ margin: "0 0 12px", fontSize: 14, color: th.txt2, lineHeight: 1.6 }}>{startup.description}</p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {startup.website && <a href={startup.website} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600 }}><Globe size={12} /> Website</a>}
-                  {startup.github_link && <a href={startup.github_link} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600 }}><Github size={12} /> GitHub</a>}
-                  {startup.social_links?.twitter && <a href={startup.social_links.twitter} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#1da1f2", fontWeight: 600 }}><Twitter size={12} /> Twitter</a>}
-                  {startup.social_links?.linkedin && <a href={startup.social_links.linkedin} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "#0a66c215", border: "1px solid #0a66c230", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#0a66c2", fontWeight: 600 }}><Linkedin size={12} /> LinkedIn</a>}
+                  {startup.website && <a href={startup.website} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Globe size={12} /> Website</a>}
+                  {startup.github_link && <a href={startup.github_link} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Github size={12} /> GitHub</a>}
+                  {startup.social_links?.twitter && <a href={startup.social_links.twitter} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#1da1f2", fontWeight: 600, textDecoration: "none" }}><Twitter size={12} /> Twitter</a>}
+                  {startup.social_links?.linkedin && <a href={startup.social_links.linkedin} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "#0a66c215", border: "1px solid #0a66c230", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#0a66c2", fontWeight: 600, textDecoration: "none" }}><Linkedin size={12} /> LinkedIn</a>}
                 </div>
               </Card>
-
-              {/* Non-member join CTA */}
-              {!isFounder && !myRequest && (
-                <Card dk={dk} anim={false}>
-                  {!showJoinReq ? (
-                    <div style={{ textAlign: "center", padding: "8px 0" }}>
-                      <div style={{ fontSize: 32, marginBottom: 8 }}>🚀</div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: th.txt, marginBottom: 6 }}>Want to join this startup?</div>
-                      <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 16px" }}>Request to join and choose the role you'd like to contribute in.</p>
-                      <button onClick={() => setShowJoinReq(true)} style={{ background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 28px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Request to Join</button>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: th.txt, marginBottom: 12 }}>Select your role(s)</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                        {JOIN_ROLES.map(r => {
-                          const sel = joinRoles.includes(r.id);
-                          return <button key={r.id} onClick={() => setJoinRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px", cursor: "pointer", textAlign: "left" }}>
-                            <div style={{ fontSize: 16 }}>{r.e}</div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: sel ? r.c : th.txt2 }}>{r.label}</div>
-                          </button>;
-                        })}
-                      </div>
-                      <textarea value={joinMsg} onChange={e => setJoinMsg(e.target.value)} placeholder="Why do you want to join? (optional)" rows={3} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 12 }} />
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => setShowJoinReq(false)} style={{ flex: 1, padding: "9px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, cursor: "pointer", color: th.txt2, fontWeight: 600 }}>Cancel</button>
-                        <button onClick={submitJoin} disabled={!joinRoles.length || submittingJoin} style={{ flex: 2, padding: "9px", background: joinRoles.length ? "linear-gradient(135deg,#3b82f6,#8b5cf6)" : th.surf2, border: "none", borderRadius: 10, cursor: joinRoles.length ? "pointer" : "default", color: joinRoles.length ? "#fff" : th.txt3, fontWeight: 700 }}>{submittingJoin ? "Sending…" : "Send Request"}</button>
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              )}
-              {!isFounder && myRequest && (
-                <Card dk={dk} anim={false}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontSize: 28 }}>{myRequest.status === "approved" ? "✅" : myRequest.status === "rejected" ? "❌" : "⏳"}</div>
-                    <div>
-                      <div style={{ fontWeight: 700, color: th.txt }}>{myRequest.status === "approved" ? "You're a member!" : myRequest.status === "rejected" ? "Request not approved" : "Request pending…"}</div>
-                      <div style={{ fontSize: 12, color: th.txt3 }}>{myRequest.status === "pending" ? "The founder will review your request soon." : myRequest.status === "approved" ? "You now have access to this startup's community." : "Your request was not approved this time."}</div>
-                    </div>
-                  </div>
-                </Card>
-              )}
             </div>
           )}
 
-          {/* Requests (founder only) */}
-          {tab === "requests" && isFounder && (
+          {tab === "requests" && (
             <div>
               {requests.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 48, color: th.txt3 }}>
@@ -527,8 +769,7 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
             </div>
           )}
 
-          {/* Pages (founder only) */}
-          {tab === "pages" && isFounder && (
+          {tab === "pages" && (
             <div>
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
                 <button onClick={() => setShowAddPage(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#3b82f6", border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}><PlusCircle size={14} /> Add Page</button>
@@ -547,7 +788,8 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                   </div>
                 </Card>
               )}
-              {pages.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages yet.</p></div>
+              {pages.length === 0
+                ? <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages yet.</p></div>
                 : pages.map(pg => {
                   const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
                   return (
@@ -568,10 +810,10 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
             </div>
           )}
 
-          {/* Members (founder only) */}
-          {tab === "members" && isFounder && (
+          {tab === "members" && (
             <div>
-              {members.length === 0 ? <div style={{ textAlign: "center", padding: 48, color: th.txt3 }}><div style={{ fontSize: 36 }}>👥</div><p>No members yet. Share your referral code to get started.</p></div>
+              {members.length === 0
+                ? <div style={{ textAlign: "center", padding: 48, color: th.txt3 }}><div style={{ fontSize: 36 }}>👥</div><p>No members yet. Share your referral code to get started.</p></div>
                 : members.map(m => {
                   const prof = profiles[m.user_id] || { name: "Member" };
                   const isFounderMember = (startup.founders || [startup.created_by]).includes(m.user_id);
@@ -594,19 +836,17 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
             </div>
           )}
 
-          {/* Updates */}
           {tab === "updates" && (
             <div>
-              {isFounder && (
-                <Card dk={dk} anim={false} style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, color: th.txt, fontSize: 14, marginBottom: 10 }}>📢 Post an Update</div>
-                  <textarea value={updateText} onChange={e => setUpdateText(e.target.value)} placeholder="Share what's new with your startup…" rows={3} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10 }} />
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button onClick={postUpdate} disabled={!updateText.trim() || posting} style={{ display: "flex", alignItems: "center", gap: 6, background: updateText.trim() ? "#3b82f6" : th.surf2, border: "none", borderRadius: 10, padding: "8px 16px", color: updateText.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13, cursor: updateText.trim() ? "pointer" : "default" }}><Send size={13} />{posting ? "Posting…" : "Post Update"}</button>
-                  </div>
-                </Card>
-              )}
-              {updates.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📢</div><p>No updates posted yet.</p></div>
+              <Card dk={dk} anim={false} style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, color: th.txt, fontSize: 14, marginBottom: 10 }}>📢 Post an Update</div>
+                <textarea value={updateText} onChange={e => setUpdateText(e.target.value)} placeholder="Share what's new with your startup…" rows={3} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10 }} />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button onClick={postUpdate} disabled={!updateText.trim() || posting} style={{ display: "flex", alignItems: "center", gap: 6, background: updateText.trim() ? "#3b82f6" : th.surf2, border: "none", borderRadius: 10, padding: "8px 16px", color: updateText.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13, cursor: updateText.trim() ? "pointer" : "default" }}><Send size={13} />{posting ? "Posting…" : "Post Update"}</button>
+                </div>
+              </Card>
+              {updates.length === 0
+                ? <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📢</div><p>No updates posted yet.</p></div>
                 : updates.map(u => {
                   const prof = profiles[u.created_by] || { name: "Founder" };
                   return (
@@ -633,6 +873,20 @@ function StartupDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       )}
     </div>
   );
+
+  function deleteUpdate(id) {
+    db.del("rs_startup_updates", `id=eq.${id}`);
+    setUpdates(us => us.filter(u => u.id !== id));
+  }
+}
+
+// ─── StartupDetail dispatcher ──────────────────────────────────────
+function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
+  const isFounder = startup.created_by === me || (startup.founders || []).includes(me);
+  if (isFounder) {
+    return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} />;
+  }
+  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} />;
 }
 
 // ─── Main ColabView ────────────────────────────────────────────────
@@ -766,10 +1020,10 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
                     </div>
                     <p style={{ margin: "0 0 8px", fontSize: 13, color: th.txt2, lineHeight: 1.55 }}>{s.description?.slice(0, 120)}{s.description?.length > 120 ? "…" : ""}</p>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
-                      {s.website && <a href={s.website} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 3, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 7px", fontSize: 11, color: th.txt2, fontWeight: 600 }}><Globe size={10} /> Web</a>}
-                      {s.github_link && <a href={s.github_link} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 3, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 7px", fontSize: 11, color: th.txt2, fontWeight: 600 }}><Github size={10} /> Git</a>}
-                      {s.social_links?.twitter && <a href={s.social_links.twitter} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 6, padding: "2px 7px", fontSize: 11, color: "#1da1f2" }}><Twitter size={10} /></a>}
-                      {s.social_links?.linkedin && <a href={s.social_links.linkedin} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", background: "#0a66c215", border: "1px solid #0a66c230", borderRadius: 6, padding: "2px 7px", fontSize: 11, color: "#0a66c2" }}><Linkedin size={10} /></a>}
+                      {s.website && <a href={s.website} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 3, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 7px", fontSize: 11, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Globe size={10} /> Web</a>}
+                      {s.github_link && <a href={s.github_link} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 3, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 7px", fontSize: 11, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Github size={10} /> Git</a>}
+                      {s.social_links?.twitter && <a href={s.social_links.twitter} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 6, padding: "2px 7px", fontSize: 11, color: "#1da1f2", textDecoration: "none" }}><Twitter size={10} /></a>}
+                      {s.social_links?.linkedin && <a href={s.social_links.linkedin} onClick={e => e.stopPropagation()} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", background: "#0a66c215", border: "1px solid #0a66c230", borderRadius: 6, padding: "2px 7px", fontSize: 11, color: "#0a66c2", textDecoration: "none" }}><Linkedin size={10} /></a>}
                     </div>
                     {founders.length > 0 && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -789,9 +1043,11 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
               <div style={{ borderTop: `1px solid ${th.bdr}`, marginTop: 12, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, color: th.txt3 }}>{s.created_at ? ago(new Date(s.created_at).getTime()) + " ago" : ""}</span>
-                  <button onClick={e => { e.stopPropagation(); toggleSave(s.id); }} style={{ background: isSaved ? "rgba(99,102,241,0.1)" : "none", border: isSaved ? "1px solid #6366f140" : "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: isSaved ? "#6366f1" : th.txt3, fontSize: 12, display: "flex", alignItems: "center" }}>{isSaved ? "🔖" : "🔖"}</button>
+                  <button onClick={e => { e.stopPropagation(); toggleSave(s.id); }} style={{ background: isSaved ? "rgba(99,102,241,0.1)" : "none", border: isSaved ? "1px solid #6366f140" : "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: isSaved ? "#6366f1" : th.txt3, fontSize: 12, display: "flex", alignItems: "center" }}>🔖</button>
                 </div>
-                <button onClick={() => setSelected(s)} style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, padding: "7px 18px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{isOwner ? "Manage" : "Join"} <ChevronRight size={13} /></button>
+                <button onClick={() => setSelected(s)} style={{ display: "flex", alignItems: "center", gap: 5, background: isOwner ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 10, padding: "7px 18px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }} data-testid={`button-join-${s.id}`}>
+                  {isOwner ? "Manage" : "Join"} <ChevronRight size={13} />
+                </button>
               </div>
             </Card>
           </div>
