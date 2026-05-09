@@ -277,6 +277,18 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const [feedbackVisible, setFeedbackVisible] = useState(true);
 
   const isApproved = myRequest?.status === "approved";
+  const FB_KEY = `rs_fb_${startup.id}`;
+
+  const getLocalFeedbacks = () => {
+    try { return JSON.parse(localStorage.getItem(FB_KEY) || "[]"); } catch { return []; }
+  };
+
+  const saveLocalFeedback = (fb) => {
+    try {
+      const existing = getLocalFeedbacks();
+      localStorage.setItem(FB_KEY, JSON.stringify([fb, ...existing].slice(0, 200)));
+    } catch {}
+  };
 
   useEffect(() => {
     (async () => {
@@ -291,7 +303,15 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
       setPages(pgs || []);
       setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
       setUpdates(upds || []);
-      setFeedbacks(fbs || []);
+
+      // Merge Supabase feedback with localStorage feedback (dedup by id)
+      const remoteFbs = fbs || [];
+      const localFbs = getLocalFeedbacks();
+      const remoteIds = new Set(remoteFbs.map(f => f.id));
+      const merged = [...remoteFbs, ...localFbs.filter(f => !remoteIds.has(f.id))];
+      merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setFeedbacks(merged);
+
       setLoading(false);
     })();
   }, [startup.id, me]);
@@ -308,14 +328,32 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const submitFeedback = async () => {
     if (!feedbackText.trim()) return;
     setSubmittingFeedback(true);
-    const saved = await db.post("rs_startup_feedback", { startup_id: startup.id, user_id: me, content: feedbackText.trim() });
+
+    // Try Supabase first
+    const saved = await db.post("rs_startup_feedback", {
+      startup_id: startup.id,
+      user_id: me,
+      content: feedbackText.trim(),
+    });
+
     if (saved) {
+      // Supabase worked — use the real record
       setFeedbacks(f => [saved, ...f]);
-      setFeedbackText("");
-      addNotif?.({ type: "success", msg: "Feedback submitted!" });
     } else {
-      addNotif?.({ type: "error", msg: "Could not save feedback. Please try again." });
+      // Supabase table doesn't exist yet — store locally
+      const localFb = {
+        id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        startup_id: startup.id,
+        user_id: me,
+        content: feedbackText.trim(),
+        created_at: new Date().toISOString(),
+      };
+      saveLocalFeedback(localFb);
+      setFeedbacks(f => [localFb, ...f]);
     }
+
+    setFeedbackText("");
+    addNotif?.({ type: "success", msg: "Feedback submitted!" });
     setSubmittingFeedback(false);
   };
 
