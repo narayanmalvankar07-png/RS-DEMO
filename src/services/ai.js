@@ -1,10 +1,17 @@
 // src/services/ai.js
 
-// AI Service
+// AI Service — proxies through /api/ai so the key never reaches the browser
 export const callAI = async prompt => {
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 600, messages: [{ role: "user", content: prompt }] }) });
+    const r = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    if (!r.ok) return "AI unavailable.";
     const d = await r.json();
-    return d.content?.[0]?.text || "No response.";
-  } catch { return "AI unavailable."; }
+    return d.text || "No response.";
+  } catch {
+    return "AI unavailable.";
+  }
 };

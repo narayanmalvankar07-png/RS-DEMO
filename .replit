@@ -1,7 +1,8 @@
 modules = ["nodejs-20", "web"]
 [agent]
 expertMode = true
-stack = "BEST_EFFORT_FALLBACK"
+stack = "FULLSTACK_JS"
+integrations = ["javascript_anthropic_ai_integrations:2.0.0"]
 
 [nix]
 channel = "stable-25_05"
@@ -31,13 +32,18 @@ waitForPort = 5000
 outputType = "webview"
 
 [[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
 localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "static"
+deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
 publicDir = "dist"
+run = ["node", "./dist/index.cjs"]
 
 [userenv]
 
