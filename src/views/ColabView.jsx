@@ -272,10 +272,9 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const [joinRoles, setJoinRoles] = useState([]);
   const [joinMsg, setJoinMsg] = useState("");
   const [submittingJoin, setSubmittingJoin] = useState(false);
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(true);
 
   const isApproved = myRequest?.status === "approved";
 
@@ -310,7 +309,13 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
     if (!feedbackText.trim()) return;
     setSubmittingFeedback(true);
     const saved = await db.post("rs_startup_feedback", { startup_id: startup.id, user_id: me, content: feedbackText.trim() });
-    if (saved) { setFeedbacks(f => [saved, ...f]); setFeedbackText(""); setShowFeedbackForm(false); addNotif?.({ type: "success", msg: "Feedback submitted!" }); }
+    if (saved) {
+      setFeedbacks(f => [saved, ...f]);
+      setFeedbackText("");
+      addNotif?.({ type: "success", msg: "Feedback submitted!" });
+    } else {
+      addNotif?.({ type: "error", msg: "Could not save feedback. Please try again." });
+    }
     setSubmittingFeedback(false);
   };
 
@@ -513,56 +518,66 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
           </div>
 
           {/* ── Feedback Section ── */}
-          <div style={{ marginBottom: 24 }}>
-            <div
-              onClick={() => setFeedbackOpen(v => !v)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px", cursor: "pointer", userSelect: "none" }}
-              data-testid="section-feedback"
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <MessageSquare size={16} color={th.txt2} />
-                <span style={{ fontSize: 15, fontWeight: 700, color: th.txt }}>Feedback</span>
-                {feedbacks.length > 0 && (
-                  <span style={{ background: "#6366f118", color: "#6366f1", fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: "1px solid #6366f130" }}>
-                    {feedbacks.length}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={e => { e.stopPropagation(); setShowFeedbackForm(v => !v); setFeedbackOpen(true); }}
-                style={{ width: 28, height: 28, borderRadius: "50%", background: "#6366f118", border: "1px solid #6366f130", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontWeight: 700, fontSize: 18, lineHeight: 1 }}
-                data-testid="button-add-feedback"
-              >+</button>
-            </div>
-
-            {feedbackOpen && (
-              <div style={{ border: `1px solid ${th.bdr}`, borderTop: "none", borderRadius: "0 0 14px 14px", padding: "14px 16px", background: th.surf }}>
-                {showFeedbackForm && (
-                  <div style={{ marginBottom: 12 }}>
-                    <textarea value={feedbackText} onChange={e => setFeedbackText(e.target.value)} placeholder="Share your feedback…" rows={2} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 8 }} />
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button onClick={() => { setShowFeedbackForm(false); setFeedbackText(""); }} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600 }}>Cancel</button>
-                      <button onClick={submitFeedback} disabled={!feedbackText.trim() || submittingFeedback} style={{ padding: "7px 14px", background: feedbackText.trim() ? "#6366f1" : th.surf2, border: "none", borderRadius: 8, cursor: feedbackText.trim() ? "pointer" : "default", color: feedbackText.trim() ? "#fff" : th.txt3, fontSize: 12, fontWeight: 700 }}>
-                        {submittingFeedback ? "Posting…" : "Submit"}
-                      </button>
-                    </div>
+          {feedbackVisible && (
+            <div style={{ marginBottom: 24 }}>
+              {/* Card */}
+              <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, overflow: "hidden" }}>
+                {/* Header row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: `1px solid ${th.bdr}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <MessageSquare size={16} color={th.txt2} />
+                    <span style={{ fontSize: 15, fontWeight: 700, color: th.txt }}>
+                      Feedback{feedbacks.length > 0 ? ` (${feedbacks.length})` : ""}
+                    </span>
                   </div>
-                )}
+                  <button
+                    onClick={() => setFeedbackVisible(false)}
+                    style={{ width: 26, height: 26, borderRadius: "50%", background: dk ? "rgba(255,255,255,0.07)" : "#f1f5f9", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: th.txt3 }}
+                    data-testid="button-close-feedback"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+
+                {/* Inline input row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${th.bdr}` }}>
+                  <Av profile={profiles[me] || { name: "Me" }} size={34} />
+                  <input
+                    value={feedbackText}
+                    onChange={e => setFeedbackText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && feedbackText.trim()) { e.preventDefault(); submitFeedback(); } }}
+                    placeholder="Share your feedback..."
+                    style={{ flex: 1, background: dk ? "rgba(255,255,255,0.06)" : "#f8fafc", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "9px 14px", fontSize: 13, outline: "none", color: th.txt, fontFamily: "inherit" }}
+                    data-testid="input-feedback"
+                  />
+                  <button
+                    onClick={submitFeedback}
+                    disabled={!feedbackText.trim() || submittingFeedback}
+                    style={{ flexShrink: 0, background: feedbackText.trim() ? "#6366f1" : dk ? "rgba(255,255,255,0.07)" : "#f1f5f9", border: "none", borderRadius: 10, padding: "9px 16px", color: feedbackText.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13, cursor: feedbackText.trim() ? "pointer" : "default", transition: "all 0.2s" }}
+                    data-testid="button-send-feedback"
+                  >
+                    {submittingFeedback ? "…" : "Send"}
+                  </button>
+                </div>
+
+                {/* Feedback list */}
                 {feedbacks.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "16px 0", color: th.txt3, fontSize: 13 }}>No feedback yet. Be the first!</div>
+                  <div style={{ textAlign: "center", padding: "20px 16px", color: th.txt3, fontSize: 13 }}>
+                    No feedback yet — be the first!
+                  </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {feedbacks.map(fb => {
+                  <div style={{ padding: "4px 0" }}>
+                    {feedbacks.map((fb, idx) => {
                       const prof = profiles[fb.user_id] || { name: "User" };
                       return (
-                        <div key={fb.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                          <Av profile={prof} size={30} />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
-                              <span style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name?.split(" ")[0] || "User"}</span>
-                              <span style={{ fontSize: 11, color: th.txt3 }}>{ago(new Date(fb.created_at).getTime())}</span>
+                        <div key={fb.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 16px", borderTop: idx === 0 ? "none" : `1px solid ${th.bdr}` }}>
+                          <Av profile={prof} size={34} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginBottom: 3 }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name || "User"}</span>
+                              <span style={{ fontSize: 11, color: th.txt3 }}>{fb.created_at ? ago(new Date(fb.created_at).getTime()) : ""}</span>
                             </div>
-                            <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.5 }}>{fb.content}</p>
+                            <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.55 }}>{fb.content}</p>
                           </div>
                         </div>
                       );
@@ -570,8 +585,18 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Re-show feedback button when closed */}
+          {!feedbackVisible && (
+            <button
+              onClick={() => setFeedbackVisible(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 14px", color: th.txt3, fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 24 }}
+            >
+              <MessageSquare size={14} /> Show Feedback
+            </button>
+          )}
         </>
       )}
     </div>

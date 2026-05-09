@@ -55,12 +55,22 @@ create table if not exists rs_startup_updates (
   created_at timestamptz default now()
 );
 
+-- Startup feedback (visible to all, writable by all logged-in users)
+create table if not exists rs_startup_feedback (
+  id uuid primary key default gen_random_uuid(),
+  startup_id uuid references rs_startups(id) on delete cascade,
+  user_id text not null,
+  content text not null,
+  created_at timestamptz default now()
+);
+
 -- Enable Row Level Security (open read, auth write — adjust as needed)
 alter table rs_startups enable row level security;
 alter table rs_startup_pages enable row level security;
 alter table rs_page_access_requests enable row level security;
 alter table rs_page_access enable row level security;
 alter table rs_startup_updates enable row level security;
+alter table rs_startup_feedback enable row level security;
 
 -- Policies: allow all for now (tighten per your auth setup)
 create policy "allow_all_startups" on rs_startups for all using (true) with check (true);
@@ -68,3 +78,4 @@ create policy "allow_all_pages" on rs_startup_pages for all using (true) with ch
 create policy "allow_all_requests" on rs_page_access_requests for all using (true) with check (true);
 create policy "allow_all_access" on rs_page_access for all using (true) with check (true);
 create policy "allow_all_updates" on rs_startup_updates for all using (true) with check (true);
+create policy "allow_all_feedback" on rs_startup_feedback for all using (true) with check (true);
