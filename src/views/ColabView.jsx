@@ -176,9 +176,15 @@ function FeedbackSection({ startupId, me, profiles, dk }) {
 }
 
 // ─── Page Chat View (WhatsApp-style) ───────────────────────────────
-function PageChatView({ page, startup, me, profiles, dk, onBack }) {
+function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack }) {
   const th = T(dk);
   const pt = PAGE_TYPES.find(p => p.id === page.type_id) || PAGE_TYPES[0];
+  const pgMems = pageMembers.filter(m => m.page_id === page.id);
+
+  const [pageTab, setPageTab] = useState("chat");
+  const [viewingProf, setViewingProf] = useState(null);
+
+  // Chat
   const MSG_KEY = `rs_msgs_${page.id}`;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -186,17 +192,42 @@ function PageChatView({ page, startup, me, profiles, dk, onBack }) {
   const [replyTo, setReplyTo] = useState(null);
   const bottomRef = useRef(null);
 
+  // Tasks
+  const TASK_KEY = `rs_tasks_${page.id}`;
+  const [tasks, setTasks] = useState(() => ls.get(TASK_KEY, []));
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: "", assignee_id: "", priority: "medium" });
+
+  // Files
+  const FILE_KEY = `rs_files_${page.id}`;
+  const [files, setFiles] = useState(() => ls.get(FILE_KEY, []));
+  const fileInputRef = useRef(null);
+
+  // Meetings
+  const MTG_KEY = `rs_mtg_${page.id}`;
+  const [meetings, setMeetings] = useState(() => ls.get(MTG_KEY, []));
+  const [showMtgForm, setShowMtgForm] = useState(false);
+  const [mtgForm, setMtgForm] = useState({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "", with_note: "" });
+
+  // Page member roles
+  const ROLES_KEY = `rs_pg_page_roles_${page.id}`;
+  const [pageRoles, setPageRoles] = useState(() => ls.get(ROLES_KEY, {}));
+
   useEffect(() => {
     (async () => {
       const remote = await db.get("rs_page_messages", `page_id=eq.${page.id}&order=created_at.asc&limit=200`);
-      if (remote?.length) { setMessages(remote); }
-      else { setMessages(ls.get(MSG_KEY, [])); }
+      if (remote?.length) setMessages(remote);
+      else setMessages(ls.get(MSG_KEY, []));
+    })();
+    (async () => {
+      const remote = await db.get("rs_page_meetings", `page_id=eq.${page.id}&order=meeting_date.asc`);
+      if (remote?.length) setMeetings(remote);
     })();
   }, [page.id]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { if (pageTab === "chat") bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, pageTab]);
 
-  const send = async () => {
+  const sendMsg = async () => {
     if (!text.trim()) return;
     setSending(true);
     const payload = { page_id: page.id, startup_id: startup.id, user_id: me, content: text.trim(), reply_to_id: replyTo?.id || null, reply_to_content: replyTo?.content || null, reply_to_user: replyTo?.user_id || null };
@@ -207,86 +238,322 @@ function PageChatView({ page, startup, me, profiles, dk, onBack }) {
     setText(""); setReplyTo(null); setSending(false);
   };
 
-  const isMe = uid => uid === me;
+  const addTask = () => {
+    if (!taskForm.title.trim()) return;
+    const task = { id: `task_${Date.now()}`, page_id: page.id, title: taskForm.title.trim(), assignee_id: taskForm.assignee_id, priority: taskForm.priority, status: "todo", created_by: me, created_at: new Date().toISOString() };
+    const updated = [...tasks, task]; setTasks(updated); ls.set(TASK_KEY, updated);
+    setTaskForm({ title: "", assignee_id: "", priority: "medium" }); setShowTaskForm(false);
+  };
+
+  const cycleTask = (taskId) => {
+    const cycle = { todo: "in_progress", in_progress: "done", done: "todo" };
+    const updated = tasks.map(t => t.id === taskId ? { ...t, status: cycle[t.status] } : t);
+    setTasks(updated); ls.set(TASK_KEY, updated);
+  };
+
+  const deleteTask = (id) => { const u = tasks.filter(t => t.id !== id); setTasks(u); ls.set(TASK_KEY, u); };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const entry = { id: `file_${Date.now()}`, name: file.name, size: file.size, type: file.type, uploaded_by: me, created_at: new Date().toISOString() };
+    const u = [...files, entry]; setFiles(u); ls.set(FILE_KEY, u); e.target.value = "";
+  };
+  const deleteFile = (id) => { const u = files.filter(f => f.id !== id); setFiles(u); ls.set(FILE_KEY, u); };
+
+  const bookMeeting = async () => {
+    if (!mtgForm.title.trim() || !mtgForm.date || !mtgForm.time) return;
+    const payload = { page_id: page.id, startup_id: startup.id, created_by: me, title: mtgForm.title.trim(), meeting_date: mtgForm.date, meeting_time: mtgForm.time, platform: mtgForm.platform, link: mtgForm.link.trim(), agenda: mtgForm.agenda.trim(), with_note: mtgForm.with_note.trim() };
+    const saved = await db.post("rs_page_meetings", payload);
+    const mtg = saved || { id: `local_${Date.now()}`, ...payload, created_at: new Date().toISOString() };
+    if (!saved) { const loc = ls.get(MTG_KEY, []); ls.set(MTG_KEY, [...loc, mtg]); }
+    setMeetings(m => [...m, mtg]); setMtgForm({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "", with_note: "" }); setShowMtgForm(false);
+  };
+
+  const setMemberRole = (userId, role) => { const u = { ...pageRoles, [userId]: role }; setPageRoles(u); ls.set(ROLES_KEY, u); };
+
+  const PRIORITY_C = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
+  const PAGE_MEMBER_ROLES = [{ id: "admin", label: "Admin", e: "👑", c: "#f59e0b" }, { id: "moderator", label: "Moderator", e: "🛡️", c: "#6366f1" }, { id: "member", label: "Member", e: "👤", c: "#10b981" }];
+  const activities = [...messages.map(m => ({ ...m, kind: "msg" })), ...tasks.map(t => ({ ...t, kind: "task" })), ...meetings.map(m => ({ ...m, kind: "mtg" }))].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 40);
+
+  const inp = { background: dk ? "rgba(255,255,255,0.06)" : "#f8fafc", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "10px 14px", fontSize: 13, outline: "none", color: th.txt, fontFamily: "inherit", width: "100%", boxSizing: "border-box" };
+
+  const PAGE_TABS = [
+    { id: "chat", icon: "💬", label: "Chat" },
+    { id: "tasks", icon: "✅", label: "Tasks" },
+    { id: "files", icon: "📁", label: "Files" },
+    { id: "meetings", icon: "📅", label: "Meetings" },
+    { id: "activity", icon: "⚡", label: "Activity" },
+    { id: "members", icon: "👥", label: "Members" },
+  ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 180px)", minHeight: 400, animation: "fadeUp 0.25s ease both" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0 14px", borderBottom: `1px solid ${th.bdr}`, flexShrink: 0 }}>
-        <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 5, background: "transparent", border: "none", cursor: "pointer", color: th.txt2, fontSize: 13, fontWeight: 600, padding: 0 }}>
-          <ArrowLeft size={15} />
-        </button>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${pt.c}20`, border: `1px solid ${pt.c}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{pt.e}</div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: th.txt }}>{page.name}</div>
-          <div style={{ fontSize: 11, color: th.txt3 }}>{startup.name} · {pt.label} page</div>
+    <div style={{ animation: "fadeUp 0.25s ease both" }}>
+      {viewingProf && <UserProfilePanel profile={profiles[viewingProf]} userId={viewingProf} dk={dk} onClose={() => setViewingProf(null)} />}
+
+      {/* Back */}
+      <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", color: th.txt2, fontSize: 13, fontWeight: 600, padding: "0 0 14px" }}>
+        <ArrowLeft size={15} /> Back to {startup.name}
+      </button>
+
+      {/* Page card */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "16px 20px", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: `${pt.c}20`, border: `1px solid ${pt.c}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{pt.e}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: th.txt }}>{page.name}</div>
+            <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{page.description || pt.desc}</div>
+          </div>
         </div>
+        <div style={{ fontSize: 12, color: th.txt3, fontWeight: 600, flexShrink: 0, marginLeft: 12 }}>{pgMems.length} member{pgMems.length !== 1 ? "s" : ""}</div>
       </div>
 
-      {/* Messages area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 0", display: "flex", flexDirection: "column", gap: 8 }}>
-        {messages.length === 0 ? (
-          <div style={{ textAlign: "center", margin: "auto", color: th.txt3, fontSize: 13 }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>{pt.e}</div>
-            <p>No messages yet. Start the conversation!</p>
-          </div>
-        ) : messages.map(msg => {
-          const mine = isMe(msg.user_id);
-          const prof = profiles[msg.user_id] || { name: "Member" };
-          const replyProf = msg.reply_to_user ? (profiles[msg.reply_to_user] || { name: "Member" }) : null;
-          return (
-            <div key={msg.id} style={{ display: "flex", flexDirection: mine ? "row-reverse" : "row", alignItems: "flex-end", gap: 8, paddingLeft: mine ? 40 : 0, paddingRight: mine ? 0 : 40 }}>
-              {!mine && <Av profile={prof} size={28} />}
-              <div style={{ maxWidth: "75%" }}>
-                {!mine && <div style={{ fontSize: 11, fontWeight: 700, color: pt.c, marginBottom: 3, paddingLeft: 4 }}>{prof.name}</div>}
-                {msg.reply_to_content && (
-                  <div style={{ background: mine ? "rgba(255,255,255,0.15)" : th.surf2, borderLeft: `3px solid ${pt.c}`, borderRadius: "6px 6px 0 0", padding: "5px 10px", marginBottom: -4 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: pt.c }}>{replyProf?.name || "Member"}</div>
-                    <div style={{ fontSize: 11, color: th.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{msg.reply_to_content}</div>
-                  </div>
-                )}
-                <div
-                  style={{ background: mine ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : (dk ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.85)"), border: mine ? "none" : `1px solid ${th.bdr}`, borderRadius: mine ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "9px 13px", cursor: "pointer", position: "relative" }}
-                  onDoubleClick={() => setReplyTo(msg)}
-                >
-                  <p style={{ margin: 0, fontSize: 13, color: mine ? "#fff" : th.txt, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg.content}</p>
-                  <div style={{ fontSize: 10, color: mine ? "rgba(255,255,255,0.6)" : th.txt3, textAlign: "right", marginTop: 4 }}>{msg.created_at ? ago(new Date(msg.created_at).getTime()) : ""}</div>
-                </div>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 2, marginBottom: 14, background: th.surf2, borderRadius: 12, padding: 4, border: `1px solid ${th.bdr}`, overflowX: "auto" }}>
+        {PAGE_TABS.map(t => (
+          <button key={t.id} onClick={() => setPageTab(t.id)} style={{ flexShrink: 0, padding: "7px 12px", borderRadius: 9, border: "none", background: pageTab === t.id ? "#6366f1" : "transparent", color: pageTab === t.id ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+            <span>{t.icon}</span>{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CHAT ── */}
+      {pageTab === "chat" && (
+        <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 340px)", minHeight: 300 }}>
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, paddingBottom: 8 }}>
+            {messages.length === 0 ? (
+              <div style={{ textAlign: "center", margin: "auto", color: th.txt3, fontSize: 13 }}>
+                <div style={{ fontSize: 38, marginBottom: 8 }}>💬</div>
+                <p>No messages yet. Start the conversation!</p>
               </div>
-              {mine && <div style={{ width: 28 }} />}
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Reply preview */}
-      {replyTo && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: th.surf2, borderTop: `1px solid ${th.bdr}`, borderBottom: `1px solid ${th.bdr}`, flexShrink: 0 }}>
-          <Reply size={14} color={th.txt3} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: pt.c, fontWeight: 700 }}>{profiles[replyTo.user_id]?.name || "Member"}</div>
-            <div style={{ fontSize: 12, color: th.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{replyTo.content}</div>
+            ) : messages.map(msg => {
+              const mine = msg.user_id === me;
+              const prof = profiles[msg.user_id] || { name: "Member" };
+              const rProf = msg.reply_to_user ? (profiles[msg.reply_to_user] || { name: "Member" }) : null;
+              return (
+                <div key={msg.id} style={{ display: "flex", flexDirection: mine ? "row-reverse" : "row", alignItems: "flex-end", gap: 8, paddingLeft: mine ? 40 : 0, paddingRight: mine ? 0 : 40 }}>
+                  {!mine && <div onClick={() => setViewingProf(msg.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}><Av profile={prof} size={28} /></div>}
+                  <div style={{ maxWidth: "75%" }}>
+                    {!mine && <div style={{ fontSize: 11, fontWeight: 700, color: pt.c, marginBottom: 3, paddingLeft: 4 }}>{prof.name}</div>}
+                    {msg.reply_to_content && (
+                      <div style={{ background: mine ? "rgba(255,255,255,0.15)" : th.surf2, borderLeft: `3px solid ${pt.c}`, borderRadius: "6px 6px 0 0", padding: "5px 10px", marginBottom: -4 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: pt.c }}>{rProf?.name || "Member"}</div>
+                        <div style={{ fontSize: 11, color: th.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{msg.reply_to_content}</div>
+                      </div>
+                    )}
+                    <div style={{ background: mine ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : (dk ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.9)"), border: mine ? "none" : `1px solid ${th.bdr}`, borderRadius: mine ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "9px 13px" }} onDoubleClick={() => setReplyTo(msg)}>
+                      <p style={{ margin: 0, fontSize: 13, color: mine ? "#fff" : th.txt, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg.content}</p>
+                      <div style={{ fontSize: 10, color: mine ? "rgba(255,255,255,0.6)" : th.txt3, textAlign: "right", marginTop: 3 }}>{msg.created_at ? ago(new Date(msg.created_at).getTime()) : ""}</div>
+                    </div>
+                  </div>
+                  {mine && <div style={{ width: 28 }} />}
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
           </div>
-          <button onClick={() => setReplyTo(null)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={14} /></button>
+          {replyTo && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: th.surf2, borderTop: `1px solid ${th.bdr}`, borderBottom: `1px solid ${th.bdr}` }}>
+              <Reply size={14} color={th.txt3} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: pt.c, fontWeight: 700 }}>{profiles[replyTo.user_id]?.name || "Member"}</div>
+                <div style={{ fontSize: 12, color: th.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{replyTo.content}</div>
+              </div>
+              <button onClick={() => setReplyTo(null)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={14} /></button>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", paddingTop: 12, borderTop: replyTo ? "none" : `1px solid ${th.bdr}`, flexShrink: 0 }}>
+            <div onClick={() => setViewingProf(me)} style={{ cursor: "pointer", flexShrink: 0 }}><Av profile={profiles[me] || { name: "Me" }} size={32} /></div>
+            <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); } }} placeholder="Message… (Enter to send, Shift+Enter for newline)" style={{ flex: 1, background: dk ? "rgba(255,255,255,0.06)" : "#f8fafc", border: `1px solid ${th.bdr}`, borderRadius: 22, padding: "10px 16px", fontSize: 13, outline: "none", color: th.txt, fontFamily: "inherit" }} data-testid="input-page-message" />
+            <button onClick={sendMsg} disabled={!text.trim() || sending} style={{ width: 36, height: 36, borderRadius: "50%", background: text.trim() ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : th.surf2, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: text.trim() ? "pointer" : "default", flexShrink: 0 }} data-testid="button-send-message">
+              <Send size={14} color={text.trim() ? "#fff" : th.txt3} />
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Input area */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 0 0", borderTop: replyTo ? "none" : `1px solid ${th.bdr}`, flexShrink: 0 }}>
-        <Av profile={profiles[me] || { name: "Me" }} size={34} />
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && text.trim()) { e.preventDefault(); send(); } }}
-          placeholder="Type a message…"
-          style={{ flex: 1, background: dk ? "rgba(255,255,255,0.06)" : "#f8fafc", border: `1px solid ${th.bdr}`, borderRadius: 22, padding: "10px 16px", fontSize: 13, outline: "none", color: th.txt, fontFamily: "inherit" }}
-          data-testid="input-page-message"
-        />
-        <button onClick={send} disabled={!text.trim() || sending} style={{ width: 38, height: 38, borderRadius: "50%", background: text.trim() ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : th.surf2, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: text.trim() ? "pointer" : "default", flexShrink: 0 }} data-testid="button-send-message">
-          <Send size={15} color={text.trim() ? "#fff" : th.txt3} />
-        </button>
-      </div>
+      {/* ── TASKS ── */}
+      {pageTab === "tasks" && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt2 }}>✅ Tasks ({tasks.length})</span>
+            <button onClick={() => setShowTaskForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: "#6366f1", border: "none", borderRadius: 10, padding: "7px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}><PlusCircle size={13} /> New Task</button>
+          </div>
+          {showTaskForm && (
+            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+              <input value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))} onKeyDown={e => { if (e.key === "Enter" && taskForm.title.trim()) addTask(); }} placeholder="Task title *" style={{ ...inp, marginBottom: 10 }} autoFocus />
+              <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                <select value={taskForm.assignee_id} onChange={e => setTaskForm(f => ({ ...f, assignee_id: e.target.value }))} style={{ ...inp, flex: 1 }}>
+                  <option value="">Assign to…</option>
+                  {pgMems.map(m => { const p = profiles[m.user_id] || { name: "Member" }; return <option key={m.user_id} value={m.user_id}>{p.name}</option>; })}
+                </select>
+                <select value={taskForm.priority} onChange={e => setTaskForm(f => ({ ...f, priority: e.target.value }))} style={{ ...inp, flex: 1 }}>
+                  <option value="low">🟢 Low</option>
+                  <option value="medium">🟡 Medium</option>
+                  <option value="high">🔴 High</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowTaskForm(false)} style={{ flex: 1, padding: "9px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, cursor: "pointer", color: th.txt2, fontWeight: 600, fontSize: 13 }}>Cancel</button>
+                <button onClick={addTask} disabled={!taskForm.title.trim()} style={{ flex: 2, padding: "9px", background: taskForm.title.trim() ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: taskForm.title.trim() ? "pointer" : "default", color: taskForm.title.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Create Task</button>
+              </div>
+            </div>
+          )}
+          {tasks.length === 0 && !showTaskForm ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No tasks yet. Create the first one!</div>
+          ) : tasks.map(task => {
+            const assignee = task.assignee_id ? (profiles[task.assignee_id] || { name: "Member" }) : null;
+            const pc = PRIORITY_C[task.priority] || PRIORITY_C.medium;
+            const STATUS_ICONS = { todo: "", in_progress: "▶", done: "✓" };
+            return (
+              <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
+                <button onClick={() => cycleTask(task.id)} style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${task.status === "done" ? "#10b981" : task.status === "in_progress" ? "#f59e0b" : th.bdr}`, background: task.status === "done" ? "#10b981" : task.status === "in_progress" ? "#f59e0b18" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 11, fontWeight: 700, color: task.status === "done" ? "#fff" : "#f59e0b" }}>{STATUS_ICONS[task.status]}</button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: task.status === "done" ? th.txt3 : th.txt, textDecoration: task.status === "done" ? "line-through" : "none" }}>{task.title}</div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 3, alignItems: "center", flexWrap: "wrap" }}>
+                    {assignee && <span style={{ fontSize: 11, color: th.txt3 }}>→ {assignee.name}</span>}
+                    <span style={{ background: `${pc}18`, color: pc, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 6, border: `1px solid ${pc}30`, textTransform: "capitalize" }}>{task.priority}</span>
+                    <span style={{ fontSize: 10, color: th.txt3, background: th.surf2, padding: "2px 7px", borderRadius: 6, textTransform: "capitalize" }}>{task.status.replace("_", " ")}</span>
+                  </div>
+                </div>
+                {(task.created_by === me || isFounder) && <button onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, padding: 4 }}><Trash2 size={13} /></button>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── FILES ── */}
+      {pageTab === "files" && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt2 }}>📁 Files ({files.length})</span>
+            <button onClick={() => fileInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 5, background: "#6366f1", border: "none", borderRadius: 10, padding: "7px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>📎 Upload File</button>
+            <input ref={fileInputRef} type="file" style={{ display: "none" }} onChange={handleFileUpload} />
+          </div>
+          {files.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No files yet.</div>
+          ) : files.map(f => {
+            const uploader = profiles[f.uploaded_by] || { name: "Member" };
+            return (
+              <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#6366f118", border: "1px solid #6366f130", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>📄</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: th.txt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
+                  <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>{(f.size / 1024).toFixed(1)} KB · {uploader.name} · {ago(new Date(f.created_at).getTime())}</div>
+                </div>
+                {(f.uploaded_by === me || isFounder) && <button onClick={() => deleteFile(f.id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, padding: 4 }}><Trash2 size={13} /></button>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── MEETINGS ── */}
+      {pageTab === "meetings" && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt2, display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} /> Meetings ({meetings.length})</span>
+            <button onClick={() => setShowMtgForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: showMtgForm ? th.surf2 : "#6366f1", border: `1px solid ${showMtgForm ? th.bdr : "#6366f1"}`, borderRadius: 10, padding: "7px 14px", color: showMtgForm ? th.txt2 : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              {showMtgForm ? <><X size={13} /> Cancel</> : <><PlusCircle size={13} /> Book</>}
+            </button>
+          </div>
+          {showMtgForm && (
+            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+              <input value={mtgForm.title} onChange={e => setMtgForm(f => ({ ...f, title: e.target.value }))} placeholder="Meeting title *" style={inp} />
+              <div style={{ display: "flex", gap: 10 }}>
+                <input type="date" value={mtgForm.date} onChange={e => setMtgForm(f => ({ ...f, date: e.target.value }))} style={{ ...inp, flex: 1 }} />
+                <input type="time" value={mtgForm.time} onChange={e => setMtgForm(f => ({ ...f, time: e.target.value }))} style={{ ...inp, flex: 1 }} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[{ id: "google_meet", label: "Google Meet", e: "📹" }, { id: "zoom", label: "Zoom", e: "📷" }].map(p => (
+                  <button key={p.id} onClick={() => setMtgForm(f => ({ ...f, platform: p.id }))} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${mtgForm.platform === p.id ? "#6366f1" : th.bdr}`, background: mtgForm.platform === p.id ? "#6366f1" : th.surf2, color: mtgForm.platform === p.id ? "#fff" : th.txt2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>{p.e} {p.label}</button>
+                ))}
+              </div>
+              <input value={mtgForm.link} onChange={e => setMtgForm(f => ({ ...f, link: e.target.value }))} placeholder="Meeting link (optional)" style={inp} />
+              <input value={mtgForm.with_note} onChange={e => setMtgForm(f => ({ ...f, with_note: e.target.value }))} placeholder="With whom? (e.g. John, Sarah)" style={inp} />
+              <textarea value={mtgForm.agenda} onChange={e => setMtgForm(f => ({ ...f, agenda: e.target.value }))} placeholder="Agenda (optional)" rows={2} style={{ ...inp, resize: "vertical" }} />
+              <button onClick={bookMeeting} disabled={!mtgForm.title.trim() || !mtgForm.date || !mtgForm.time} style={{ padding: "10px", background: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: "pointer", color: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Book Meeting</button>
+            </div>
+          )}
+          {meetings.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No meetings scheduled.</div>
+          ) : meetings.map(mtg => {
+            const booker = profiles?.[mtg.created_by] || { name: "Unknown" };
+            return (
+              <div key={mtg.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#6366f118", border: "1px solid #6366f130", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>📅</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{mtg.title}</div>
+                  <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{mtg.meeting_date} · {mtg.meeting_time} · {mtg.platform === "zoom" ? "📷 Zoom" : "📹 Google Meet"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, color: th.txt3 }}>Booked by</span>
+                    <div onClick={() => setViewingProf(mtg.created_by)} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}><Av profile={booker} size={16} /><span style={{ fontSize: 11, fontWeight: 600, color: th.txt2 }}>{booker.name}</span></div>
+                    {mtg.with_note && <><span style={{ fontSize: 11, color: th.txt3 }}>· with</span><span style={{ fontSize: 11, fontWeight: 600, color: "#6366f1" }}>{mtg.with_note}</span></>}
+                  </div>
+                  {mtg.link && <a href={mtg.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, display: "inline-block", marginTop: 4 }}>Join link →</a>}
+                  {mtg.agenda && <p style={{ fontSize: 12, color: th.txt2, margin: "4px 0 0", fontStyle: "italic" }}>{mtg.agenda}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── ACTIVITY ── */}
+      {pageTab === "activity" && (
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: th.txt2, marginBottom: 14 }}>⚡ Activity ({activities.length})</div>
+          {activities.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No activity yet.</div>
+          ) : activities.map(item => {
+            const actor = profiles[item.user_id || item.created_by] || { name: "Member" };
+            const kindLabel = item.kind === "msg" ? `sent: "${item.content?.slice(0, 40)}${item.content?.length > 40 ? "…" : ""}"` : item.kind === "task" ? `added task "${item.title}"` : `booked "${item.title}"`;
+            const kindIcon = item.kind === "msg" ? "💬" : item.kind === "task" ? "✅" : "📅";
+            return (
+              <div key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: `1px solid ${th.bdr}` }}>
+                <div onClick={() => setViewingProf(item.user_id || item.created_by)} style={{ cursor: "pointer", flexShrink: 0 }}><Av profile={actor} size={30} /></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: th.txt }}><span style={{ fontWeight: 700 }}>{actor.name}</span> {kindLabel}</div>
+                  <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>{ago(new Date(item.created_at).getTime())}</div>
+                </div>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{kindIcon}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── MEMBERS ── */}
+      {pageTab === "members" && (
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: th.txt2, marginBottom: 14 }}>👥 Members ({pgMems.length})</div>
+          {pgMems.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No members with access yet.</div>
+          ) : pgMems.map(pm => {
+            const prof = profiles[pm.user_id] || { name: "Member" };
+            const role = pageRoles[pm.user_id] || "member";
+            const ri = PAGE_MEMBER_ROLES.find(r => r.id === role) || PAGE_MEMBER_ROLES[2];
+            return (
+              <div key={pm.user_id} style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
+                <div onClick={() => setViewingProf(pm.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}><Av profile={prof} size={40} /></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name}</div>
+                  <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || pm.user_id.slice(0, 8)}</div>
+                </div>
+                {isFounder ? (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {PAGE_MEMBER_ROLES.map(r => (
+                      <button key={r.id} onClick={() => setMemberRole(pm.user_id, r.id)} style={{ background: role === r.id ? `${r.c}22` : th.surf2, border: `1px solid ${role === r.id ? r.c + "50" : th.bdr}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", color: role === r.id ? r.c : th.txt3, fontSize: 11, fontWeight: role === r.id ? 700 : 500 }}>{r.e} {r.label}</button>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ background: `${ri.c}18`, color: ri.c, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, border: `1px solid ${ri.c}30` }}>{ri.e} {ri.label}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -638,7 +905,7 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const headerBg = dk ? "linear-gradient(135deg,rgba(30,58,138,0.25),rgba(91,33,182,0.2))" : "linear-gradient(135deg,#e0e7ff,#ede9fe)";
   const TABS = [{ id: "overview", label: "Overview" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} dk={dk} onBack={() => setActivePage(null)} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
@@ -862,22 +1129,39 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   };
 
   const approvePageReq = (req) => {
-    const updReqs = pageReqs.map(r => r.id === req.id ? { ...r, status: "approved" } : r);
+    // Check user still exists
+    if (!profiles[req.user_id]) {
+      const cleaned = pageReqs.filter(r => r.id !== req.id);
+      setPageReqs(cleaned); ls.set(PG_REQ_KEY, cleaned);
+      addNotif?.({ type: "error", msg: "User no longer exists — request removed." });
+      return;
+    }
+    // Avoid duplicates
+    const alreadyMember = pageMembers.find(m => m.page_id === req.page_id && m.user_id === req.user_id);
+    const updReqs = pageReqs.filter(r => r.id !== req.id);
     setPageReqs(updReqs); ls.set(PG_REQ_KEY, updReqs);
-    const mems = [...pageMembers, { page_id: req.page_id, user_id: req.user_id }];
-    setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
+    if (!alreadyMember) {
+      const mems = [...pageMembers, { page_id: req.page_id, user_id: req.user_id }];
+      setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
+    }
     addNotif?.({ type: "success", msg: "Page access granted!" });
   };
 
   const rejectPageReq = (req) => {
-    const updReqs = pageReqs.map(r => r.id === req.id ? { ...r, status: "rejected" } : r);
+    const updReqs = pageReqs.filter(r => r.id !== req.id);
     setPageReqs(updReqs); ls.set(PG_REQ_KEY, updReqs);
+    addNotif?.({ type: "info", msg: "Request rejected." });
   };
 
   const removeMember = async (userId) => {
-    if (!window.confirm("Remove this member?")) return;
     await db.del("rs_page_access", `startup_id=eq.${startup.id}&user_id=eq.${userId}`);
     setMembers(ms => ms.filter(m => m.user_id !== userId));
+    // Remove their page memberships and pending requests
+    const cleanedMems = pageMembers.filter(m => m.user_id !== userId);
+    setPageMembers(cleanedMems); ls.set(PG_MEM_KEY, cleanedMems);
+    const cleanedReqs = pageReqs.filter(r => r.user_id !== userId);
+    setPageReqs(cleanedReqs); ls.set(PG_REQ_KEY, cleanedReqs);
+    addNotif?.({ type: "success", msg: "Member removed." });
   };
 
   const postUpdate = async () => {
@@ -897,15 +1181,19 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const addPage = async () => {
     if (!newPageName.trim()) return;
     const pt = PAGE_TYPES.find(p => p.id === newPageType) || PAGE_TYPES[0];
-    const saved = await db.post("rs_startup_pages", { startup_id: startup.id, name: newPageName.trim(), description: pt.desc, type_id: newPageType });
-    if (saved) setPages(ps => [...ps, saved]);
+    const saved = await db.post("rs_startup_pages", { startup_id: startup.id, name: newPageName.trim(), description: pt.desc, type_id: newPageType, created_by: me });
+    const pg = saved || { id: `local_pg_${Date.now()}`, startup_id: startup.id, name: newPageName.trim(), description: pt.desc, type_id: newPageType, created_by: me, created_at: new Date().toISOString() };
+    setPages(ps => [...ps, pg]);
     setNewPageName(""); setShowAddPage(false);
   };
 
   const deletePage = async (id) => {
-    if (!window.confirm("Delete this page?")) return;
     await db.del("rs_startup_pages", `id=eq.${id}`);
     setPages(ps => ps.filter(p => p.id !== id));
+    const cleanedMems = pageMembers.filter(m => m.page_id !== id);
+    setPageMembers(cleanedMems); ls.set(PG_MEM_KEY, cleanedMems);
+    const cleanedReqs = pageReqs.filter(r => r.page_id !== id);
+    setPageReqs(cleanedReqs); ls.set(PG_REQ_KEY, cleanedReqs);
   };
 
   const pendingCount = requests.filter(r => r.status === "pending").length;
@@ -923,7 +1211,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   const inp = { background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} dk={dk} onBack={() => setActivePage(null)} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
@@ -991,9 +1279,9 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
             <div>
               {/* Startup join requests */}
               <div style={{ fontSize: 13, fontWeight: 700, color: th.txt3, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Startup Join Requests</div>
-              {requests.length === 0 ? (
+              {requests.filter(r => profiles[r.user_id]).length === 0 ? (
                 <Card dk={dk} anim={false}><div style={{ textAlign: "center", padding: "16px 0", color: th.txt3, fontSize: 13 }}>📬 No join requests yet.</div></Card>
-              ) : requests.map(req => {
+              ) : requests.filter(r => profiles[r.user_id]).map(req => {
                 const prof = profiles[req.user_id] || { name: "Applicant" };
                 return (
                   <Card dk={dk} key={req.id} anim={false}>
@@ -1028,10 +1316,10 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
               })}
 
               {/* Page access requests */}
-              {pageReqs.length > 0 && (
+              {pageReqs.filter(r => profiles[r.user_id] && pages.find(p => p.id === r.page_id)).length > 0 && (
                 <>
                   <div style={{ fontSize: 13, fontWeight: 700, color: th.txt3, marginTop: 20, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Page Access Requests</div>
-                  {pageReqs.map(req => {
+                  {pageReqs.filter(r => profiles[r.user_id] && pages.find(p => p.id === r.page_id)).map(req => {
                     const prof = profiles[req.user_id] || { name: "User" };
                     const pg = pages.find(p => p.id === req.page_id);
                     const pt = PAGE_TYPES.find(p => p.id === pg?.type_id) || PAGE_TYPES[0];
