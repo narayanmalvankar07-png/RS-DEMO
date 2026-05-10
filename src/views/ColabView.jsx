@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply } from "lucide-react";
+import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import { ago } from "../utils/helpers.js";
@@ -56,6 +56,44 @@ function CopyBtn({ text, label = "Copy" }) {
     <button onClick={copy} style={{ display: "flex", alignItems: "center", gap: 5, background: copied ? "#10b98118" : "rgba(255,255,255,0.07)", border: `1px solid ${copied ? "#10b98140" : "rgba(255,255,255,0.12)"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: copied ? "#10b981" : "#94a3b8", fontSize: 12, fontWeight: 600 }}>
       {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? "Copied!" : label}
     </button>
+  );
+}
+
+// ─── User Profile Panel (mini) ─────────────────────────────────────
+function UserProfilePanel({ profile, userId, dk, onClose }) {
+  const th = T(dk);
+  const ROLE_MAP = { developer: { e: "⚡", c: "#3b82f6" }, designer: { e: "🎨", c: "#ec4899" }, marketer: { e: "📢", c: "#f97316" }, investor: { e: "💰", c: "#10b981" }, advisor: { e: "🎯", c: "#8b5cf6" }, cofounder: { e: "🚀", c: "#ef4444" } };
+  const p = profile || { name: "User" };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: dk ? "rgba(13,20,38,0.97)" : "#fff", backdropFilter: "blur(20px)", border: `1px solid ${th.bdr}`, borderRadius: 20, padding: 24, width: "100%", maxWidth: 340, animation: "fadeUp 0.2s ease both" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={16} /></button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 18 }}>
+          <Av profile={p} size={70} />
+          <div style={{ fontWeight: 800, fontSize: 18, color: th.txt, marginTop: 12 }}>{p.name || "User"}</div>
+          {p.handle && <div style={{ fontSize: 13, color: th.txt3, marginTop: 2 }}>@{p.handle}</div>}
+          {p.bio && <p style={{ fontSize: 13, color: th.txt2, marginTop: 8, lineHeight: 1.5, maxWidth: 260 }}>{p.bio}</p>}
+        </div>
+        {p.role && (
+          <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+            {(Array.isArray(p.role) ? p.role : [p.role]).map(r => {
+              const rm = ROLE_MAP[r] || { e: "👤", c: th.txt3 };
+              return <span key={r} style={{ background: `${rm.c}18`, color: rm.c, fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 8, border: `1px solid ${rm.c}30` }}>{rm.e} {r}</span>;
+            })}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          {p.twitter && <a href={p.twitter} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#1da1f2", fontWeight: 600, textDecoration: "none" }}>Twitter ↗</a>}
+          {p.linkedin && <a href={p.linkedin} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#0a66c2", fontWeight: 600, textDecoration: "none" }}>LinkedIn ↗</a>}
+          {p.website && <a href={p.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}>Website ↗</a>}
+        </div>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.bdr}`, textAlign: "center" }}>
+          <span style={{ fontSize: 11, color: th.txt3, fontFamily: "monospace" }}>ID: {userId?.slice(0, 12)}…</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -254,11 +292,11 @@ function PageChatView({ page, startup, me, profiles, dk, onBack }) {
 }
 
 // ─── Meetings Tab ───────────────────────────────────────────────────
-function MeetingsTab({ pages, startup, me, dk }) {
+function MeetingsTab({ pages, startup, me, profiles, members, dk }) {
   const th = T(dk);
   const [bookingFor, setBookingFor] = useState(null);
   const [meetingsByPage, setMeetingsByPage] = useState({});
-  const [form, setForm] = useState({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "" });
+  const [form, setForm] = useState({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "", with_note: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -277,7 +315,7 @@ function MeetingsTab({ pages, startup, me, dk }) {
   const bookMeeting = async () => {
     if (!form.title.trim() || !form.date || !form.time || !bookingFor) return;
     setSaving(true);
-    const payload = { page_id: bookingFor, startup_id: startup.id, created_by: me, title: form.title.trim(), meeting_date: form.date, meeting_time: form.time, platform: form.platform, link: form.link.trim(), agenda: form.agenda.trim() };
+    const payload = { page_id: bookingFor, startup_id: startup.id, created_by: me, title: form.title.trim(), meeting_date: form.date, meeting_time: form.time, platform: form.platform, link: form.link.trim(), agenda: form.agenda.trim(), with_note: form.with_note.trim() };
     const saved = await db.post("rs_page_meetings", payload);
     const mtg = saved || { id: `local_${Date.now()}`, ...payload, created_at: new Date().toISOString() };
     if (!saved) { const loc = ls.get(`rs_mtg_${bookingFor}`, []); ls.set(`rs_mtg_${bookingFor}`, [...loc, mtg]); }
@@ -337,6 +375,7 @@ function MeetingsTab({ pages, startup, me, dk }) {
                     ))}
                   </div>
                   <input value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} placeholder="Meeting link (optional)" style={inp} />
+                  <input value={form.with_note} onChange={e => setForm(f => ({ ...f, with_note: e.target.value }))} placeholder="With whom? (e.g. John, Sarah — optional)" style={inp} />
                   <textarea value={form.agenda} onChange={e => setForm(f => ({ ...f, agenda: e.target.value }))} placeholder="Agenda (optional)" rows={2} style={{ ...inp, resize: "vertical" }} />
                   <button onClick={bookMeeting} disabled={!form.title.trim() || !form.date || !form.time || saving}
                     style={{ padding: "11px", background: form.title.trim() && form.date && form.time ? "#3b82f6" : th.surf2, border: "none", borderRadius: 10, color: form.title.trim() && form.date && form.time ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13, cursor: form.title.trim() && form.date && form.time ? "pointer" : "default" }}>
@@ -348,17 +387,26 @@ function MeetingsTab({ pages, startup, me, dk }) {
               {/* Meeting list */}
               {mtgs.length === 0 ? (
                 <div style={{ padding: "16px", textAlign: "center", color: th.txt3, fontSize: 12 }}>No meetings scheduled.</div>
-              ) : mtgs.map((mtg, i) => (
-                <div key={mtg.id} style={{ padding: "12px 16px", borderTop: i === 0 ? "none" : `1px solid ${th.bdr}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "#3b82f618", border: "1px solid #3b82f630", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📅</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{mtg.title}</div>
-                    <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{mtg.meeting_date} · {mtg.meeting_time} · {mtg.platform === "zoom" ? "📷 Zoom" : "📹 Google Meet"}</div>
-                    {mtg.link && <a href={mtg.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#3b82f6", fontWeight: 600 }}>Join link →</a>}
-                    {mtg.agenda && <p style={{ fontSize: 12, color: th.txt2, margin: "4px 0 0", fontStyle: "italic" }}>{mtg.agenda}</p>}
+              ) : mtgs.map((mtg, i) => {
+                const booker = profiles?.[mtg.created_by] || { name: "Unknown" };
+                return (
+                  <div key={mtg.id} style={{ padding: "12px 16px", borderTop: i === 0 ? "none" : `1px solid ${th.bdr}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#3b82f618", border: "1px solid #3b82f630", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📅</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{mtg.title}</div>
+                      <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{mtg.meeting_date} · {mtg.meeting_time} · {mtg.platform === "zoom" ? "📷 Zoom" : "📹 Google Meet"}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: th.txt3 }}>Booked by</span>
+                        <Av profile={booker} size={18} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: th.txt2 }}>{booker.name}</span>
+                        {mtg.with_note && <><span style={{ fontSize: 11, color: th.txt3 }}>· with</span><span style={{ fontSize: 11, fontWeight: 600, color: "#6366f1" }}>{mtg.with_note}</span></>}
+                      </div>
+                      {mtg.link && <a href={mtg.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#3b82f6", fontWeight: 600, display: "inline-block", marginTop: 4 }}>Join link →</a>}
+                      {mtg.agenda && <p style={{ fontSize: 12, color: th.txt2, margin: "4px 0 0", fontStyle: "italic" }}>{mtg.agenda}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -696,7 +744,7 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
                     </div>
                     <div style={{ flexShrink: 0 }}>
                       {access === "approved" ? (
-                        <button onClick={() => setActivePage(pg)} style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 8, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}><MessageSquare size={12} /> Chat</button>
+                        <button onClick={() => setActivePage(pg)} style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 8, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}><LogIn size={12} /> Enter</button>
                       ) : access === "pending" ? (
                         <span style={{ background: "#f59e0b18", color: "#f59e0b", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: "1px solid #f59e0b40" }}>⏳ Pending</span>
                       ) : (
@@ -757,6 +805,10 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const [newPageName, setNewPageName] = useState("");
   const [newPageType, setNewPageType] = useState("community");
   const [activePage, setActivePage] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null);
+  const [memberViewMode, setMemberViewMode] = useState("all"); // "all" | "bypage"
+  const [memberRoles, setMemberRoles] = useState(() => ls.get(`rs_m_roles_${startup.id}`, {}));
+  const [expandedMember, setExpandedMember] = useState(null);
 
   // Per-page requests/access (localStorage)
   const PG_REQ_KEY = `rs_pg_req_${startup.id}`;
@@ -765,6 +817,21 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const [pageMembers, setPageMembers] = useState(() => ls.get(PG_MEM_KEY, []));
 
   const pendingPageReqs = pageReqs.filter(r => r.status === "pending");
+
+  const assignMemberRole = (userId, roleId) => {
+    const existing = memberRoles[userId] || [];
+    const updated = existing.includes(roleId) ? existing.filter(r => r !== roleId) : [...existing, roleId];
+    const newRoles = { ...memberRoles, [userId]: updated };
+    setMemberRoles(newRoles); ls.set(`rs_m_roles_${startup.id}`, newRoles);
+  };
+
+  const assignMemberPage = (userId, pageId) => {
+    const alreadyHas = pageMembers.find(m => m.page_id === pageId && m.user_id === userId);
+    let mems;
+    if (alreadyHas) { mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId)); }
+    else { mems = [...pageMembers, { page_id: pageId, user_id: userId }]; }
+    setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
+  };
 
   const load = useCallback(async () => {
     const [reqs, pgs, mbs, upds] = await Promise.all([
@@ -860,6 +927,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
+      {viewingProfile && <UserProfilePanel profile={profiles[viewingProfile]} userId={viewingProfile} dk={dk} onClose={() => setViewingProfile(null)} />}
       {showEdit && <CreateStartupModal me={me} existing={startup} onClose={() => setShowEdit(false)} onSave={s => { setStartup(s); onStartupUpdated?.(s); }} dk={dk} />}
 
       <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", color: th.txt2, fontSize: 13, fontWeight: 600, padding: "0 0 14px" }}>
@@ -930,7 +998,9 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                 return (
                   <Card dk={dk} key={req.id} anim={false}>
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      <Av profile={prof} size={44} />
+                      <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }} title="View profile">
+                        <Av profile={prof} size={44} />
+                      </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
                           <div>
@@ -968,7 +1038,9 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                     return (
                       <Card dk={dk} key={req.id} anim={false}>
                         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                          <Av profile={prof} size={40} />
+                          <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }} title="View profile">
+                            <Av profile={prof} size={40} />
+                          </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name}</div>
                             <div style={{ fontSize: 12, color: th.txt3 }}>Requesting access to <span style={{ color: pt.c, fontWeight: 600 }}>{pt.e} {pg?.name || "a page"}</span></div>
@@ -1012,22 +1084,62 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                 <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages yet.</p></div>
               ) : pages.map(pg => {
                 const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
-                const pgMembers = pageMembers.filter(m => m.page_id === pg.id);
+                const pgMems = pageMembers.filter(m => m.page_id === pg.id);
+                const pgPendingReqs = pageReqs.filter(r => r.page_id === pg.id && r.status === "pending");
+                const creatorProf = profiles[pg.created_by] || null;
+                const isExpanded = expandedMember === `pg_${pg.id}`;
                 return (
-                  <Card dk={dk} key={pg.id} anim={false}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                  <Card dk={dk} key={pg.id} anim={false} style={{ marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1, minWidth: 0 }}>
                         <div style={{ width: 38, height: 38, borderRadius: 10, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{pt.e}</div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, color: th.txt, fontSize: 14 }}>{pg.name}</div>
-                          <div style={{ fontSize: 12, color: th.txt3 }}>{pgMembers.length} member{pgMembers.length !== 1 ? "s" : ""} with access</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                            {creatorProf && <><span style={{ fontSize: 11, color: th.txt3 }}>by</span><div style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }} onClick={() => setViewingProfile(pg.created_by)}><Av profile={creatorProf} size={16} /><span style={{ fontSize: 11, fontWeight: 600, color: th.txt2 }}>{creatorProf.name}</span></div></>}
+                            <span style={{ fontSize: 11, color: th.txt3 }}>· {pgMems.length} member{pgMems.length !== 1 ? "s" : ""}</span>
+                            {pgPendingReqs.length > 0 && <span style={{ background: "#ef444418", color: "#ef4444", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, border: "1px solid #ef444430" }}>{pgPendingReqs.length} pending</span>}
+                          </div>
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                        <button onClick={() => setActivePage(pg)} style={{ display: "flex", alignItems: "center", gap: 4, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: pt.c, fontSize: 12, fontWeight: 600 }}><MessageSquare size={12} /> Chat</button>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                        <button onClick={() => setExpandedMember(isExpanded ? null : `pg_${pg.id}`)} style={{ background: isExpanded ? `${pt.c}20` : th.surf2, border: `1px solid ${isExpanded ? pt.c + "40" : th.bdr}`, borderRadius: 8, padding: "5px 9px", cursor: "pointer", color: isExpanded ? pt.c : th.txt3, fontSize: 11, fontWeight: 600 }}>👥 Manage</button>
+                        <button onClick={() => setActivePage(pg)} style={{ display: "flex", alignItems: "center", gap: 4, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: pt.c, fontSize: 12, fontWeight: 700 }}><LogIn size={12} /> Enter</button>
                         <button onClick={() => deletePage(pg.id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, display: "flex", padding: 6 }}><Trash2 size={14} /></button>
                       </div>
                     </div>
+                    {isExpanded && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${th.bdr}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Members with access</div>
+                        {pgMems.length === 0 ? (
+                          <div style={{ fontSize: 12, color: th.txt3, padding: "6px 0" }}>No members yet — grant access from Requests tab.</div>
+                        ) : pgMems.map(mem => {
+                          const mp = profiles[mem.user_id] || { name: "Member" };
+                          return (
+                            <div key={mem.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${th.bdr}` }}>
+                              <div onClick={() => setViewingProfile(mem.user_id)} style={{ cursor: "pointer" }}><Av profile={mp} size={26} /></div>
+                              <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: th.txt }}>{mp.name}</span>
+                              <button onClick={() => assignMemberPage(mem.user_id, pg.id)} style={{ background: "#ef444410", border: "1px solid #ef444430", borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: "#ef4444", fontSize: 11, fontWeight: 600 }}>Remove</button>
+                            </div>
+                          );
+                        })}
+                        {members.filter(m => !pgMems.find(pm => pm.user_id === m.user_id)).length > 0 && (
+                          <>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 10, marginBottom: 6 }}>Add a member</div>
+                            {members.filter(m => !pgMems.find(pm => pm.user_id === m.user_id)).map(m => {
+                              const mp = profiles[m.user_id] || { name: "Member" };
+                              return (
+                                <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                                  <div onClick={() => setViewingProfile(m.user_id)} style={{ cursor: "pointer" }}><Av profile={mp} size={22} /></div>
+                                  <span style={{ flex: 1, fontSize: 12, color: th.txt2 }}>{mp.name}</span>
+                                  <button onClick={() => assignMemberPage(m.user_id, pg.id)} style={{ background: "#10b98110", border: "1px solid #10b98130", borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: "#10b981", fontSize: 11, fontWeight: 600 }}>+ Add</button>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 );
               })}
@@ -1036,41 +1148,108 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
           {tab === "members" && (
             <div>
-              {members.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 48, color: th.txt3 }}><div style={{ fontSize: 36 }}>👥</div><p>No members yet.</p></div>
-              ) : members.map(m => {
-                const prof = profiles[m.user_id] || { name: "Member" };
-                const isFounderMember = (startup.founders || [startup.created_by]).includes(m.user_id);
-                const memberPages = pageMembers.filter(pm => pm.user_id === m.user_id).map(pm => pages.find(p => p.id === pm.page_id)).filter(Boolean);
-                return (
-                  <Card dk={dk} key={m.user_id} anim={false}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                      <Av profile={prof} size={42} bal={bals[m.user_id] ?? 0} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                          <div>
-                            <div style={{ fontWeight: 700, color: th.txt, fontSize: 14 }}>{prof.name}</div>
-                            <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || m.user_id.slice(0, 8)}</div>
+              {/* View mode toggle */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {["all", "bypage"].map(mode => (
+                  <button key={mode} onClick={() => setMemberViewMode(mode)} style={{ flex: 1, padding: "7px 0", background: memberViewMode === mode ? "#6366f1" : th.surf2, border: `1px solid ${memberViewMode === mode ? "#6366f1" : th.bdr}`, borderRadius: 9, cursor: "pointer", color: memberViewMode === mode ? "#fff" : th.txt2, fontSize: 12, fontWeight: 700 }}>
+                    {mode === "all" ? "👤 All Members" : "📄 By Page"}
+                  </button>
+                ))}
+              </div>
+
+              {memberViewMode === "all" && (
+                members.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 48, color: th.txt3 }}><div style={{ fontSize: 36 }}>👥</div><p>No members yet.</p></div>
+                ) : members.map(m => {
+                  const prof = profiles[m.user_id] || { name: "Member" };
+                  const isFounderMember = (startup.founders || [startup.created_by]).includes(m.user_id);
+                  const memberPages = pageMembers.filter(pm => pm.user_id === m.user_id).map(pm => pages.find(p => p.id === pm.page_id)).filter(Boolean);
+                  const assignedRoles = memberRoles[m.user_id] || [];
+                  const isExpandedM = expandedMember === `m_${m.user_id}`;
+                  const ROLE_OPTS = [{ id: "developer", e: "⚡", c: "#3b82f6", label: "Dev" }, { id: "designer", e: "🎨", c: "#ec4899", label: "Design" }, { id: "marketer", e: "📢", c: "#f97316", label: "Marketing" }, { id: "advisor", e: "🎯", c: "#8b5cf6", label: "Advisor" }, { id: "investor", e: "💰", c: "#10b981", label: "Investor" }];
+                  return (
+                    <Card dk={dk} key={m.user_id} anim={false} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div onClick={() => setViewingProfile(m.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}><Av profile={prof} size={42} bal={bals[m.user_id] ?? 0} /></div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                            <div>
+                              <div style={{ fontWeight: 700, color: th.txt, fontSize: 14 }}>{prof.name}</div>
+                              <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || m.user_id.slice(0, 8)}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              {isFounderMember && <span style={{ background: "#f59e0b18", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: "1px solid #f59e0b30" }}>FOUNDER</span>}
+                              <button onClick={() => setExpandedMember(isExpandedM ? null : `m_${m.user_id}`)} style={{ background: isExpandedM ? "#6366f118" : th.surf2, border: `1px solid ${isExpandedM ? "#6366f140" : th.bdr}`, borderRadius: 7, padding: "3px 8px", cursor: "pointer", color: isExpandedM ? "#6366f1" : th.txt3, fontSize: 11, fontWeight: 600 }}>⚙ Roles</button>
+                              {!isFounderMember && m.user_id !== me && <button onClick={() => removeMember(m.user_id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, display: "flex", padding: 4 }}><X size={14} /></button>}
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            {isFounderMember && <span style={{ background: "#f59e0b18", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: "1px solid #f59e0b30" }}>FOUNDER</span>}
-                            {!isFounderMember && m.user_id !== me && <button onClick={() => removeMember(m.user_id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, display: "flex", padding: 4 }}><X size={14} /></button>}
-                          </div>
-                        </div>
-                        {memberPages.length > 0 && (
-                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {/* Page & role badges */}
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: memberPages.length > 0 || assignedRoles.length > 0 ? 4 : 0 }}>
                             {memberPages.map(pg => { const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0]; return <span key={pg.id} style={{ background: `${pt.c}18`, color: pt.c, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, border: `1px solid ${pt.c}30` }}>{pt.e} {pg.name}</span>; })}
+                            {assignedRoles.map(r => { const ro = ROLE_OPTS.find(o => o.id === r); return ro ? <span key={r} style={{ background: `${ro.c}18`, color: ro.c, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, border: `1px solid ${ro.c}30` }}>{ro.e} {ro.label}</span> : null; })}
                           </div>
-                        )}
+                          {/* Role assignment UI */}
+                          {isExpandedM && (
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${th.bdr}` }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Assign Roles</div>
+                              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+                                {ROLE_OPTS.map(ro => {
+                                  const active = assignedRoles.includes(ro.id);
+                                  return <button key={ro.id} onClick={() => assignMemberRole(m.user_id, ro.id)} style={{ background: active ? `${ro.c}20` : th.surf2, border: `1px solid ${active ? ro.c + "50" : th.bdr}`, borderRadius: 7, padding: "4px 9px", cursor: "pointer", color: active ? ro.c : th.txt3, fontSize: 11, fontWeight: active ? 700 : 500 }}>{ro.e} {ro.label}</button>;
+                                })}
+                              </div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Page Access</div>
+                              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                                {pages.map(pg => {
+                                  const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
+                                  const hasPg = pageMembers.find(pm => pm.user_id === m.user_id && pm.page_id === pg.id);
+                                  return <button key={pg.id} onClick={() => assignMemberPage(m.user_id, pg.id)} style={{ background: hasPg ? `${pt.c}20` : th.surf2, border: `1px solid ${hasPg ? pt.c + "50" : th.bdr}`, borderRadius: 7, padding: "4px 9px", cursor: "pointer", color: hasPg ? pt.c : th.txt3, fontSize: 11, fontWeight: hasPg ? 700 : 500 }}>{pt.e} {pg.name}</button>;
+                                })}
+                                {pages.length === 0 && <span style={{ fontSize: 11, color: th.txt3 }}>No pages yet.</span>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    </Card>
+                  );
+                })
+              )}
+
+              {memberViewMode === "bypage" && (
+                pages.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages yet.</p></div>
+                ) : pages.map(pg => {
+                  const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
+                  const pgMems = pageMembers.filter(pm => pm.page_id === pg.id);
+                  return (
+                    <div key={pg.id} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{pt.e}</div>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{pg.name}</span>
+                        <span style={{ fontSize: 11, color: th.txt3 }}>· {pgMems.length} member{pgMems.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      {pgMems.length === 0 ? (
+                        <div style={{ fontSize: 12, color: th.txt3, padding: "4px 8px" }}>No members with access.</div>
+                      ) : pgMems.map(pm => {
+                        const prof = profiles[pm.user_id] || { name: "Member" };
+                        return (
+                          <div key={pm.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: th.surf2, marginBottom: 5 }}>
+                            <div onClick={() => setViewingProfile(pm.user_id)} style={{ cursor: "pointer" }}><Av profile={prof} size={28} /></div>
+                            <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: th.txt }}>{prof.name}</span>
+                            <span style={{ fontSize: 11, color: th.txt3 }}>@{prof.handle || pm.user_id.slice(0, 8)}</span>
+                            <button onClick={() => assignMemberPage(pm.user_id, pg.id)} style={{ background: "#ef444410", border: "1px solid #ef444430", borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: "#ef4444", fontSize: 11, fontWeight: 600 }}>✕</button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </Card>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           )}
 
-          {tab === "meetings" && <MeetingsTab pages={pages} startup={startup} me={me} dk={dk} />}
+          {tab === "meetings" && <MeetingsTab pages={pages} startup={startup} me={me} profiles={profiles} members={members} dk={dk} />}
 
           {tab === "updates" && (
             <div>
