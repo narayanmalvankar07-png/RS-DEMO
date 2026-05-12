@@ -214,6 +214,16 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   const ROLES_KEY = `rs_pg_page_roles_${page.id}`;
   const [pageRoles, setPageRoles] = useState(() => ls.get(ROLES_KEY, {}));
 
+  // Calendly
+  const CALENDLY_KEY = `rs_calendly_${page.id}`;
+  const [calendlyUrl, setCalendlyUrl] = useState(() => ls.get(CALENDLY_KEY, ""));
+  const [editCalendly, setEditCalendly] = useState(false);
+  const [calendlyInput, setCalendlyInput] = useState(() => ls.get(CALENDLY_KEY, ""));
+
+  // Add member by ID
+  const [addMemberInput, setAddMemberInput] = useState("");
+  const [addMemberError, setAddMemberError] = useState("");
+
   useEffect(() => {
     (async () => {
       const remote = await db.get("rs_page_messages", `page_id=eq.${page.id}&order=created_at.asc&limit=200`);
@@ -271,6 +281,30 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   };
 
   const setMemberRole = (userId, role) => { const u = { ...pageRoles, [userId]: role }; setPageRoles(u); ls.set(ROLES_KEY, u); };
+
+  const isPageAdmin = isFounder || pageRoles[me] === "admin";
+
+  const saveCalendlyUrl = () => {
+    const url = calendlyInput.trim();
+    setCalendlyUrl(url);
+    ls.set(CALENDLY_KEY, url);
+    setEditCalendly(false);
+  };
+
+  const addMemberById = () => {
+    const input = addMemberInput.trim();
+    if (!input) return;
+    const found = Object.entries(profiles).find(([id, p]) =>
+      id === input || p.handle === input || p.handle === input.replace("@", "") || p.email === input
+    );
+    if (!found) { setAddMemberError("No user found with that ID or handle."); return; }
+    const [userId] = found;
+    const alreadyMember = pgMems.find(m => m.user_id === userId);
+    if (alreadyMember) { setAddMemberError("This user is already a member of this page."); return; }
+    const newMember = { page_id: page.id, user_id: userId };
+    const updAllMembers = [...allMembers, newMember];
+    setAddMemberInput(""); setAddMemberError("");
+  };
 
   const PRIORITY_C = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
   const PAGE_MEMBER_ROLES = [{ id: "admin", label: "Admin", e: "👑", c: "#f59e0b" }, { id: "moderator", label: "Moderator", e: "🛡️", c: "#6366f1" }, { id: "member", label: "Member", e: "👤", c: "#10b981" }];
@@ -452,13 +486,56 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
       {/* ── MEETINGS ── */}
       {pageTab === "meetings" && (
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt2, display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} /> Meetings ({meetings.length})</span>
-            <button onClick={() => setShowMtgForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: showMtgForm ? th.surf2 : "#6366f1", border: `1px solid ${showMtgForm ? th.bdr : "#6366f1"}`, borderRadius: 10, padding: "7px 14px", color: showMtgForm ? th.txt2 : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              {showMtgForm ? <><X size={13} /> Cancel</> : <><PlusCircle size={13} /> Book</>}
-            </button>
+          {/* Calendly available slots section */}
+          <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: "#00a2ff18", border: "1px solid #00a2ff30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📆</div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>Available Slots (Calendly)</div>
+                  <div style={{ fontSize: 11, color: th.txt3 }}>{isPageAdmin ? "Configure your Calendly link to share available slots" : "Book a slot with the page admin"}</div>
+                </div>
+              </div>
+              {isPageAdmin && (
+                <button onClick={() => { setEditCalendly(v => !v); setCalendlyInput(calendlyUrl); }} style={{ background: editCalendly ? th.surf2 : "#00a2ff18", border: `1px solid ${editCalendly ? th.bdr : "#00a2ff40"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: editCalendly ? th.txt3 : "#00a2ff", fontSize: 11, fontWeight: 700 }}>
+                  {editCalendly ? "Cancel" : calendlyUrl ? "Edit Link" : "Set Up"}
+                </button>
+              )}
+            </div>
+            {isPageAdmin && editCalendly && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <input value={calendlyInput} onChange={e => setCalendlyInput(e.target.value)} placeholder="https://calendly.com/your-username/30min" style={{ ...inp, flex: 1 }} />
+                <button onClick={saveCalendlyUrl} disabled={!calendlyInput.trim()} style={{ flexShrink: 0, padding: "10px 14px", background: calendlyInput.trim() ? "#00a2ff" : th.surf2, border: "none", borderRadius: 10, cursor: calendlyInput.trim() ? "pointer" : "default", color: calendlyInput.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Save</button>
+                {calendlyUrl && <button onClick={() => { setCalendlyUrl(""); ls.set(CALENDLY_KEY, ""); setEditCalendly(false); }} style={{ flexShrink: 0, padding: "10px 12px", background: "#ef444410", border: "1px solid #ef444430", borderRadius: 10, cursor: "pointer", color: "#ef4444", fontSize: 13, fontWeight: 700 }}>Remove</button>}
+              </div>
+            )}
+            {calendlyUrl ? (
+              <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${th.bdr}` }}>
+                <iframe
+                  src={`${calendlyUrl.replace(/\/$/, "")}?embed_type=Inline&hide_event_type_details=0&hide_gdpr_banner=1&background_color=${dk ? "0a0f1e" : "ffffff"}&text_color=${dk ? "e8f0fe" : "0f172a"}&primary_color=6366f1`}
+                  width="100%"
+                  height="630"
+                  style={{ border: "none", display: "block" }}
+                  title="Calendly Scheduling"
+                />
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px 0", color: th.txt3, fontSize: 13 }}>
+                {isPageAdmin ? "Add your Calendly link above to let members book available slots." : "No available slots configured yet. Ask the page admin to set up Calendly."}
+              </div>
+            )}
           </div>
-          {showMtgForm && (
+
+          {/* Manual meeting booking */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt2, display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} /> Scheduled Meetings ({meetings.length})</span>
+            {isPageAdmin && (
+              <button onClick={() => setShowMtgForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: showMtgForm ? th.surf2 : "#6366f1", border: `1px solid ${showMtgForm ? th.bdr : "#6366f1"}`, borderRadius: 10, padding: "7px 14px", color: showMtgForm ? th.txt2 : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {showMtgForm ? <><X size={13} /> Cancel</> : <><PlusCircle size={13} /> Schedule</>}
+              </button>
+            )}
+          </div>
+          {isPageAdmin && showMtgForm && (
             <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }}>
               <input value={mtgForm.title} onChange={e => setMtgForm(f => ({ ...f, title: e.target.value }))} placeholder="Meeting title *" style={inp} />
               <div style={{ display: "flex", gap: 10 }}>
@@ -473,11 +550,11 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
               <input value={mtgForm.link} onChange={e => setMtgForm(f => ({ ...f, link: e.target.value }))} placeholder="Meeting link (optional)" style={inp} />
               <input value={mtgForm.with_note} onChange={e => setMtgForm(f => ({ ...f, with_note: e.target.value }))} placeholder="With whom? (e.g. John, Sarah)" style={inp} />
               <textarea value={mtgForm.agenda} onChange={e => setMtgForm(f => ({ ...f, agenda: e.target.value }))} placeholder="Agenda (optional)" rows={2} style={{ ...inp, resize: "vertical" }} />
-              <button onClick={bookMeeting} disabled={!mtgForm.title.trim() || !mtgForm.date || !mtgForm.time} style={{ padding: "10px", background: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: "pointer", color: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Book Meeting</button>
+              <button onClick={bookMeeting} disabled={!mtgForm.title.trim() || !mtgForm.date || !mtgForm.time} style={{ padding: "10px", background: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: "pointer", color: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Schedule Meeting</button>
             </div>
           )}
           {meetings.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No meetings scheduled.</div>
+            <div style={{ textAlign: "center", padding: 32, color: th.txt3, fontSize: 13 }}>No meetings scheduled yet.</div>
           ) : meetings.map(mtg => {
             const booker = profiles?.[mtg.created_by] || { name: "Unknown" };
             return (
@@ -487,7 +564,7 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
                   <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{mtg.title}</div>
                   <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{mtg.meeting_date} · {mtg.meeting_time} · {mtg.platform === "zoom" ? "📷 Zoom" : "📹 Google Meet"}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 11, color: th.txt3 }}>Booked by</span>
+                    <span style={{ fontSize: 11, color: th.txt3 }}>Scheduled by</span>
                     <div onClick={() => setViewingProf(mtg.created_by)} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}><Av profile={booker} size={16} /><span style={{ fontSize: 11, fontWeight: 600, color: th.txt2 }}>{booker.name}</span></div>
                     {mtg.with_note && <><span style={{ fontSize: 11, color: th.txt3 }}>· with</span><span style={{ fontSize: 11, fontWeight: 600, color: "#6366f1" }}>{mtg.with_note}</span></>}
                   </div>
@@ -527,7 +604,37 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
       {/* ── MEMBERS ── */}
       {pageTab === "members" && (
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: th.txt2, marginBottom: 14 }}>👥 Members ({pgMems.length})</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: th.txt2 }}>👥 Members ({pgMems.length})</div>
+          </div>
+
+          {/* Add member by ID — visible only to page admins/founders */}
+          {isPageAdmin && (
+            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Add Member by ID or Handle</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  value={addMemberInput}
+                  onChange={e => { setAddMemberInput(e.target.value); setAddMemberError(""); }}
+                  onKeyDown={e => { if (e.key === "Enter") addMemberById(); }}
+                  placeholder="User ID, @handle, or email…"
+                  style={{ ...inp, flex: 1 }}
+                  data-testid="input-add-member-id"
+                />
+                <button
+                  onClick={addMemberById}
+                  disabled={!addMemberInput.trim()}
+                  style={{ flexShrink: 0, padding: "10px 16px", background: addMemberInput.trim() ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: addMemberInput.trim() ? "pointer" : "default", color: addMemberInput.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}
+                  data-testid="button-add-member"
+                >+ Add</button>
+              </div>
+              {addMemberError && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6 }}>{addMemberError}</div>}
+              <div style={{ fontSize: 11, color: th.txt3, marginTop: 6 }}>
+                Tip: Members must first join the startup before they can be added to a page.
+              </div>
+            </div>
+          )}
+
           {pgMems.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No members with access yet.</div>
           ) : pgMems.map(pm => {
@@ -541,7 +648,7 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
                   <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name}</div>
                   <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || pm.user_id.slice(0, 8)}</div>
                 </div>
-                {isFounder ? (
+                {isPageAdmin ? (
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {PAGE_MEMBER_ROLES.map(r => (
                       <button key={r.id} onClick={() => setMemberRole(pm.user_id, r.id)} style={{ background: role === r.id ? `${r.c}22` : th.surf2, border: `1px solid ${role === r.id ? r.c + "50" : th.bdr}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", color: role === r.id ? r.c : th.txt3, fontSize: 11, fontWeight: role === r.id ? 700 : 500 }}>{r.e} {r.label}</button>
@@ -1110,7 +1217,11 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     ]);
     setRequests(reqs || []);
     setPages(pgs || []);
-    setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
+    const uniqueMembers = [...new Map((mbs || []).map(m => [m.user_id, m])).values()];
+    if (!uniqueMembers.find(m => m.user_id === startup.created_by)) {
+      uniqueMembers.unshift({ user_id: startup.created_by, status: "approved" });
+    }
+    setMembers(uniqueMembers);
     setUpdates(upds || []);
     setLoading(false);
   }, [startup.id]);
@@ -1127,6 +1238,11 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const rejectRequest = async (req) => {
     await db.patch("rs_page_access_requests", `id=eq.${req.id}`, { status: "rejected" });
     setRequests(rs => rs.map(r => r.id === req.id ? { ...r, status: "rejected" } : r));
+  };
+
+  const deleteRequest = async (req) => {
+    await db.del("rs_page_access_requests", `id=eq.${req.id}`);
+    setRequests(rs => rs.filter(r => r.id !== req.id));
   };
 
   const approvePageReq = (req) => {
@@ -1310,12 +1426,15 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                           </div>
                         )}
                         {req.message && <p style={{ fontSize: 12, color: th.txt2, margin: "0 0 8px", fontStyle: "italic" }}>"{req.message}"</p>}
-                        {req.status === "pending" && (
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={() => approveRequest(req)} style={{ background: "#10b98118", border: "1px solid #10b98140", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#10b981", fontSize: 12, fontWeight: 700 }}>✓ Approve</button>
-                            <button onClick={() => rejectRequest(req)} style={{ background: "#ef444418", border: "1px solid #ef444440", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}>✕ Reject</button>
-                          </div>
-                        )}
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {req.status === "pending" && (
+                            <>
+                              <button onClick={() => approveRequest(req)} style={{ background: "#10b98118", border: "1px solid #10b98140", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#10b981", fontSize: 12, fontWeight: 700 }}>✓ Approve</button>
+                              <button onClick={() => rejectRequest(req)} style={{ background: "#ef444418", border: "1px solid #ef444440", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}>✕ Reject</button>
+                            </>
+                          )}
+                          <button onClick={() => deleteRequest(req)} title="Delete request" style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: "4px 6px", borderRadius: 6, display: "flex", alignItems: "center" }}><Trash2 size={14} /></button>
+                        </div>
                       </div>
                     </div>
                   </Card>
