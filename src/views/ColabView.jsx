@@ -7,6 +7,7 @@ import { ago } from "../utils/helpers.js";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import Spin from "../components/ui/Spin.jsx";
+import ProfileView from "./ProfileView.jsx";
 
 // ─── Logo renderer ─────────────────────────────────────────────────
 function Logo({ src, size = 56, radius = 16, fontSize = 28 }) {
@@ -1215,7 +1216,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
-      {viewingProfile && <UserProfilePanel profile={profiles[viewingProfile]} userId={viewingProfile} dk={dk} onClose={() => setViewingProfile(null)} />}
+      {viewingProfile && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9998, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "16px", overflowY: "auto" }} onClick={() => setViewingProfile(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, background: dk ? "rgba(8,15,30,0.98)" : "#f8fafc", backdropFilter: "blur(24px)", border: `1px solid ${T(dk).bdr}`, borderRadius: 22, padding: "20px", marginTop: 16, marginBottom: 16, animation: "fadeUp 0.22s ease both" }}>
+            <ProfileView uid={viewingProfile} me={me} dk={dk} bals={bals} profiles={profiles} setBals={() => {}} onBack={() => setViewingProfile(null)} onMessage={() => {}} addNotif={addNotif} />
+          </div>
+        </div>
+      )}
       {showEdit && <CreateStartupModal me={me} existing={startup} onClose={() => setShowEdit(false)} onSave={s => { setStartup(s); onStartupUpdated?.(s); }} dk={dk} />}
 
       <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", color: th.txt2, fontSize: 13, fontWeight: 600, padding: "0 0 14px" }}>
@@ -1291,9 +1298,9 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: th.txt }}>{prof.name}</div>
-                            <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || req.user_id.slice(0, 8)}</div>
+                          <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer" }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: th.txt, textDecoration: "underline", textDecorationColor: "transparent" }} onMouseEnter={e => e.currentTarget.style.textDecorationColor = th.txt} onMouseLeave={e => e.currentTarget.style.textDecorationColor = "transparent"}>{prof.name}</div>
+                            <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || req.user_id.slice(0, 8)} · tap to view full profile</div>
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: req.status === "approved" ? "#10b98118" : req.status === "rejected" ? "#ef444418" : "#f59e0b18", color: req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b" }}>{req.status?.toUpperCase()}</span>
                         </div>
@@ -1329,7 +1336,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                           <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }} title="View profile">
                             <Av profile={prof} size={40} />
                           </div>
-                          <div style={{ flex: 1 }}>
+                          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setViewingProfile(req.user_id)}>
                             <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name}</div>
                             <div style={{ fontSize: 12, color: th.txt3 }}>Requesting access to <span style={{ color: pt.c, fontWeight: 600 }}>{pt.e} {pg?.name || "a page"}</span></div>
                           </div>
