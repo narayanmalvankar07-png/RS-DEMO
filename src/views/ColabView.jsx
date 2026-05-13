@@ -40,6 +40,16 @@ const JOIN_ROLES = [
   { id: "cofounder",  label: "Co-Founder", e: "🚀", c: "#ef4444" },
 ];
 
+// Maps join role → page type_id (null = all pages, undefined = no auto-page)
+const ROLE_PAGE_MAP = {
+  developer:  "tech",
+  designer:   "product",
+  marketer:   "marketing",
+  investor:   "investment",
+  advisor:    "investment",
+  cofounder:  null,
+};
+
 // ─── Local storage helpers ──────────────────────────────────────────
 const ls = {
   get: (k, def = []) => { try { return JSON.parse(localStorage.getItem(k) ?? "null") ?? def; } catch { return def; } },
@@ -177,7 +187,7 @@ function FeedbackSection({ startupId, me, profiles, dk }) {
 }
 
 // ─── Page Chat View (WhatsApp-style) ───────────────────────────────
-function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack }) {
+function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack, onAddPageMember = () => {} }) {
   const th = T(dk);
   const pt = PAGE_TYPES.find(p => p.id === page.type_id) || PAGE_TYPES[0];
   const pgMems = pageMembers.filter(m => m.page_id === page.id);
@@ -220,9 +230,11 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   const [editCalendly, setEditCalendly] = useState(false);
   const [calendlyInput, setCalendlyInput] = useState(() => ls.get(CALENDLY_KEY, ""));
 
-  // Add member by ID
-  const [addMemberInput, setAddMemberInput] = useState("");
-  const [addMemberError, setAddMemberError] = useState("");
+  // Member search
+  const [memberSearch, setMemberSearch] = useState("");
+
+  // File preview
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -266,8 +278,13 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]; if (!file) return;
-    const entry = { id: `file_${Date.now()}`, name: file.name, size: file.size, type: file.type, uploaded_by: me, created_at: new Date().toISOString() };
-    const u = [...files, entry]; setFiles(u); ls.set(FILE_KEY, u); e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const entry = { id: `file_${Date.now()}`, name: file.name, size: file.size, type: file.type, uploaded_by: me, created_at: new Date().toISOString(), dataUrl: ev.target.result };
+      const u = [...files, entry]; setFiles(u); ls.set(FILE_KEY, u);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
   const deleteFile = (id) => { const u = files.filter(f => f.id !== id); setFiles(u); ls.set(FILE_KEY, u); };
 
@@ -291,19 +308,10 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
     setEditCalendly(false);
   };
 
-  const addMemberById = () => {
-    const input = addMemberInput.trim();
-    if (!input) return;
-    const found = Object.entries(profiles).find(([id, p]) =>
-      id === input || p.handle === input || p.handle === input.replace("@", "") || p.email === input
-    );
-    if (!found) { setAddMemberError("No user found with that ID or handle."); return; }
-    const [userId] = found;
-    const alreadyMember = pgMems.find(m => m.user_id === userId);
-    if (alreadyMember) { setAddMemberError("This user is already a member of this page."); return; }
-    const newMember = { page_id: page.id, user_id: userId };
-    const updAllMembers = [...allMembers, newMember];
-    setAddMemberInput(""); setAddMemberError("");
+  const addMemberToPage = (userId) => {
+    if (pgMems.find(m => m.user_id === userId)) return;
+    onAddPageMember(page.id, userId);
+    setMemberSearch("");
   };
 
   const PRIORITY_C = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
@@ -465,18 +473,46 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
             <button onClick={() => fileInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 5, background: "#6366f1", border: "none", borderRadius: 10, padding: "7px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>📎 Upload File</button>
             <input ref={fileInputRef} type="file" style={{ display: "none" }} onChange={handleFileUpload} />
           </div>
+          {/* File preview modal */}
+          {previewFile && (
+            <div onClick={() => setPreviewFile(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+              <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "85vh", background: th.surf, borderRadius: 16, overflow: "hidden", boxShadow: "0 25px 60px rgba(0,0,0,0.6)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${th.bdr}` }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: th.txt, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{previewFile.name}</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {previewFile.dataUrl && <a href={previewFile.dataUrl} download={previewFile.name} style={{ display: "flex", alignItems: "center", gap: 4, background: "#10b98118", border: "1px solid #10b98130", borderRadius: 8, padding: "5px 10px", color: "#10b981", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>⬇ Download</a>}
+                    <button onClick={() => setPreviewFile(null)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, display: "flex", padding: 4 }}><X size={16} /></button>
+                  </div>
+                </div>
+                {previewFile.type?.startsWith("image/") ? (
+                  <img src={previewFile.dataUrl} alt={previewFile.name} style={{ maxWidth: "88vw", maxHeight: "78vh", display: "block", objectFit: "contain" }} />
+                ) : (
+                  <iframe src={previewFile.dataUrl} title={previewFile.name} style={{ width: "80vw", height: "75vh", border: "none", display: "block" }} />
+                )}
+              </div>
+            </div>
+          )}
+
           {files.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No files yet.</div>
           ) : files.map(f => {
             const uploader = profiles[f.uploaded_by] || { name: "Member" };
+            const isImg = f.type?.startsWith("image/");
+            const isPdf = f.type === "application/pdf";
             return (
               <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#6366f118", border: "1px solid #6366f130", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>📄</div>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#6366f118", border: "1px solid #6366f130", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                  {isImg ? "🖼️" : isPdf ? "📕" : "📄"}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, color: th.txt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</div>
                   <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>{(f.size / 1024).toFixed(1)} KB · {uploader.name} · {ago(new Date(f.created_at).getTime())}</div>
                 </div>
-                {(f.uploaded_by === me || isFounder) && <button onClick={() => deleteFile(f.id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, padding: 4 }}><Trash2 size={13} /></button>}
+                <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                  {f.dataUrl && <button onClick={() => setPreviewFile(f)} style={{ display: "flex", alignItems: "center", gap: 4, background: "#6366f118", border: "1px solid #6366f130", borderRadius: 8, padding: "5px 9px", cursor: "pointer", color: "#6366f1", fontSize: 11, fontWeight: 700 }}>👁 Preview</button>}
+                  {f.dataUrl && <a href={f.dataUrl} download={f.name} style={{ display: "flex", alignItems: "center", gap: 4, background: "#10b98118", border: "1px solid #10b98130", borderRadius: 8, padding: "5px 9px", cursor: "pointer", color: "#10b981", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>⬇ Save</a>}
+                  {(f.uploaded_by === me || isPageAdmin) && <button onClick={() => deleteFile(f.id)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, padding: 4, display: "flex" }}><Trash2 size={13} /></button>}
+                </div>
               </div>
             );
           })}
@@ -608,32 +644,63 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
             <div style={{ fontWeight: 700, fontSize: 14, color: th.txt2 }}>👥 Members ({pgMems.length})</div>
           </div>
 
-          {/* Add member by ID — visible only to page admins/founders */}
-          {isPageAdmin && (
-            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Add Member by ID or Handle</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={addMemberInput}
-                  onChange={e => { setAddMemberInput(e.target.value); setAddMemberError(""); }}
-                  onKeyDown={e => { if (e.key === "Enter") addMemberById(); }}
-                  placeholder="User ID, @handle, or email…"
-                  style={{ ...inp, flex: 1 }}
-                  data-testid="input-add-member-id"
-                />
-                <button
-                  onClick={addMemberById}
-                  disabled={!addMemberInput.trim()}
-                  style={{ flexShrink: 0, padding: "10px 16px", background: addMemberInput.trim() ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: addMemberInput.trim() ? "pointer" : "default", color: addMemberInput.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}
-                  data-testid="button-add-member"
-                >+ Add</button>
+          {/* LinkedIn-like member search — only for page admins/founders */}
+          {isPageAdmin && (() => {
+            const availableToAdd = allMembers.filter(m => !pgMems.find(pm => pm.user_id === m.user_id));
+            const searchTerm = memberSearch.toLowerCase().trim();
+            const searchResults = searchTerm
+              ? availableToAdd.filter(m => {
+                  const p = profiles[m.user_id];
+                  if (!p) return false;
+                  return (p.name || "").toLowerCase().includes(searchTerm) ||
+                    (p.handle || "").toLowerCase().includes(searchTerm) ||
+                    (p.email || "").toLowerCase().includes(searchTerm);
+                })
+              : availableToAdd.slice(0, 6);
+            return (
+              <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Add from Colab Members</div>
+                <div style={{ position: "relative", marginBottom: searchResults.length > 0 ? 10 : 0 }}>
+                  <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: th.txt3, pointerEvents: "none" }} />
+                  <input
+                    value={memberSearch}
+                    onChange={e => setMemberSearch(e.target.value)}
+                    placeholder="Search by name, handle, or email…"
+                    style={{ ...inp, paddingLeft: 34 }}
+                    data-testid="input-member-search"
+                  />
+                </div>
+                {availableToAdd.length === 0 ? (
+                  <div style={{ fontSize: 12, color: th.txt3, textAlign: "center", padding: "8px 0" }}>All colab members are already in this page.</div>
+                ) : searchResults.length === 0 && searchTerm ? (
+                  <div style={{ fontSize: 12, color: th.txt3, textAlign: "center", padding: "8px 0" }}>No members match your search.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {searchResults.map(m => {
+                      const p = profiles[m.user_id] || { name: "Member" };
+                      return (
+                        <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10, background: th.surf2, borderRadius: 10, padding: "8px 12px" }}>
+                          <Av profile={p} size={32} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{p.name}</div>
+                            <div style={{ fontSize: 11, color: th.txt3 }}>@{p.handle || m.user_id.slice(0, 8)}</div>
+                          </div>
+                          <button
+                            onClick={() => addMemberToPage(m.user_id)}
+                            style={{ flexShrink: 0, padding: "5px 12px", background: "#6366f1", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff", fontWeight: 700, fontSize: 12 }}
+                            data-testid={`button-add-member-${m.user_id}`}
+                          >+ Add</button>
+                        </div>
+                      );
+                    })}
+                    {!searchTerm && availableToAdd.length > 6 && (
+                      <div style={{ fontSize: 11, color: th.txt3, textAlign: "center", padding: "4px 0" }}>Search to find more ({availableToAdd.length - 6} more available)</div>
+                    )}
+                  </div>
+                )}
               </div>
-              {addMemberError && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6 }}>{addMemberError}</div>}
-              <div style={{ fontSize: 11, color: th.txt3, marginTop: 6 }}>
-                Tip: Members must first join the startup before they can be added to a page.
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {pgMems.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: th.txt3, fontSize: 13 }}>No members with access yet.</div>
@@ -987,8 +1054,16 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const submitJoin = async () => {
     if (!joinRoles.length) return;
     setSubmittingJoin(true);
-    const saved = await db.post("rs_page_access_requests", { startup_id: startup.id, user_id: me, selected_roles: joinRoles, message: joinMsg.trim(), status: "pending" });
-    if (saved) { setMyRequest(saved); addNotif?.({ type: "success", msg: "Join request sent!" }); }
+    const saved = await Promise.all(
+      joinRoles.map(role => db.post("rs_page_access_requests", {
+        startup_id: startup.id, user_id: me, selected_roles: [role], message: joinMsg.trim(), status: "pending"
+      }))
+    );
+    const firstSaved = saved.find(Boolean);
+    if (firstSaved) {
+      setMyRequest(firstSaved);
+      addNotif?.({ type: "success", msg: `${joinRoles.length} role request${joinRoles.length > 1 ? "s" : ""} sent!` });
+    }
     setSubmittingJoin(false); setShowJoinForm(false);
   };
 
@@ -1013,7 +1088,7 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const headerBg = dk ? "linear-gradient(135deg,rgba(30,58,138,0.25),rgba(91,33,182,0.2))" : "linear-gradient(135deg,#e0e7ff,#ede9fe)";
   const TABS = [{ id: "overview", label: "Overview" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
@@ -1102,14 +1177,26 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
 
           {tab === "pages" && (
             <div>
-              <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>Click a page to chat or request access to join.</div>
-              {pages.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages created yet.</p></div>
-              ) : pages.map(pg => {
+              {isStartupMember ? (
+                <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>Your accessible pages based on your approved role(s).</div>
+              ) : (
+                <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>Get approved first to access pages.</div>
+              )}
+              {(() => {
+                const visiblePages = isStartupMember
+                  ? pages.filter(pg => getPageAccess(pg.id) === "approved")
+                  : pages;
+                if (visiblePages.length === 0) return (
+                  <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
+                    <div style={{ fontSize: 32 }}>📄</div>
+                    <p>{isStartupMember ? "No pages have been assigned to your role yet." : "No pages created yet."}</p>
+                  </div>
+                );
+                return visiblePages.map(pg => {
                 const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
                 const access = getPageAccess(pg.id);
                 return (
-                  <div key={pg.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px", marginBottom: 10, gap: 12 }}>
+                  <div key={pg.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${pt.c}30`, borderRadius: 14, padding: "14px 16px", marginBottom: 10, gap: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                       <div style={{ width: 42, height: 42, borderRadius: 12, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{pt.e}</div>
                       <div style={{ minWidth: 0 }}>
@@ -1128,7 +1215,8 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
                     </div>
                   </div>
                 );
-              })}
+              });
+            })()}
             </div>
           )}
 
@@ -1233,6 +1321,19 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     await db.upsert("rs_page_access", { startup_id: startup.id, user_id: req.user_id, status: "approved" });
     setRequests(rs => rs.map(r => r.id === req.id ? { ...r, status: "approved" } : r));
     setMembers(ms => ms.find(m => m.user_id === req.user_id) ? ms : [...ms, { user_id: req.user_id, status: "approved" }]);
+    // Auto-add to matching page(s) based on selected role
+    const role = (req.selected_roles || [])[0];
+    if (role && role in ROLE_PAGE_MAP) {
+      const pageTypeId = ROLE_PAGE_MAP[role];
+      const matchedPages = pageTypeId === null ? pages : pages.filter(p => p.type_id === pageTypeId);
+      const newMems = matchedPages
+        .filter(pg => !pageMembers.find(m => m.page_id === pg.id && m.user_id === req.user_id))
+        .map(pg => ({ page_id: pg.id, user_id: req.user_id }));
+      if (newMems.length) {
+        const updMems = [...pageMembers, ...newMems];
+        setPageMembers(updMems); ls.set(PG_MEM_KEY, updMems);
+      }
+    }
   };
 
   const rejectRequest = async (req) => {
@@ -1328,7 +1429,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   const inp = { background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
