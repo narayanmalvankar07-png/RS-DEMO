@@ -1109,10 +1109,25 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   };
 
   const getPageAccess = (pageId) => {
+    // Check localStorage page membership first
     const mem = pageMembers.find(m => m.page_id === pageId && m.user_id === me);
     if (mem) return "approved";
+    // Check pending/rejected requests
     const req = pageReqs.find(r => r.page_id === pageId && r.user_id === me);
-    return req?.status || null;
+    if (req) return req.status;
+    // Auto-grant access based on the member's approved role(s) via ROLE_PAGE_MAP
+    if (isStartupMember && myRequest?.selected_roles?.length) {
+      const pg = pages.find(p => p.id === pageId);
+      if (pg) {
+        const hasRoleAccess = myRequest.selected_roles.some(role => {
+          if (!(role in ROLE_PAGE_MAP)) return false;
+          const mappedType = ROLE_PAGE_MAP[role];
+          return mappedType === null || mappedType === pg.type_id;
+        });
+        if (hasRoleAccess) return "approved";
+      }
+    }
+    return null;
   };
 
   const founders = (startup.founders || [startup.created_by]).filter(Boolean);
@@ -1228,13 +1243,12 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
                 <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>Get approved first to access pages.</div>
               )}
               {(() => {
-                const visiblePages = isStartupMember
-                  ? pages.filter(pg => getPageAccess(pg.id) === "approved")
-                  : pages;
+                // All pages are always shown; access level determines the button shown
+                const visiblePages = pages;
                 if (visiblePages.length === 0) return (
                   <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
                     <div style={{ fontSize: 32 }}>📄</div>
-                    <p>{isStartupMember ? "No pages have been assigned to your role yet." : "No pages created yet."}</p>
+                    <p>{isStartupMember ? "No pages have been created in this colab yet." : "No pages created yet."}</p>
                   </div>
                 );
                 return visiblePages.map(pg => {
