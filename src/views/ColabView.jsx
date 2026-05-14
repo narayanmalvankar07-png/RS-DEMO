@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn } from "lucide-react";
+import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import { ago } from "../utils/helpers.js";
@@ -1047,6 +1047,7 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const [joinMsg, setJoinMsg] = useState("");
   const [submittingJoin, setSubmittingJoin] = useState(false);
   const [activePage, setActivePage] = useState(null);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
 
   // Per-page requests/access (localStorage)
   const PG_REQ_KEY = `rs_pg_req_${startup.id}`;
@@ -1055,6 +1056,16 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const [pageMembers, setPageMembers] = useState(() => ls.get(PG_MEM_KEY, []));
 
   const isStartupMember = myRequest?.status === "approved";
+
+  const leaveColab = async () => {
+    if (!leaveConfirm) { setLeaveConfirm(true); return; }
+    await Promise.all([
+      db.del("rs_page_access", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
+      db.del("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
+    ]);
+    addNotif?.({ type: "info", msg: "You have left the colab." });
+    onBack();
+  };
 
   useEffect(() => {
     (async () => {
@@ -1130,8 +1141,21 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
           {!myRequest ? (
             <button onClick={() => setShowJoinForm(v => !v)} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
           ) : (
-            <div style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
-              {myRequest.status === "approved" ? "✅ Member" : myRequest.status === "rejected" ? "❌ Not approved" : "⏳ Pending"}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+              <div style={{ padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
+                {myRequest.status === "approved" ? "✅ Member" : myRequest.status === "rejected" ? "❌ Not approved" : "⏳ Pending"}
+              </div>
+              {myRequest.status === "approved" && (
+                leaveConfirm ? (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 600 }}>Leave colab?</span>
+                    <button onClick={leaveColab} style={{ background: "#ef4444", border: "none", borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: "#fff", fontSize: 11, fontWeight: 700 }}>Yes, leave</button>
+                    <button onClick={() => setLeaveConfirm(false)} style={{ background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "5px 8px", cursor: "pointer", color: th.txt2, fontSize: 11 }}>Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={leaveColab} style={{ display: "flex", alignItems: "center", gap: 4, background: "#ef444412", border: "1px solid #ef444430", borderRadius: 9, padding: "5px 12px", cursor: "pointer", color: "#ef4444", fontSize: 11, fontWeight: 700 }}><LogOut size={11} /> Leave Colab</button>
+                )
+              )}
             </div>
           )}
         </div>
@@ -1285,6 +1309,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const [posting, setPosting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showAddPage, setShowAddPage] = useState(false);
   const [newPageName, setNewPageName] = useState("");
   const [newPageType, setNewPageType] = useState("community");
@@ -1325,7 +1350,14 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
     ]);
     setRequests(reqs || []);
-    setPages(pgs || []);
+    // Auto-create any missing default role pages
+    let finalPages = pgs || [];
+    const missingPages = DEFAULT_ROLE_PAGES.filter(rp => !finalPages.find(p => p.name === rp.name));
+    if (missingPages.length > 0) {
+      const created = await db.postMany("rs_startup_pages", missingPages.map(rp => ({ startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: startup.created_by })));
+      finalPages = [...finalPages, ...(created || [])];
+    }
+    setPages(finalPages);
     const uniqueMembers = [...new Map((mbs || []).map(m => [m.user_id, m])).values()];
     if (!uniqueMembers.find(m => m.user_id === startup.created_by)) {
       uniqueMembers.unshift({ user_id: startup.created_by, status: "approved" });
@@ -1401,6 +1433,19 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     const cleanedReqs = pageReqs.filter(r => r.user_id !== userId);
     setPageReqs(cleanedReqs); ls.set(PG_REQ_KEY, cleanedReqs);
     addNotif?.({ type: "success", msg: "Member removed." });
+  };
+
+  const deleteColab = async () => {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
+    await Promise.all([
+      db.del("rs_startups", `id=eq.${startup.id}`),
+      db.del("rs_startup_pages", `startup_id=eq.${startup.id}`),
+      db.del("rs_startup_updates", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_access", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_access_requests", `startup_id=eq.${startup.id}`),
+    ]);
+    addNotif?.({ type: "success", msg: "Colab deleted." });
+    onBack();
   };
 
   const postUpdate = async () => {
@@ -1485,6 +1530,15 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
             <CopyBtn text={startup.referral_code} label="Copy Code" />
             <CopyBtn text={`${window.location.origin}?join=${startup.referral_code}`} label="Copy Link" />
             <button onClick={() => setShowEdit(true)} style={{ display: "flex", alignItems: "center", gap: 5, background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "6px 12px", cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600 }}><Edit2 size={12} /> Edit</button>
+            {confirmDelete ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 600 }}>Delete colab?</span>
+                <button onClick={deleteColab} style={{ background: "#ef4444", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700 }}>Yes, delete</button>
+                <button onClick={() => setConfirmDelete(false)} style={{ background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600 }}>Cancel</button>
+              </div>
+            ) : (
+              <button onClick={deleteColab} style={{ display: "flex", alignItems: "center", gap: 5, background: "#ef444412", border: "1px solid #ef444430", borderRadius: 10, padding: "6px 12px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 600 }}><Trash2 size={12} /> Delete</button>
+            )}
           </div>
         </div>
       </div>
