@@ -50,6 +50,20 @@ const ROLE_PAGE_MAP = {
   cofounder:  null,
 };
 
+// Default pages created automatically when a colab is launched
+// Covers all JOIN_ROLES via ROLE_PAGE_MAP (unique page types + community)
+const DEFAULT_PAGE_TYPES = ["community", "tech", "product", "marketing", "investment"];
+
+// Per-page-type request config — each page has its own question/context
+const PAGE_REQUEST_CONFIG = {
+  community:  { icon: "🌐", question: "How will you contribute to the community?",           placeholder: "Share ideas, help members, moderate discussions, grow the audience…",    color: "#3b82f6" },
+  product:    { icon: "🚀", question: "What product skills do you bring?",                   placeholder: "UX/UI design, roadmap planning, user research, prototyping…",             color: "#10b981" },
+  tech:       { icon: "🤖", question: "What is your technical background?",                  placeholder: "Languages, frameworks, open-source projects, relevant experience…",       color: "#8b5cf6" },
+  investment: { icon: "💰", question: "What is your investment or advisory background?",     placeholder: "Stage focus, sector expertise, ticket size, portfolio companies…",        color: "#f59e0b" },
+  marketing:  { icon: "📣", question: "What is your marketing experience?",                  placeholder: "Growth hacking, content, SEO, paid ads, brand strategy, campaigns…",      color: "#ec4899" },
+  sales:      { icon: "🤝", question: "What sales experience do you have?",                  placeholder: "B2B/B2C, enterprise deals, partnerships, pipeline management…",           color: "#06b6d4" },
+};
+
 // ─── Local storage helpers ──────────────────────────────────────────
 const ls = {
   get: (k, def = []) => { try { return JSON.parse(localStorage.getItem(k) ?? "null") ?? def; } catch { return def; } },
@@ -876,7 +890,7 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
     else {
       result = await db.post("rs_startups", payload);
       if (result?.id) {
-        const defaultPages = ["community", "product"].map(tid => { const pt = PAGE_TYPES.find(p => p.id === tid); return { startup_id: result.id, name: pt.label, description: pt.desc, type_id: tid }; });
+        const defaultPages = DEFAULT_PAGE_TYPES.map(tid => { const pt = PAGE_TYPES.find(p => p.id === tid); return { startup_id: result.id, name: pt.label, description: pt.desc, type_id: tid, created_by: me }; });
         await db.postMany("rs_startup_pages", defaultPages);
       }
     }
@@ -1501,78 +1515,160 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
           {tab === "requests" && (
             <div>
-              {/* Startup join requests */}
-              <div style={{ fontSize: 13, fontWeight: 700, color: th.txt3, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Startup Join Requests</div>
+              {/* ── Summary strip ── */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                {[
+                  { label: "Join Requests", count: requests.filter(r => r.status === "pending" && profiles[r.user_id]).length, total: requests.filter(r => profiles[r.user_id]).length, c: "#6366f1", e: "👥" },
+                  { label: "Page Access", count: pendingPageReqs.filter(r => profiles[r.user_id]).length, total: pageReqs.filter(r => profiles[r.user_id] && pages.find(p => p.id === r.page_id)).length, c: "#f59e0b", e: "📄" },
+                ].map(s => (
+                  <div key={s.label} style={{ background: dk ? `${s.c}10` : `${s.c}08`, border: `1px solid ${s.c}25`, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.c}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{s.e}</div>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.c, lineHeight: 1 }}>{s.count}</div>
+                      <div style={{ fontSize: 11, color: th.txt3, marginTop: 1 }}>pending · {s.total} total</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: th.txt2 }}>{s.label}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Startup join requests ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <div style={{ flex: 1, height: 1, background: th.bdr }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>👥 Startup Join Requests</span>
+                <div style={{ flex: 1, height: 1, background: th.bdr }} />
+              </div>
+
               {requests.filter(r => profiles[r.user_id]).length === 0 ? (
-                <Card dk={dk} anim={false}><div style={{ textAlign: "center", padding: "16px 0", color: th.txt3, fontSize: 13 }}>📬 No join requests yet.</div></Card>
+                <div style={{ textAlign: "center", padding: "20px 0 8px", color: th.txt3, fontSize: 13 }}>📬 No join requests yet.</div>
               ) : requests.filter(r => profiles[r.user_id]).map(req => {
                 const prof = profiles[req.user_id] || { name: "Applicant" };
+                const statusColor = req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b";
+                const statusBg   = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
+                // Get page types this person would be mapped to
+                const mappedPageTypes = [...new Set((req.selected_roles || []).map(rid => ROLE_PAGE_MAP[rid]).filter(t => t !== undefined && t !== null))];
                 return (
-                  <Card dk={dk} key={req.id} anim={false}>
+                  <div key={req.id} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "16px", marginBottom: 10, animation: "fadeUp 0.2s ease both" }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }} title="View profile">
-                        <Av profile={prof} size={44} />
+                      <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
+                        <Av profile={prof} size={46} />
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
-                          <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer" }}>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: th.txt, textDecoration: "underline", textDecorationColor: "transparent" }} onMouseEnter={e => e.currentTarget.style.textDecorationColor = th.txt} onMouseLeave={e => e.currentTarget.style.textDecorationColor = "transparent"}>{prof.name}</div>
-                            <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || req.user_id.slice(0, 8)} · tap to view full profile</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {/* Header row */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                          <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: th.txt }}>{prof.name}</div>
+                            <div style={{ fontSize: 12, color: th.txt3 }}>@{prof.handle || req.user_id?.slice(0, 8)}</div>
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: req.status === "approved" ? "#10b98118" : req.status === "rejected" ? "#ef444418" : "#f59e0b18", color: req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b" }}>{req.status?.toUpperCase()}</span>
+                          <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 99, background: statusBg, color: statusColor, border: `1px solid ${statusColor}30` }}>
+                            {req.status === "approved" ? "✓ Approved" : req.status === "rejected" ? "✕ Rejected" : "⏳ Pending"}
+                          </span>
                         </div>
+
+                        {/* Roles */}
                         {(req.selected_roles || []).length > 0 && (
-                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 }}>
-                            {(req.selected_roles || []).map(rid => { const r = JOIN_ROLES.find(x => x.id === rid); return r ? <span key={rid} style={{ background: `${r.c}18`, color: r.c, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 99 }}>{r.e} {r.label}</span> : null; })}
+                          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+                            {(req.selected_roles || []).map(rid => { const r = JOIN_ROLES.find(x => x.id === rid); return r ? <span key={rid} style={{ background: `${r.c}18`, color: r.c, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, border: `1px solid ${r.c}30` }}>{r.e} {r.label}</span> : null; })}
                           </div>
                         )}
-                        {req.message && <p style={{ fontSize: 12, color: th.txt2, margin: "0 0 8px", fontStyle: "italic" }}>"{req.message}"</p>}
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+
+                        {/* Pages they'll be added to */}
+                        {mappedPageTypes.length > 0 && (
+                          <div style={{ background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 11, color: th.txt3, fontWeight: 600 }}>Will access:</span>
+                            {mappedPageTypes.map(tid => { const pt = PAGE_TYPES.find(p => p.id === tid); return pt ? <span key={tid} style={{ fontSize: 11, fontWeight: 700, color: pt.c, background: `${pt.c}15`, padding: "2px 8px", borderRadius: 8, border: `1px solid ${pt.c}25` }}>{pt.e} {pt.label}</span> : null; })}
+                          </div>
+                        )}
+
+                        {/* Message */}
+                        {req.message && (
+                          <div style={{ background: dk ? "rgba(255,255,255,0.04)" : "#f8fafc", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>
+                            <span style={{ fontSize: 11, color: th.txt3, fontWeight: 600 }}>Message: </span>
+                            <span style={{ fontSize: 12, color: th.txt2, fontStyle: "italic" }}>"{req.message}"</span>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                           {req.status === "pending" && (
                             <>
-                              <button onClick={() => approveRequest(req)} style={{ background: "#10b98118", border: "1px solid #10b98140", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#10b981", fontSize: 12, fontWeight: 700 }}>✓ Approve</button>
-                              <button onClick={() => rejectRequest(req)} style={{ background: "#ef444418", border: "1px solid #ef444440", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}>✕ Reject</button>
+                              <button onClick={() => approveRequest(req)} style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#10b981,#059669)", border: "none", borderRadius: 9, padding: "7px 16px", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 8px #10b98130" }}>✓ Approve</button>
+                              <button onClick={() => rejectRequest(req)} style={{ display: "flex", alignItems: "center", gap: 5, background: "#ef444412", border: "1px solid #ef444430", borderRadius: 9, padding: "7px 14px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}>✕ Reject</button>
                             </>
                           )}
-                          <button onClick={() => deleteRequest(req)} title="Delete request" style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: "4px 6px", borderRadius: 6, display: "flex", alignItems: "center" }}><Trash2 size={14} /></button>
+                          <button onClick={() => deleteRequest(req)} title="Delete" style={{ marginLeft: "auto", background: "none", border: `1px solid ${th.bdr}`, cursor: "pointer", color: th.txt3, padding: "5px 8px", borderRadius: 8, display: "flex", alignItems: "center" }}><Trash2 size={13} /></button>
                         </div>
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 );
               })}
 
-              {/* Page access requests */}
-              {pageReqs.filter(r => profiles[r.user_id] && pages.find(p => p.id === r.page_id)).length > 0 && (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: th.txt3, marginTop: 20, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Page Access Requests</div>
-                  {pageReqs.filter(r => profiles[r.user_id] && pages.find(p => p.id === r.page_id)).map(req => {
-                    const prof = profiles[req.user_id] || { name: "User" };
-                    const pg = pages.find(p => p.id === req.page_id);
-                    const pt = PAGE_TYPES.find(p => p.id === pg?.type_id) || PAGE_TYPES[0];
-                    return (
-                      <Card dk={dk} key={req.id} anim={false}>
-                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                          <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }} title="View profile">
-                            <Av profile={prof} size={40} />
-                          </div>
-                          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setViewingProfile(req.user_id)}>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name}</div>
-                            <div style={{ fontSize: 12, color: th.txt3 }}>Requesting access to <span style={{ color: pt.c, fontWeight: 600 }}>{pt.e} {pg?.name || "a page"}</span></div>
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: req.status === "approved" ? "#10b98118" : req.status === "rejected" ? "#ef444418" : "#f59e0b18", color: req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b" }}>{req.status?.toUpperCase()}</span>
-                          {req.status === "pending" && (
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button onClick={() => approvePageReq(req)} style={{ background: "#10b98118", border: "1px solid #10b98140", borderRadius: 7, padding: "5px 10px", cursor: "pointer", color: "#10b981", fontSize: 12, fontWeight: 700 }}>✓</button>
-                              <button onClick={() => rejectPageReq(req)} style={{ background: "#ef444418", border: "1px solid #ef444440", borderRadius: 7, padding: "5px 10px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}>✕</button>
+              {/* ── Page access requests ── */}
+              {(() => {
+                const validPageReqs = pageReqs.filter(r => profiles[r.user_id] && pages.find(p => p.id === r.page_id));
+                if (!validPageReqs.length) return null;
+                // Group by page
+                const grouped = {};
+                validPageReqs.forEach(r => { if (!grouped[r.page_id]) grouped[r.page_id] = []; grouped[r.page_id].push(r); });
+                return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 20, marginBottom: 12 }}>
+                      <div style={{ flex: 1, height: 1, background: th.bdr }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>📄 Page Access Requests</span>
+                      <div style={{ flex: 1, height: 1, background: th.bdr }} />
+                    </div>
+                    {Object.entries(grouped).map(([pageId, reqs]) => {
+                      const pg = pages.find(p => p.id === pageId);
+                      const pt = PAGE_TYPES.find(p => p.id === pg?.type_id) || PAGE_TYPES[0];
+                      const cfg = PAGE_REQUEST_CONFIG[pt.id] || PAGE_REQUEST_CONFIG.community;
+                      const pendingCount = reqs.filter(r => r.status === "pending").length;
+                      return (
+                        <div key={pageId} style={{ marginBottom: 14 }}>
+                          {/* Page header */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, background: `${pt.c}10`, border: `1px solid ${pt.c}25`, borderRadius: "12px 12px 0 0", padding: "10px 14px" }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 9, background: `${pt.c}20`, border: `1px solid ${pt.c}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{pt.e}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 800, fontSize: 13, color: pt.c }}>{pg?.name || pt.label}</div>
+                              <div style={{ fontSize: 11, color: th.txt3 }}>{cfg.question}</div>
                             </div>
-                          )}
+                            {pendingCount > 0 && <span style={{ background: "#ef444418", color: "#ef4444", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 99, border: "1px solid #ef444430" }}>{pendingCount} pending</span>}
+                          </div>
+                          {/* Requests for this page */}
+                          <div style={{ border: `1px solid ${pt.c}20`, borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+                            {reqs.map((req, idx) => {
+                              const prof = profiles[req.user_id] || { name: "User" };
+                              const statusColor = req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b";
+                              const statusBg   = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
+                              return (
+                                <div key={req.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 14px", background: idx % 2 === 0 ? (dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)") : "transparent", borderTop: idx > 0 ? `1px solid ${th.bdr}` : "none" }}>
+                                  <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
+                                    <Av profile={prof} size={38} />
+                                  </div>
+                                  <div style={{ cursor: "pointer", flex: 1, minWidth: 0 }} onClick={() => setViewingProfile(req.user_id)}>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{prof.name}</div>
+                                    <div style={{ fontSize: 11, color: th.txt3 }}>@{prof.handle || req.user_id?.slice(0, 8)}</div>
+                                    {req.page_message && <div style={{ fontSize: 11, color: th.txt2, fontStyle: "italic", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>"{req.page_message}"</div>}
+                                  </div>
+                                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: statusBg, color: statusColor, border: `1px solid ${statusColor}30` }}>
+                                    {req.status === "approved" ? "✓" : req.status === "rejected" ? "✕" : "⏳"}
+                                  </span>
+                                  {req.status === "pending" && (
+                                    <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                                      <button onClick={() => approvePageReq(req)} style={{ background: "linear-gradient(135deg,#10b981,#059669)", border: "none", borderRadius: 7, padding: "5px 10px", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: "0 1px 4px #10b98128" }}>✓</button>
+                                      <button onClick={() => rejectPageReq(req)} style={{ background: "#ef444412", border: "1px solid #ef444430", borderRadius: 7, padding: "5px 10px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}>✕</button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </Card>
-                    );
-                  })}
-                </>
-              )}
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </div>
           )}
 
