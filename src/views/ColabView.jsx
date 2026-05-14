@@ -1354,8 +1354,10 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     let finalPages = pgs || [];
     const missingPages = DEFAULT_ROLE_PAGES.filter(rp => !finalPages.find(p => p.name === rp.name));
     if (missingPages.length > 0) {
-      const created = await db.postMany("rs_startup_pages", missingPages.map(rp => ({ startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: startup.created_by })));
-      finalPages = [...finalPages, ...(created || [])];
+      const created = await Promise.all(
+        missingPages.map(rp => db.post("rs_startup_pages", { startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: me }))
+      );
+      finalPages = [...finalPages, ...created.filter(Boolean)];
     }
     setPages(finalPages);
     const uniqueMembers = [...new Map((mbs || []).map(m => [m.user_id, m])).values()];
@@ -1365,7 +1367,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     setMembers(uniqueMembers);
     setUpdates(upds || []);
     setLoading(false);
-  }, [startup.id]);
+  }, [startup.id, me]);
 
   useEffect(() => { load(); }, [load]);
 
