@@ -1075,6 +1075,8 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
         db.get("rs_page_access", `startup_id=eq.${startup.id}&status=eq.approved`),
         db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
       ]);
+      if (!pgs?.length) console.warn("[RLS DEBUG] rs_startup_pages returned empty for startup", startup.id, "— likely blocked by Supabase RLS. Check SELECT policy for authenticated members.");
+      if (!mbs?.length) console.warn("[RLS DEBUG] rs_page_access returned empty for startup", startup.id, "— member list may be blocked by RLS.");
       setMyRequest(reqs?.[0] || null);
       setPages(pgs || []);
       setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
