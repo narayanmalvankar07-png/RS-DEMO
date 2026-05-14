@@ -1355,9 +1355,14 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     const missingPages = DEFAULT_ROLE_PAGES.filter(rp => !finalPages.find(p => p.name === rp.name));
     if (missingPages.length > 0) {
       const created = await Promise.all(
-        missingPages.map(rp => db.post("rs_startup_pages", { startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: me }))
+        missingPages.map(async rp => {
+          const saved = await db.post("rs_startup_pages", { startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: me });
+          if (!saved) console.error("Supabase Error: failed to auto-create page:", rp.name);
+          // Always return a local fallback so pages display even if DB insert fails
+          return saved || { id: `local_pg_${rp.name.replace(/\s+/g, "_")}_${Date.now()}`, startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: me, created_at: new Date().toISOString() };
+        })
       );
-      finalPages = [...finalPages, ...created.filter(Boolean)];
+      finalPages = [...finalPages, ...created];
     }
     setPages(finalPages);
     const uniqueMembers = [...new Map((mbs || []).map(m => [m.user_id, m])).values()];

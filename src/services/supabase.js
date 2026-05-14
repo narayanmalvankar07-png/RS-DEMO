@@ -40,10 +40,17 @@ export const db = {
   post: async (t, body) => {
     try {
       const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "return=representation" }), body: JSON.stringify(body) });
-      if (!r.ok) return null;
+      if (!r.ok) {
+        const errText = await r.text().catch(() => r.status);
+        console.error(`Supabase Error [POST ${t}] status=${r.status}:`, errText);
+        return null;
+      }
       const d = await r.json();
       return Array.isArray(d) ? d[0] : d;
-    } catch { return null; }
+    } catch (e) {
+      console.error(`Supabase Error [POST ${t}]:`, e.message);
+      return null;
+    }
   },
   postMany: async (t, rows) => {
     if (!rows?.length) return [];
