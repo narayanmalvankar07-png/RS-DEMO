@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Copy, Check, History, Gift, ExternalLink } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
-import { supabase } from "../services/supabaseClient.js";
 import Card from "../components/ui/Card.jsx";
 import Spin from "../components/ui/Spin.jsx";
 
@@ -37,7 +36,6 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
   const [referrals, setReferrals] = useState([]);
 
   useEffect(() => {
-    // Initial fetch
     Promise.all([
       db.get("rs_token_txns", `uid=eq.${me}&order=created_at.desc&limit=30`),
       db.get("rs_referrals", `referrer_uid=eq.${me}`),
@@ -46,28 +44,6 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
       setReferrals(r || []);
       setLoadingTxns(false);
     });
-
-    // Realtime subscription for new/updated transactions
-    const channel = supabase
-      .channel(`wallet_txns_${me}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "rs_token_txns", filter: `uid=eq.${me}` },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setTxns(prev => [payload.new, ...prev]);
-          } else if (payload.eventType === "UPDATE") {
-            setTxns(prev => prev.map(t => t.id === payload.new.id ? payload.new : t));
-          } else if (payload.eventType === "DELETE") {
-            setTxns(prev => prev.filter(t => t.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [me]);
 
   const earned = txns.filter(t => t.type === "earn").reduce((s, t) => s + (t.amount || 0), 0);
