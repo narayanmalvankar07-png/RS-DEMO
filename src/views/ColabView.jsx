@@ -1128,31 +1128,19 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   };
 
   const getPageAccess = (pageId) => {
-    // Check DB approved access for this startup (colab-level approval grants all pages to founder/approved)
-    const dbApproved = dbPageAccess.find(a => a.status === "approved");
-    if (dbApproved) return "approved";
-    // Check localStorage page membership
+    // Per-page membership granted by founder via approvePageReq (localStorage)
     const mem = pageMembers.find(m => m.page_id === pageId && m.user_id === me);
     if (mem) return "approved";
-    // Check DB page-level requests
-    const dbReq = dbPageRequests.find(r => r.page_id === pageId);
-    if (dbReq) return dbReq.status || "pending";
-    // Check localStorage pending/rejected requests
+    // Per-page approved request in DB
+    const dbReq = dbPageRequests.find(r => r.page_id === pageId && r.status === "approved");
+    if (dbReq) return "approved";
+    // Per-page pending/rejected request in DB
+    const dbReqAny = dbPageRequests.find(r => r.page_id === pageId);
+    if (dbReqAny) return dbReqAny.status || "pending";
+    // Per-page request in localStorage (written by requestPageAccess before DB confirms)
     const req = pageReqs.find(r => r.page_id === pageId && r.user_id === me);
     if (req) return req.status;
-    // Auto-grant access based on approved role(s) via ROLE_PAGE_MAP
-    if (isStartupMember && myRequest?.selected_roles?.length) {
-      const pg = pages.find(p => p.id === pageId);
-      if (pg) {
-        const hasRoleAccess = myRequest.selected_roles.some(role => {
-          if (!(role in ROLE_PAGE_MAP)) return false;
-          const mappedType = ROLE_PAGE_MAP[role];
-          return mappedType === null || mappedType === pg.type_id;
-        });
-        if (hasRoleAccess) return "approved";
-      }
-    }
-    return null;
+    return null; // not requested yet → show "Request Access"
   };
 
   const founders = (startup.founders || [startup.created_by]).filter(Boolean);
@@ -1443,19 +1431,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     await db.upsert("rs_page_access", { startup_id: startup.id, user_id: req.user_id, status: "approved" });
     setRequests(rs => rs.map(r => r.id === req.id ? { ...r, status: "approved" } : r));
     setMembers(ms => ms.find(m => m.user_id === req.user_id) ? ms : [...ms, { user_id: req.user_id, status: "approved" }]);
-    // Auto-add to matching page(s) based on selected role
-    const role = (req.selected_roles || [])[0];
-    if (role && role in ROLE_PAGE_MAP) {
-      const pageTypeId = ROLE_PAGE_MAP[role];
-      const matchedPages = pageTypeId === null ? pages : pages.filter(p => p.type_id === pageTypeId);
-      const newMems = matchedPages
-        .filter(pg => !pageMembers.find(m => m.page_id === pg.id && m.user_id === req.user_id))
-        .map(pg => ({ page_id: pg.id, user_id: req.user_id }));
-      if (newMems.length) {
-        const updMems = [...pageMembers, ...newMems];
-        setPageMembers(updMems); ls.set(PG_MEM_KEY, updMems);
-      }
-    }
+    // Page access is NOT auto-granted here — members must request each page individually
   };
 
   const rejectRequest = async (req) => {
