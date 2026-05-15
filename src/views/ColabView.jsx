@@ -1399,7 +1399,17 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       db.get("rs_page_access", `startup_id=eq.${startup.id}&status=eq.approved`),
       db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
     ]);
-    setRequests(reqs || []);
+    // Split into startup join requests (no page_id) and page-specific access requests (have page_id)
+    const allReqs = reqs || [];
+    const joinReqs = allReqs.filter(r => !r.page_id);
+    const dbPageAccessReqs = allReqs.filter(r => !!r.page_id && r.status === "pending");
+    setRequests(joinReqs);
+    // Merge DB page requests with localStorage ones (avoid duplicates by id)
+    const localPgReqs = ls.get(PG_REQ_KEY, []);
+    const localIds = new Set(localPgReqs.map(r => r.id));
+    const merged = [...localPgReqs, ...dbPageAccessReqs.filter(r => !localIds.has(r.id))];
+    setPageReqs(merged);
+    ls.set(PG_REQ_KEY, merged);
     // Auto-create any missing default role pages
     let finalPages = pgs || [];
     const missingPages = DEFAULT_ROLE_PAGES.filter(rp => !finalPages.find(p => p.name === rp.name));
@@ -1457,7 +1467,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     setRequests(rs => rs.filter(r => r.id !== req.id));
   };
 
-  const approvePageReq = (req) => {
+  const approvePageReq = async (req) => {
     // Check user still exists
     if (!profiles[req.user_id]) {
       const cleaned = pageReqs.filter(r => r.id !== req.id);
@@ -1471,6 +1481,20 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       const realPage = pages.find(p => p.name === req.page_name && !String(p.id).startsWith("local_pg_"));
       if (realPage) resolvedPageId = realPage.id;
     }
+    // Persist approval to Supabase so member sees it on any device
+    if (!String(req.id).startsWith("pgreq_")) {
+      await db.patch("rs_page_access_requests", `id=eq.${req.id}`, { status: "approved", page_id: resolvedPageId });
+    } else {
+      // Local-only request — upsert into DB so the member can pick it up
+      await db.post("rs_page_access_requests", {
+        startup_id: startup.id,
+        user_id: req.user_id,
+        page_id: resolvedPageId,
+        page_name: req.page_name || "",
+        page_type_id: req.page_type_id || "",
+        status: "approved",
+      });
+    }
     const alreadyMember = pageMembers.find(m => m.page_id === resolvedPageId && m.user_id === req.user_id);
     const updReqs = pageReqs.filter(r => r.id !== req.id);
     setPageReqs(updReqs); ls.set(PG_REQ_KEY, updReqs);
@@ -1481,7 +1505,11 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     addNotif?.({ type: "success", msg: `Page access granted for "${req.page_name || resolvedPageId}"!` });
   };
 
-  const rejectPageReq = (req) => {
+  const rejectPageReq = async (req) => {
+    // Persist rejection to Supabase
+    if (!String(req.id).startsWith("pgreq_")) {
+      await db.patch("rs_page_access_requests", `id=eq.${req.id}`, { status: "rejected" });
+    }
     const updReqs = pageReqs.filter(r => r.id !== req.id);
     setPageReqs(updReqs); ls.set(PG_REQ_KEY, updReqs);
     addNotif?.({ type: "info", msg: "Request rejected." });
