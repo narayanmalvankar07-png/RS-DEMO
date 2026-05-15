@@ -1649,17 +1649,97 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
               {(() => {
                 const pendingJoin = requests.filter(r => r.status === "pending" && profiles[r.user_id]).length;
                 const totalJoin   = requests.filter(r => profiles[r.user_id]).length;
+                const pendingPage = pageReqs.filter(r => r.status === "pending").length;
                 return (
-                  <div style={{ background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>👥</div>
-                    <div>
-                      <div style={{ fontSize: 26, fontWeight: 800, color: "#6366f1", lineHeight: 1 }}>{pendingJoin}</div>
-                      <div style={{ fontSize: 11, color: th.txt3, marginTop: 1 }}>pending · {totalJoin} total</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: th.txt2 }}>Join Requests</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                    <div style={{ background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👥</div>
+                      <div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: "#6366f1", lineHeight: 1 }}>{pendingJoin}</div>
+                        <div style={{ fontSize: 11, color: th.txt3, marginTop: 1 }}>{totalJoin} total</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: th.txt2 }}>Join Requests</div>
+                      </div>
+                    </div>
+                    <div style={{ background: dk ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(16,185,129,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔐</div>
+                      <div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: "#10b981", lineHeight: 1 }}>{pendingPage}</div>
+                        <div style={{ fontSize: 11, color: th.txt3, marginTop: 1 }}>{pageReqs.length} total</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: th.txt2 }}>Page Requests</div>
+                      </div>
                     </div>
                   </div>
                 );
               })()}
+
+              {/* ── Page access requests ── */}
+              {pageReqs.length > 0 && (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <div style={{ flex: 1, height: 1, background: th.bdr }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>🔐 Page Access Requests</span>
+                    <div style={{ flex: 1, height: 1, background: th.bdr }} />
+                  </div>
+                  {pageReqs.filter(r => profiles[r.user_id]).map(req => {
+                    const prof = profiles[req.user_id] || { name: "Member" };
+                    const pg = pages.find(p => p.id === req.page_id);
+                    const pt = PAGE_TYPES.find(p => p.id === pg?.type_id) || PAGE_TYPES[0];
+                    const isPending = req.status === "pending";
+                    const statusColor = req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b";
+                    const statusBg = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
+                    return (
+                      <div key={req.id} style={{ background: th.surf, border: `1px solid ${isPending ? "#10b98130" : th.bdr}`, borderRadius: 16, padding: "14px 16px", marginBottom: 10, animation: "fadeUp 0.2s ease both" }}>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                          <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
+                            <Av profile={prof} size={42} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                              <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", minWidth: 0 }}>
+                                <div style={{ fontWeight: 800, fontSize: 14, color: th.txt }}>{prof.name}</div>
+                                <div style={{ fontSize: 11, color: th.txt3 }}>@{prof.handle || req.user_id?.slice(0, 8)}</div>
+                              </div>
+                              <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99, background: statusBg, color: statusColor, border: `1px solid ${statusColor}30` }}>
+                                {req.status === "approved" ? "✓ Approved" : req.status === "rejected" ? "✕ Rejected" : "⏳ Pending"}
+                              </span>
+                            </div>
+                            {/* Requested page chip */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                              <span style={{ fontSize: 11, color: th.txt3, fontWeight: 600 }}>Requested page:</span>
+                              {pg ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: `${pt.c}18`, border: `1px solid ${pt.c}35`, borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, color: pt.c }}>
+                                  {pt.e} {pg.name}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 11, color: th.txt3, fontStyle: "italic" }}>Unknown page</span>
+                              )}
+                            </div>
+                            {/* Actions */}
+                            {isPending && (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                  onClick={() => approvePageReq(req)}
+                                  style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#10b981,#059669)", border: "none", borderRadius: 9, padding: "7px 16px", cursor: "pointer", color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 8px #10b98125" }}
+                                  data-testid={`button-approve-page-req-${req.id}`}
+                                >✓ Approve Access</button>
+                                <button
+                                  onClick={() => rejectPageReq(req)}
+                                  style={{ display: "flex", alignItems: "center", gap: 5, background: "#ef444412", border: "1px solid #ef444430", borderRadius: 9, padding: "7px 14px", cursor: "pointer", color: "#ef4444", fontSize: 12, fontWeight: 700 }}
+                                  data-testid={`button-reject-page-req-${req.id}`}
+                                >✕ Reject</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {pageReqs.filter(r => profiles[r.user_id]).length === 0 && (
+                    <div style={{ textAlign: "center", padding: "16px 0", color: th.txt3, fontSize: 13 }}>No page requests from known users.</div>
+                  )}
+                  <div style={{ marginBottom: 18 }} />
+                </>
+              )}
 
               {/* ── Startup join requests ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
