@@ -1070,6 +1070,8 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
     onBack();
   };
 
+  const PG_CACHE_KEY = `rs_pg_cache_${startup.id}`;
+
   useEffect(() => {
     (async () => {
       const [reqs, pgs, mbs, upds, myAccess, myPageReqs] = await Promise.all([
@@ -1080,10 +1082,11 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
         db.get("rs_page_access", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
         db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
       ]);
-      if (!pgs?.length) console.warn("[RLS DEBUG] rs_startup_pages returned empty for startup", startup.id, "— likely blocked by Supabase RLS. Check SELECT policy for authenticated members.");
-      if (!mbs?.length) console.warn("[RLS DEBUG] rs_page_access returned empty for startup", startup.id, "— member list may be blocked by RLS.");
       setMyRequest(reqs?.[0] || null);
-      setPages(pgs || []);
+      // Fall back to localStorage cache if Supabase returned nothing
+      // (covers the case where pages were saved locally by the Founder on the same device)
+      const resolvedPages = (pgs?.length) ? pgs : ls.get(PG_CACHE_KEY, []);
+      setPages(resolvedPages);
       setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
       setUpdates(upds || []);
       setDbPageAccess(myAccess || []);
@@ -1386,6 +1389,8 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
   };
 
+  const PG_CACHE_KEY = `rs_pg_cache_${startup.id}`;
+
   const load = useCallback(async () => {
     const [reqs, pgs, mbs, upds] = await Promise.all([
       db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&order=created_at.desc`),
@@ -1402,12 +1407,25 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
         missingPages.map(async rp => {
           const saved = await db.post("rs_startup_pages", { startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: me });
           if (!saved) console.error("Supabase Error: failed to auto-create page:", rp.name);
-          // Always return a local fallback so pages display even if DB insert fails
           return saved || { id: `local_pg_${rp.name.replace(/\s+/g, "_")}_${Date.now()}`, startup_id: startup.id, name: rp.name, description: rp.description, type_id: rp.type_id, created_by: me, created_at: new Date().toISOString() };
         })
       );
       finalPages = [...finalPages, ...created];
     }
+    // Repair: try to re-save any pages that only exist locally (from a previous failed Supabase write)
+    const localOnlyPages = finalPages.filter(p => String(p.id).startsWith("local_pg_"));
+    if (localOnlyPages.length > 0) {
+      const repaired = await Promise.all(localOnlyPages.map(async lp => {
+        const saved = await db.post("rs_startup_pages", { startup_id: lp.startup_id, name: lp.name, description: lp.description, type_id: lp.type_id, created_by: lp.created_by });
+        return saved || lp;
+      }));
+      finalPages = [
+        ...finalPages.filter(p => !String(p.id).startsWith("local_pg_")),
+        ...repaired,
+      ];
+    }
+    // Cache pages to localStorage so members on the same device can see them immediately
+    ls.set(PG_CACHE_KEY, finalPages);
     setPages(finalPages);
     const uniqueMembers = [...new Map((mbs || []).map(m => [m.user_id, m])).values()];
     if (!uniqueMembers.find(m => m.user_id === startup.created_by)) {
@@ -1518,13 +1536,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     const pt = PAGE_TYPES.find(p => p.id === newPageType) || PAGE_TYPES[0];
     const saved = await db.post("rs_startup_pages", { startup_id: startup.id, name: newPageName.trim(), description: pt.desc, type_id: newPageType, created_by: me });
     const pg = saved || { id: `local_pg_${Date.now()}`, startup_id: startup.id, name: newPageName.trim(), description: pt.desc, type_id: newPageType, created_by: me, created_at: new Date().toISOString() };
-    setPages(ps => [...ps, pg]);
+    setPages(ps => { const updated = [...ps, pg]; ls.set(PG_CACHE_KEY, updated); return updated; });
     setNewPageName(""); setShowAddPage(false);
   };
 
   const deletePage = async (id) => {
     await db.del("rs_startup_pages", `id=eq.${id}`);
-    setPages(ps => ps.filter(p => p.id !== id));
+    setPages(ps => { const updated = ps.filter(p => p.id !== id); ls.set(PG_CACHE_KEY, updated); return updated; });
     const cleanedMems = pageMembers.filter(m => m.page_id !== id);
     setPageMembers(cleanedMems); ls.set(PG_MEM_KEY, cleanedMems);
     const cleanedReqs = pageReqs.filter(r => r.page_id !== id);
