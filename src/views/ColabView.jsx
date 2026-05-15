@@ -1049,11 +1049,14 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   const [activePage, setActivePage] = useState(null);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
 
-  // Per-page requests/access (localStorage)
+  // Per-page requests/access (localStorage + Supabase)
   const PG_REQ_KEY = `rs_pg_req_${startup.id}`;
   const PG_MEM_KEY = `rs_pg_mem_${startup.id}`;
   const [pageReqs, setPageReqs] = useState(() => ls.get(PG_REQ_KEY, []));
   const [pageMembers, setPageMembers] = useState(() => ls.get(PG_MEM_KEY, []));
+  const [dbPageAccess, setDbPageAccess] = useState([]);
+  const [dbPageRequests, setDbPageRequests] = useState([]);
+  const [requestingPageId, setRequestingPageId] = useState(null);
 
   const isStartupMember = myRequest?.status === "approved";
 
@@ -1069,11 +1072,13 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
 
   useEffect(() => {
     (async () => {
-      const [reqs, pgs, mbs, upds] = await Promise.all([
+      const [reqs, pgs, mbs, upds, myAccess, myPageReqs] = await Promise.all([
         db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
         db.get("rs_startup_pages", `startup_id=eq.${startup.id}&order=created_at.asc`),
         db.get("rs_page_access", `startup_id=eq.${startup.id}&status=eq.approved`),
         db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
+        db.get("rs_page_access", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
+        db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
       ]);
       if (!pgs?.length) console.warn("[RLS DEBUG] rs_startup_pages returned empty for startup", startup.id, "— likely blocked by Supabase RLS. Check SELECT policy for authenticated members.");
       if (!mbs?.length) console.warn("[RLS DEBUG] rs_page_access returned empty for startup", startup.id, "— member list may be blocked by RLS.");
@@ -1081,6 +1086,8 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
       setPages(pgs || []);
       setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
       setUpdates(upds || []);
+      setDbPageAccess(myAccess || []);
+      setDbPageRequests(myPageReqs || []);
       setLoading(false);
     })();
   }, [startup.id, me]);
@@ -1101,23 +1108,36 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
     setSubmittingJoin(false); setShowJoinForm(false);
   };
 
-  const requestPageAccess = (pageId) => {
-    const existing = pageReqs.find(r => r.page_id === pageId && r.user_id === me);
-    if (existing) return;
-    const req = { id: `pgreq_${Date.now()}`, page_id: pageId, startup_id: startup.id, user_id: me, status: "pending", created_at: new Date().toISOString() };
-    const updated = [...pageReqs, req];
-    setPageReqs(updated); ls.set(PG_REQ_KEY, updated);
+  const requestPageAccess = async (pageId) => {
+    const existingLocal = pageReqs.find(r => r.page_id === pageId && r.user_id === me);
+    const existingDb = dbPageRequests.find(r => r.page_id === pageId);
+    if (existingLocal || existingDb) return;
+    setRequestingPageId(pageId);
+    const payload = { startup_id: startup.id, user_id: me, page_id: pageId, status: "pending" };
+    const saved = await db.post("rs_page_access_requests", payload);
+    const req = saved || { id: `pgreq_${Date.now()}`, ...payload, created_at: new Date().toISOString() };
+    const updatedLocal = [...pageReqs, req];
+    setPageReqs(updatedLocal);
+    ls.set(PG_REQ_KEY, updatedLocal);
+    if (saved) setDbPageRequests(prev => [...prev, saved]);
+    setRequestingPageId(null);
     addNotif?.({ type: "success", msg: "Page access requested!" });
   };
 
   const getPageAccess = (pageId) => {
-    // Check localStorage page membership first
+    // Check DB approved access for this startup (colab-level approval grants all pages to founder/approved)
+    const dbApproved = dbPageAccess.find(a => a.status === "approved");
+    if (dbApproved) return "approved";
+    // Check localStorage page membership
     const mem = pageMembers.find(m => m.page_id === pageId && m.user_id === me);
     if (mem) return "approved";
-    // Check pending/rejected requests
+    // Check DB page-level requests
+    const dbReq = dbPageRequests.find(r => r.page_id === pageId);
+    if (dbReq) return dbReq.status || "pending";
+    // Check localStorage pending/rejected requests
     const req = pageReqs.find(r => r.page_id === pageId && r.user_id === me);
     if (req) return req.status;
-    // Auto-grant access based on the member's approved role(s) via ROLE_PAGE_MAP
+    // Auto-grant access based on approved role(s) via ROLE_PAGE_MAP
     if (isStartupMember && myRequest?.selected_roles?.length) {
       const pg = pages.find(p => p.id === pageId);
       if (pg) {
@@ -1239,45 +1259,53 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
 
           {tab === "pages" && (
             <div>
-              {isStartupMember ? (
-                <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>Your accessible pages based on your approved role(s).</div>
-              ) : (
-                <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>Get approved first to access pages.</div>
-              )}
-              {(() => {
-                // All pages are always shown; access level determines the button shown
-                const visiblePages = pages;
-                if (visiblePages.length === 0) return (
-                  <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
-                    <div style={{ fontSize: 32 }}>📄</div>
-                    <p>{isStartupMember ? "No pages have been created in this colab yet." : "No pages created yet."}</p>
-                  </div>
-                );
-                return visiblePages.map(pg => {
+              <div style={{ fontSize: 13, color: th.txt3, marginBottom: 14 }}>
+                {isStartupMember ? "Your accessible pages based on your approved role(s)." : "Discover pages and request access to join them."}
+              </div>
+              {pages.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
+                  <div style={{ fontSize: 32 }}>📄</div>
+                  <p>No pages have been created in this colab yet.</p>
+                </div>
+              ) : pages.map(pg => {
                 const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
                 const access = getPageAccess(pg.id);
+                const isLocked = access !== "approved";
+                const isPending = access === "pending";
+                const isRequesting = requestingPageId === pg.id;
                 return (
-                  <div key={pg.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${pt.c}30`, borderRadius: 14, padding: "14px 16px", marginBottom: 10, gap: 12 }}>
+                  <div key={pg.id} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${isLocked ? th.bdr : `${pt.c}40`}`, borderRadius: 14, padding: "14px 16px", marginBottom: 10, gap: 12, opacity: isLocked ? 0.72 : 1, transition: "opacity 0.2s" }}>
+                    {/* Lock overlay badge */}
+                    {isLocked && (
+                      <div style={{ position: "absolute", top: 10, right: 10, width: 22, height: 22, borderRadius: "50%", background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Lock size={11} color={th.txt3} />
+                      </div>
+                    )}
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{pt.e}</div>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: isLocked ? (dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)") : `${pt.c}18`, border: `1px solid ${isLocked ? th.bdr : `${pt.c}30`}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, filter: isLocked ? "grayscale(0.6)" : "none" }}>{pt.e}</div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: th.txt }}>{pg.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: isLocked ? th.txt2 : th.txt }}>{pg.name}</div>
                         <div style={{ fontSize: 12, color: th.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pg.description || pt.desc}</div>
                       </div>
                     </div>
-                    <div style={{ flexShrink: 0 }}>
+                    <div style={{ flexShrink: 0, paddingRight: isLocked ? 20 : 0 }}>
                       {access === "approved" ? (
-                        <button onClick={() => setActivePage(pg)} style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 8, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}><LogIn size={12} /> Enter</button>
-                      ) : access === "pending" ? (
-                        <span style={{ background: "#f59e0b18", color: "#f59e0b", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: "1px solid #f59e0b40" }}>⏳ Pending</span>
+                        <button onClick={() => setActivePage(pg)} style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 8, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          <LogIn size={12} /> Enter
+                        </button>
+                      ) : isPending ? (
+                        <button disabled style={{ display: "flex", alignItems: "center", gap: 5, background: "#f59e0b12", border: "1px solid #f59e0b40", borderRadius: 8, padding: "7px 12px", color: "#f59e0b", fontSize: 12, fontWeight: 700, cursor: "default" }}>
+                          ⏳ Pending…
+                        </button>
                       ) : (
-                        <button onClick={() => requestPageAccess(pg.id)} style={{ display: "flex", alignItems: "center", gap: 5, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "7px 12px", color: th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}><Lock size={11} /> Request</button>
+                        <button onClick={() => requestPageAccess(pg.id)} disabled={isRequesting} style={{ display: "flex", alignItems: "center", gap: 5, background: isRequesting ? th.surf2 : `${pt.c}15`, border: `1px solid ${isRequesting ? th.bdr : `${pt.c}40`}`, borderRadius: 8, padding: "7px 12px", color: isRequesting ? th.txt3 : pt.c, fontSize: 12, fontWeight: 600, cursor: isRequesting ? "default" : "pointer", transition: "all 0.2s" }}>
+                          <Lock size={11} /> {isRequesting ? "Requesting…" : "Request Access"}
+                        </button>
                       )}
                     </div>
                   </div>
                 );
-              });
-            })()}
+              })}
             </div>
           )}
 
