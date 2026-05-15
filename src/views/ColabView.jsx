@@ -1116,7 +1116,15 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
     const existingDb = dbPageRequests.find(r => r.page_id === pageId);
     if (existingLocal || existingDb) return;
     setRequestingPageId(pageId);
-    const payload = { startup_id: startup.id, user_id: me, page_id: pageId, status: "pending" };
+    const pg = pages.find(p => p.id === pageId);
+    const payload = {
+      startup_id: startup.id,
+      user_id: me,
+      page_id: pageId,
+      page_name: pg?.name || "",
+      page_type_id: pg?.type_id || "",
+      status: "pending",
+    };
     const saved = await db.post("rs_page_access_requests", payload);
     const req = saved || { id: `pgreq_${Date.now()}`, ...payload, created_at: new Date().toISOString() };
     const updatedLocal = [...pageReqs, req];
@@ -1128,17 +1136,22 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
   };
 
   const getPageAccess = (pageId) => {
-    // Per-page membership granted by founder via approvePageReq (localStorage)
-    const mem = pageMembers.find(m => m.page_id === pageId && m.user_id === me);
+    const pg = pages.find(p => p.id === pageId);
+    // Per-page membership: match by exact page_id OR by page name (covers local_pg_ → real UUID transitions)
+    const mem = pageMembers.find(m => m.user_id === me && (
+      m.page_id === pageId || (pg && pageMembers.find(n => n.user_id === me && pages.find(p2 => p2.id === n.page_id && p2.name === pg.name)))
+    ));
     if (mem) return "approved";
     // Per-page approved request in DB
     const dbReq = dbPageRequests.find(r => r.page_id === pageId && r.status === "approved");
     if (dbReq) return "approved";
-    // Per-page pending/rejected request in DB
+    // Per-page pending/rejected in DB
     const dbReqAny = dbPageRequests.find(r => r.page_id === pageId);
     if (dbReqAny) return dbReqAny.status || "pending";
-    // Per-page request in localStorage (written by requestPageAccess before DB confirms)
-    const req = pageReqs.find(r => r.page_id === pageId && r.user_id === me);
+    // Per-page request in localStorage — match by page_id or by page_name
+    const req = pageReqs.find(r => r.user_id === me && (
+      r.page_id === pageId || (pg?.name && r.page_name === pg.name)
+    ));
     if (req) return req.status;
     return null; // not requested yet → show "Request Access"
   };
@@ -1452,15 +1465,20 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       addNotif?.({ type: "error", msg: "User no longer exists — request removed." });
       return;
     }
-    // Avoid duplicates
-    const alreadyMember = pageMembers.find(m => m.page_id === req.page_id && m.user_id === req.user_id);
+    // Resolve page_id: if it's a local_pg_ fallback ID, resolve to the real page by name
+    let resolvedPageId = req.page_id;
+    if (String(req.page_id).startsWith("local_pg_") && req.page_name) {
+      const realPage = pages.find(p => p.name === req.page_name && !String(p.id).startsWith("local_pg_"));
+      if (realPage) resolvedPageId = realPage.id;
+    }
+    const alreadyMember = pageMembers.find(m => m.page_id === resolvedPageId && m.user_id === req.user_id);
     const updReqs = pageReqs.filter(r => r.id !== req.id);
     setPageReqs(updReqs); ls.set(PG_REQ_KEY, updReqs);
     if (!alreadyMember) {
-      const mems = [...pageMembers, { page_id: req.page_id, user_id: req.user_id }];
+      const mems = [...pageMembers, { page_id: resolvedPageId, user_id: req.user_id }];
       setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
     }
-    addNotif?.({ type: "success", msg: "Page access granted!" });
+    addNotif?.({ type: "success", msg: `Page access granted for "${req.page_name || resolvedPageId}"!` });
   };
 
   const rejectPageReq = (req) => {
@@ -1658,8 +1676,11 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                   </div>
                   {pageReqs.filter(r => profiles[r.user_id]).map(req => {
                     const prof = profiles[req.user_id] || { name: "Member" };
-                    const pg = pages.find(p => p.id === req.page_id);
-                    const pt = PAGE_TYPES.find(p => p.id === pg?.type_id) || PAGE_TYPES[0];
+                    // Try exact ID match first, then name-based fallback for local_pg_ mismatches
+                    const pg = pages.find(p => p.id === req.page_id)
+                      || (req.page_name ? pages.find(p => p.name === req.page_name) : null);
+                    const pt = PAGE_TYPES.find(p => p.id === (pg?.type_id || req.page_type_id)) || PAGE_TYPES[0];
+                    const displayName = pg?.name || req.page_name || null;
                     const isPending = req.status === "pending";
                     const statusColor = req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b";
                     const statusBg = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
@@ -1682,9 +1703,9 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
                             {/* Requested page chip */}
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                               <span style={{ fontSize: 11, color: th.txt3, fontWeight: 600 }}>Requested page:</span>
-                              {pg ? (
+                              {displayName ? (
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: `${pt.c}18`, border: `1px solid ${pt.c}35`, borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, color: pt.c }}>
-                                  {pt.e} {pg.name}
+                                  {pt.e} {displayName}
                                 </span>
                               ) : (
                                 <span style={{ fontSize: 11, color: th.txt3, fontStyle: "italic" }}>Unknown page</span>
