@@ -115,7 +115,7 @@ export const db = {
         let deltaQuery = q;
         if (latest) {
           let cleanQ = q.replace(/order=[^&]+&?/, "").replace(/limit=\d+&?/, "").replace(/&&+/g, "&").replace(/^&|&$/g, "");
-          deltaQuery = (cleanQ ? cleanQ + "&" : "") + `created_at=gt.${latest}`;
+          deltaQuery = (cleanQ ? cleanQ + "&" : "") + `created_at=gt.${encodeURIComponent(latest)}`;
         }
 
         try {

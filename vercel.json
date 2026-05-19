@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "https://rs-demo-qpf9.onrender.com/"
+            "destination": "https://rs-demo-qpf9.onrender.com/api/:path*"
         }
     ]
 }
