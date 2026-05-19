@@ -224,6 +224,11 @@ export default function App() {
     localStorage.removeItem("rs_session");
     sessionStorage.removeItem("rs_oauth_pending");
     sessionStorage.removeItem("rs_pkce_verifier");
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("rs_cache_")) {
+        localStorage.removeItem(key);
+      }
+    });
     setSession(null); setMe(null); setMyProfile(null); setProfiles({}); setBals({}); setView("feed"); setScreen("auth");
   };
 
