@@ -242,8 +242,8 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
               {activeConv.is_group
                 ? <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Users size={20} color="#fff" /></div>
                 : <button onClick={() => onProfile?.(getConvTarget(activeConv))} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                    <Av profile={profiles[getConvTarget(activeConv)] || { name: getConvName(activeConv) }} size={40} />
-                  </button>
+                  <Av profile={profiles[getConvTarget(activeConv)] || { name: getConvName(activeConv) }} size={40} />
+                </button>
               }
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: th.txt }}>{getConvName(activeConv)}</div>
