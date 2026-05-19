@@ -1,0 +1,145 @@
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // NEW IMPORT
+import { 
+  Search, 
+  Edit, 
+  MessageSquareOff, 
+  CheckCheck,
+  Plus,
+  X
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation, useNavigate } from 'react-router-dom';
+import Conversation from '../components/shared/Conversation';
+import { useSocial } from '../context/SocialContext';
+import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
+import { useData } from '../context/DataContext';
+import { supabase } from '../utils/supabase';
+import { socket } from '../utils/socket';
+
+// ... (Keep your Chat type definition here) ...
+
+export default function Messages() {
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient(); // NEW: Hook to access the cache directly
+  
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [localSearch, setLocalSearch] = useState('');
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const { searchQuery } = useSocial();
+
+  // Group States (Unchanged)
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [followerSearch, setFollowerSearch] = useState('');
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  const activeSearch = searchQuery || localSearch;
+  const { initialData } = useData();
+
+  // ==========================================
+  // NEW: TanStack Query Data Fetching
+  // ==========================================
+  const { data: chats = [], isLoading: loading } = useQuery({
+    queryKey: ['conversations', user?.id],
+    queryFn: async () => {
+      const isProd = import.meta.env.PROD;
+      const fallbackUrl = isProd ? window.location.origin : 'http://localhost:10000';
+      const BACKEND_URL = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || fallbackUrl).replace(/\/$/, '');
+      
+      const response = await fetch(`${BACKEND_URL}/api/conversations`, {
+        headers: { 'x-user-id': user?.id || '' }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      
+      return (data || []).map((convo: any) => formatConversationData(convo, user?.id));
+    },
+    // If we have initialData from context, use it immediately! No loading screen.
+    initialData: () => {
+      if (initialData?.conversations) {
+        return initialData.conversations.map((convo: any) => formatConversationData(convo, user?.id));
+      }
+      return undefined;
+    },
+    enabled: !!user, // Only run query if user exists
+    staleTime: 5 * 60 * 1000, // Data remains "fresh" for 5 minutes (no background re-fetching)
+  });
+
+  // Helper function to keep formatting clean
+  const formatConversationData = (convo: any, currentUserId: string | undefined) => {
+    const isGroup = convo.is_group; 
+    const profile = convo.profile;
+    const targetId = convo.participants?.find((p: string) => p !== currentUserId);
+    
+    return {
+      id: convo.id,
+      sender: isGroup ? (convo.name || "Group") : (profile?.display_name || profile?.full_name || profile?.username || 'User'),
+      avatarColor: 'bg-brand',
+      initials: isGroup ? (convo.name || "G").substring(0, 1).toUpperCase() : (profile?.initial || 'U'),
+      avatar_url: isGroup ? (convo.photo_url || convo.avatar_url || convo.avatarUrl) : (profile?.avatar_url || profile?.avatarUrl || profile?.photo_url),
+      lastMessage: convo.lastmessage || convo.lastMessage || 'No messages yet',
+      timestamp: new Date(convo.updatedat || convo.updatedAt || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      unreadCount: convo.unreadCount || 0,
+      isOnline: true,
+      targetUserId: targetId,
+      isGroup: isGroup
+    };
+  };
+
+  // ==========================================
+  // REALTIME SYNCHRONIZATION
+  // ==========================================
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. Socket: New Conversation
+    const handleNewConversation = (convo: any) => {
+      const newChat = formatConversationData(convo, user.id);
+      
+      // Update the React Query cache directly without re-fetching
+      queryClient.setQueryData(['conversations', user.id], (oldChats: any = []) => {
+        if (oldChats.find((c: any) => c.id === newChat.id)) return oldChats;
+        return [newChat, ...oldChats];
+      });
+    };
+
+    // 2. Socket: Messages Read
+    const handleMessagesRead = ({ conversationId }: { conversationId: string }) => {
+      queryClient.setQueryData(['conversations', user.id], (oldChats: any = []) => 
+        oldChats.map((chat: any) => chat.id === conversationId ? { ...chat, unreadCount: 0 } : chat)
+      );
+    };
+
+    socket.on('new_conversation', handleNewConversation);
+    socket.on('messages_read', handleMessagesRead);
+
+    // 3. Supabase Realtime fallback
+    const channel = supabase
+      .channel(`messages-list-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations', filter: `participants=cs.{${user.id}}` },
+        () => {
+          // Tell React Query the data is old, it will silently re-fetch in the background
+          queryClient.invalidateQueries({ queryKey: ['conversations', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      socket.off('new_conversation', handleNewConversation);
+      socket.off('messages_read', handleMessagesRead);
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
+
+  // ... (The rest of your code: URL params useEffect, handleCreateGroup, UI rendering) ...
