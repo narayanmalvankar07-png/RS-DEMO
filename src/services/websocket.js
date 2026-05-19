@@ -12,8 +12,14 @@ export const connectWebSocket = (userId) => {
     return;
   }
 
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
+  let wsUrl;
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    wsUrl = `${protocol}//${window.location.host}/ws`;
+  } else {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://rs-demo-qpf9.onrender.com";
+    wsUrl = backendUrl.replace(/^http/, "ws") + "/ws";
+  }
 
   console.log("[WS] Connecting to", wsUrl);
   socket = new WebSocket(wsUrl);
