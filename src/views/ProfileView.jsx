@@ -28,6 +28,8 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [editName, setEditName] = useState(profile.name || "");
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("posts");
+  const [isAligned, setIsAligned] = useState(false);
+  const [checkingAlign, setCheckingAlign] = useState(false);
 
   useEffect(() => {
     setEditBio(profile.bio || "");
@@ -41,6 +43,15 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       setLoadingPosts(false);
     });
   }, [uid]);
+
+  useEffect(() => {
+    if (isOwnProfile) return;
+    setCheckingAlign(true);
+    db.get("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`).then(d => {
+      setIsAligned(d && d.length > 0);
+      setCheckingAlign(false);
+    });
+  }, [uid, me, isOwnProfile]);
 
   const saveProfile = async () => {
     setSaving(true);
@@ -119,7 +130,17 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
         <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
           {!isOwnProfile && (
             <>
-              <button onClick={() => onMessage(uid)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#3b82f6", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
+              <button 
+                onClick={() => {
+                  if (!isAligned) {
+                    addNotif?.({ type: "warning", msg: "🔗 Align First - Send an align request to message this user" });
+                    return;
+                  }
+                  onMessage(uid);
+                }} 
+                disabled={checkingAlign} 
+                title={!isAligned ? "Align First" : ""} 
+                style={{ display: "flex", alignItems: "center", gap: 6, background: isAligned ? "#3b82f6" : "#9333ea", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: isAligned ? "pointer" : "not-allowed", fontWeight: 600, fontSize: 13, opacity: isAligned ? 1 : 0.6 }}>
                 <MessageCircle size={15} />Message
               </button>
               <button onClick={giveToken} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10b981", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>

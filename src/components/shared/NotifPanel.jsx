@@ -2,11 +2,13 @@ import { useEffect } from "react";
 import { X, CheckCheck } from "lucide-react";
 import { T } from "../../config/constants.js";
 
-export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll }) {
+export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll, onSelect }) {
   const th = T(dk);
   const panelBg  = dk ? "rgba(10, 14, 30, 0.96)" : "rgba(255, 255, 255, 0.95)";
   const hdrBdr   = dk ? "rgba(255,255,255,0.10)"  : "rgba(0,0,0,0.08)";
   const unreadBg = dk ? "rgba(99,102,241,0.12)"   : "rgba(99,102,241,0.07)";
+  const ttlMs = 30 * 24 * 60 * 60 * 1000;
+  const visibleNotifs = notifs.filter(n => (n.ts || 0) >= Date.now() - ttlMs);
 
   useEffect(() => {
     if (!onPoll) return;
@@ -15,7 +17,7 @@ export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll }) {
   }, [onPoll]);
 
   const markAll = () => setNotifs(ns => ns.map(n => ({ ...n, read: true })));
-  const unreadCount = notifs.filter(n => !n.read).length;
+  const unreadCount = visibleNotifs.filter(n => !n.read).length;
 
   return (
     <div style={{ position: "absolute", top: 52, right: 10, width: 320, background: panelBg, backdropFilter: "blur(24px) saturate(1.8)", WebkitBackdropFilter: "blur(24px) saturate(1.8)", border: `1px solid ${hdrBdr}`, borderRadius: 18, boxShadow: dk ? "0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)" : "0 16px 48px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.9)", zIndex: 1000, animation: "scaleIn 0.22s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top right" }}>
@@ -36,13 +38,13 @@ export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll }) {
         </div>
       </div>
       <div style={{ maxHeight: 380, overflowY: "auto" }}>
-        {notifs.length === 0 ? (
+        {visibleNotifs.length === 0 ? (
           <div style={{ padding: 28, textAlign: "center", color: th.txt3 }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>🔔</div>
             <div style={{ fontSize: 12, fontWeight: 500 }}>You're all caught up!</div>
           </div>
-        ) : notifs.map((n, i) => (
-          <button key={n.id} onClick={() => setNotifs(ns => ns.map(x => x.id === n.id ? { ...x, read: true } : x))}
+        ) : visibleNotifs.map((n, i) => (
+          <button key={n.id} onClick={() => { setNotifs(ns => ns.map(x => x.id === n.id ? { ...x, read: true } : x)); onClose?.(); onSelect?.(n); }}
             style={{ width: "100%", textAlign: "left", padding: "12px 14px", border: "none", background: n.read ? "transparent" : unreadBg, cursor: "pointer", borderBottom: `1px solid ${hdrBdr}`, transition: "background 0.18s", animation: `fadeUp 0.32s cubic-bezier(0.22,1,0.36,1) ${i * 30}ms both` }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
               {!n.read && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", flexShrink: 0, marginTop: 4, boxShadow: "0 0 6px #6366f1" }} />}

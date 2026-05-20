@@ -9,7 +9,7 @@ import Card from '../ui/Card.jsx';
 import ShareModal from './ShareModal.jsx';
 import QuoteRepostModal from './QuoteRepostModal.jsx';
 
-function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBookmark, onDelete, onEdit, dk, onProfile, bals, profiles, onTag, bookmarks = [] }) {
+function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBookmark, onDelete, onEdit, dk, onProfile, bals, profiles, onTag, bookmarks = [], forceShowComments = false, highlightCommentId = null }) {
   const th = T(dk);
   const [showCmt, setShowCmt]         = useState(false);
   const [cmt, setCmt]                 = useState("");
@@ -22,6 +22,10 @@ function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBook
   const [editError, setEditError]     = useState("");
   const [copied, setCopied]           = useState(false);
   const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (forceShowComments) setShowCmt(true);
+  }, [forceShowComments]);
 
   const auth       = profiles[post.uid] || { name: "RightSignal User", hue: "#6b7280" };
   const bal        = bals[post.uid] ?? 0;
@@ -200,8 +204,9 @@ function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBook
               <div style={{ background: th.surf2, borderRadius: 10, padding: 10, marginBottom: 8, border: `1px solid ${th.bdr}` }}>
                 {post.comments.slice(0, 3).map(c => {
                   const cp = profiles[c.uid] || { name: "User" };
+                  const isFocused = highlightCommentId && c.id === highlightCommentId;
                   return (
-                    <div key={c.id} style={{ display: "flex", gap: 7, marginBottom: 6 }}>
+                    <div key={c.id} style={{ display: "flex", gap: 7, marginBottom: 6, borderRadius: 8, padding: isFocused ? 3 : 0, background: isFocused ? "rgba(59,130,246,0.08)" : "transparent", border: isFocused ? "1px solid rgba(59,130,246,0.18)" : "none" }}>
                       <div onClick={() => onProfile(c.uid)} style={{ cursor: "pointer" }}><Av profile={cp} size={22} /></div>
                       <div style={{ flex: 1, background: th.surf, borderRadius: 8, padding: "5px 10px", border: `1px solid ${th.bdr}` }}>
                         <span onClick={() => onProfile(c.uid)} style={{ fontWeight: 600, fontSize: 12, color: th.txt, cursor: "pointer" }}>{cp.name} </span>

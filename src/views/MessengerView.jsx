@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Send, Search, Edit, X, MessageSquareOff, Users, Plus } from "lucide-react";
+import { Send, Search, Edit, X, MessageSquareOff, Users, Plus, MoreVertical, Trash2 } from "lucide-react";
 import { T } from "../config/constants.js";
 import Av from "../components/ui/Av.jsx";
 import Card from "../components/ui/Card.jsx";
@@ -15,6 +15,47 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
   const [showNewMsg, setShowNewMsg] = useState(false);
   const [newMsgSearch, setNewMsgSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  const getMessagePreview = (rawValue) => {
+    if (typeof rawValue !== "string") return "No messages yet";
+
+    const trimmed = rawValue.trim();
+    if (!trimmed) return "No messages yet";
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.text === "string" && parsed.text.trim()) {
+          return parsed.text.trim();
+        }
+
+        if (parsed.audio) {
+          const audioName = typeof parsed.audio === "string"
+            ? parsed.audio
+            : parsed.audio?.name || parsed.audio?.fileName || parsed.audio?.url || "Audio message";
+          return audioName ? `🎵 ${audioName}` : "🎵 Audio message";
+        }
+
+        if (parsed.reply_to?.content) {
+          return String(parsed.reply_to.content).trim() || "No messages yet";
+        }
+      }
+    } catch {}
+
+    return trimmed.length > 120 ? `${trimmed.slice(0, 120)}…` : trimmed;
+  };
+
+  const getConversationPreview = (conv) => {
+    const rawPreview =
+      conv.last_message ||
+      conv.lastmessage ||
+      conv.lastMessage ||
+      conv.preview ||
+      "No messages yet";
+
+    return getMessagePreview(rawPreview);
+  };
 
   // ── Fetch all conversations for this user ──────────────────────────
   const loadConversations = useCallback(async () => {
@@ -25,7 +66,9 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
       });
       if (res.ok) {
         const data = await res.json();
-        setConversations(data || []);
+        // Deduplicate by conversation ID
+        const uniqueData = Array.from(new Map((data || []).map(c => [c.id, c])).values());
+        setConversations(uniqueData);
       }
     } catch (e) {
       console.error("Failed to load conversations:", e);
@@ -35,6 +78,13 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
   }, [me]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handler = () => setShowMenu(false);
+    if (showMenu) document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showMenu]);
 
   // ── If initUid provided, find or create a 1-on-1 conversation ─────
   useEffect(() => {
@@ -48,10 +98,11 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
         const existing = await res.json();
         if (existing?.id) {
           setActiveId(existing.id);
-          // Make sure it's in the list
-          setConversations(prev =>
-            prev.find(c => c.id === existing.id) ? prev : [existing, ...prev]
-          );
+          // Make sure it's in the list (deduplicate by ID)
+          setConversations(prev => {
+            const exists = prev.find(c => c.id === existing.id);
+            return exists ? prev : [existing, ...prev];
+          });
           return;
         }
       }
@@ -63,11 +114,31 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
       });
       if (createRes.ok) {
         const newConv = await createRes.json();
-        setConversations(prev => [newConv, ...prev]);
+        setConversations(prev => {
+          const exists = prev.find(c => c.id === newConv.id);
+          return exists ? prev : [newConv, ...prev];
+        });
         setActiveId(newConv.id);
       }
     })();
   }, [initUid, me]);
+
+  // ── Delete conversation ────────────────────────────────────────────
+  const deleteConversation = async (convId) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}`, {
+        method: "DELETE",
+        headers: { "x-user-id": me },
+      });
+      if (res.ok) {
+        setConversations(prev => prev.filter(c => c.id !== convId));
+        if (activeId === convId) setActiveId(null);
+        setShowMenu(false);
+      }
+    } catch (e) {
+      console.error("Failed to delete conversation:", e);
+    }
+  };
 
   // ── Start a new 1-on-1 conversation with a selected user ──────────
   const startConversation = async (targetUid) => {
@@ -81,9 +152,10 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
       if (checkRes.ok) {
         const existing = await checkRes.json();
         if (existing?.id) {
-          setConversations(prev =>
-            prev.find(c => c.id === existing.id) ? prev : [existing, ...prev]
-          );
+          setConversations(prev => {
+            const exists = prev.find(c => c.id === existing.id);
+            return exists ? prev : [existing, ...prev];
+          });
           setActiveId(existing.id);
           return;
         }
@@ -95,7 +167,10 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
       });
       if (res.ok) {
         const newConv = await res.json();
-        setConversations(prev => [newConv, ...prev]);
+        setConversations(prev => {
+          const exists = prev.find(c => c.id === newConv.id);
+          return exists ? prev : [newConv, ...prev];
+        });
         setActiveId(newConv.id);
       }
     } finally {
@@ -116,8 +191,9 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
   const getConvTarget = (conv) =>
     getParticipants(conv).find(uid => uid !== me);
 
-  // ── Filter conversations by search ─────────────────────────────────
-  const filteredConvs = conversations.filter(c => {
+  // ── Filter conversations by search & deduplicate ───────────────────
+  const uniqueConvs = Array.from(new Map(conversations.map(c => [c.id, c])).values());
+  const filteredConvs = uniqueConvs.filter(c => {
     const name = getConvName(c).toLowerCase();
     return name.includes(search.toLowerCase());
   });
@@ -143,10 +219,10 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 18, minHeight: "calc(100vh - 120px)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 12, height: "100%", width: "100%", overflow: "hidden", padding: "12px 16px" }}>
 
       {/* ── Left panel: conversation list ─── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: th.txt }}>Messages</h2>
           <button
@@ -171,7 +247,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
         </div>
 
         {/* List */}
-        <Card dk={dk} style={{ padding: 0, overflow: "hidden", flex: 1 }}>
+        <Card dk={dk} style={{ padding: 0, overflow: "auto", flex: 1, minHeight: 0 }}>
           {loading ? (
             <div style={{ padding: 24, textAlign: "center", color: th.txt3, fontSize: 13 }}>Loading…</div>
           ) : filteredConvs.length === 0 ? (
@@ -215,7 +291,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: th.txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{convName}</div>
                     <div style={{ fontSize: 12, color: th.txt3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {conv.is_group ? `${getParticipants(conv).length} members` : "Tap to open chat"}
+                      {getConversationPreview(conv)}
                     </div>
                   </div>
                 </button>
@@ -226,9 +302,9 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
       </div>
 
       {/* ── Right panel: active chat ───────── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", height: "100%", minHeight: 0 }}>
         {!activeConv ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: th.txt3, gap: 12, minHeight: 400 }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: th.txt3, gap: 12, minHeight: 0 }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: dk ? "rgba(255,255,255,0.05)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Send size={28} color={th.txt3} />
             </div>
@@ -238,7 +314,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
         ) : (
           <>
             {/* Chat header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "12px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "12px 16px", flexShrink: 0, position: "relative" }}>
               {activeConv.is_group
                 ? <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Users size={20} color="#fff" /></div>
                 : <button onClick={() => onProfile?.(getConvTarget(activeConv))} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
@@ -253,10 +329,23 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
                     : "Click name to view profile"}
                 </div>
               </div>
+              {/* Menu button */}
+              <div style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+                <button onClick={(e) => { e.stopPropagation(); setShowMenu(s => !s); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 8, borderRadius: 10, display: "flex", alignItems: "center", color: th.txt3, transition: "all 0.15s" }}>
+                  <MoreVertical size={20} />
+                </button>
+                {showMenu && (
+                  <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: 40, right: 0, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 8, boxShadow: "0 8px 24px rgba(2,6,23,0.12)", zIndex: 100 }}>
+                    <button onClick={() => deleteConversation(activeConv.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", color: "#ef4444", width: "100%", textAlign: "left", fontSize: 13, fontWeight: 600 }}>
+                      <Trash2 size={16} /> Delete Chat
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Conversation component */}
-            <Card dk={dk} style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column" }}>
+            <Card dk={dk} style={{ flex: 1, padding: 12, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, marginBottom: 0 }}>
               <Conversation
                 key={activeConv.id}
                 conversationId={activeConv.id}

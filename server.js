@@ -7,7 +7,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use("/api/upload-audio", express.raw({ type: "audio/*", limit: "10mb" }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // ── Anthropic client ────────────────────────────────────────────────
 const anthropic = new Anthropic({
@@ -17,9 +19,15 @@ const anthropic = new Anthropic({
 
 // ── Supabase client ─────────────────────────────────────────────────
 // Pass ws as transport so Supabase realtime works on Node.js 20
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY;
+
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY,
+  supabaseKey,
   { realtime: { transport: WebSocket } }
 );
 
@@ -70,7 +78,33 @@ app.get("/api/conversations", async (req, res) => {
       .order("updated_at", { ascending: false });
 
     if (cErr) throw cErr;
-    res.json(conversations || []);
+
+    const { data: messages, error: mErr } = await supabase
+      .from("rs_conversation_messages")
+      .select("conversation_id, content, created_at, user_id")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: false });
+
+    if (mErr) throw mErr;
+
+    const latestByConversation = new Map();
+    for (const message of messages || []) {
+      if (!latestByConversation.has(message.conversation_id)) {
+        latestByConversation.set(message.conversation_id, message);
+      }
+    }
+
+    const enrichedConversations = (conversations || []).map((conversation) => {
+      const latest = latestByConversation.get(conversation.id);
+      return {
+        ...conversation,
+        last_message: latest?.content || null,
+        last_message_at: latest?.created_at || null,
+        last_message_user_id: latest?.user_id || null,
+      };
+    });
+
+    res.json(enrichedConversations);
   } catch (err) {
     console.error("GET /api/conversations error:", err.message);
     res.status(500).json({ error: err.message });
@@ -170,6 +204,109 @@ app.get("/api/conversations/with/:userId", async (req, res) => {
     res.json(oneOnOne || null);
   } catch (err) {
     console.error("GET /api/conversations/with/:userId error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── DELETE /api/conversations/:conversationId ───────────────────────
+// Deletes a conversation and all its participants/messages (soft delete or hard delete)
+app.delete("/api/conversations/:conversationId", async (req, res) => {
+  const userId = getUser(req);
+  if (!userId) return res.status(401).json({ error: "x-user-id header required" });
+
+  const conversationId = req.params.conversationId;
+
+  try {
+    // Check if user is a participant
+    const { data: participant, error: pErr } = await supabase
+      .from("rs_conversation_participants")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId)
+      .single();
+
+    if (pErr || !participant) {
+      return res.status(403).json({ error: "Not a participant in this conversation" });
+    }
+
+    // Delete all messages first (foreign key constraint)
+    const { error: msgErr } = await supabase
+      .from("rs_conversation_messages")
+      .delete()
+      .eq("conversation_id", conversationId);
+
+    if (msgErr) throw msgErr;
+
+    // Delete all participants
+    const { error: partErr } = await supabase
+      .from("rs_conversation_participants")
+      .delete()
+      .eq("conversation_id", conversationId);
+
+    if (partErr) throw partErr;
+
+    // Delete the conversation itself
+    const { error: convErr } = await supabase
+      .from("rs_conversations")
+      .delete()
+      .eq("id", conversationId);
+
+    if (convErr) throw convErr;
+
+    res.json({ success: true, message: "Conversation deleted" });
+  } catch (err) {
+    console.error("DELETE /api/conversations/:conversationId error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/upload-audio ──────────────────────────────────────────
+// Uploads raw audio binary to Supabase Storage and returns public URL
+app.post("/api/upload-audio", async (req, res) => {
+  const userId = getUser(req);
+  if (!userId) return res.status(401).json({ error: "x-user-id header required" });
+
+  const fileName = req.headers['x-file-name'] || `recording-${Date.now()}.webm`;
+  
+  try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_KEY) {
+      return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY for storage upload" });
+    }
+
+    // req.body contains raw binary because express.raw is bound on this route
+    const buffer = req.body;
+    
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+      return res.status(400).json({ error: "No audio data received" });
+    }
+
+    console.log(`[Upload] Uploading audio: ${fileName}, size: ${buffer.length} bytes`);
+
+    // Upload to Supabase Storage in "audio" bucket
+    const path = `${userId}/${Date.now()}-${fileName}`;
+    const { error: uploadErr } = await supabase
+      .storage
+      .from('audio')
+      .upload(path, buffer, { contentType: 'audio/webm', upsert: false });
+
+    if (uploadErr) {
+      console.error(`[Upload] Error uploading to Supabase:`, uploadErr);
+      throw uploadErr;
+    }
+
+    console.log(`[Upload] Uploaded successfully: ${path}`);
+
+    // Get public URL
+    const { data: urlData } = supabase
+      .storage
+      .from('audio')
+      .getPublicUrl(path);
+
+    const publicUrl = urlData?.publicUrl;
+    console.log(`[Upload] Public URL: ${publicUrl}`);
+    res.json({ url: publicUrl, path });
+  } catch (err) {
+    console.error("POST /api/upload-audio error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

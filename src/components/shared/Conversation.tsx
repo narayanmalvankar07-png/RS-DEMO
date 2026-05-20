@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2 } from 'lucide-react';
-import { T } from '../../config/constants.js';
+import { Check, CheckCheck, Send, Loader2, Paperclip, Image, Mic, Smile } from 'lucide-react';
+import { SB_URL, T } from '../../config/constants.js';
 import { db } from '../../services/supabase.js';
 import { sendWSMessage, subscribeWS } from '../../services/websocket.js';
 import Av from '../ui/Av.jsx';
@@ -11,6 +11,11 @@ interface Message {
   user_id: string;
   content: string;
   created_at: string;
+}
+
+interface ParticipantRow {
+  user_id: string;
+  last_read_at?: string | null;
 }
 
 interface Profile {
@@ -44,12 +49,99 @@ export default function Conversation({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [isAligned, setIsAligned] = useState(true); // Assume aligned by default; will check
+  const [participantRows, setParticipantRows] = useState<ParticipantRow[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastIdRef = useRef<string | null>(null);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+
+  // Recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const recordTimerRef = useRef<number | null>(null);
+  const pendingAudioRef = useRef<Blob | null>(null);
+  const [pendingAudioName, setPendingAudioName] = useState<string | null>(null);
+
+  const STICKERS = ['😂','🤣','😄','😁','😆','😊','🙂','😜','😎','😍','😭','😅','🤩','😇','🤪','😋'];
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingSentRef = useRef(false);
   const otherUid = participants.find(uid => uid !== me);
+  const [replyingTo, setReplyingTo] = useState<null | { id: string; content: string; author?: string }>(null);
+  const lastTapRef = useRef<number | null>(null);
+
+  const refreshReadState = useCallback(async () => {
+    try {
+      const rows = await db.get('rs_conversation_participants', `conversation_id=eq.${conversationId}`);
+      setParticipantRows(rows || []);
+      await db.patch('rs_conversation_participants', `conversation_id=eq.${conversationId}&user_id=eq.${me}`, {
+        last_read_at: new Date().toISOString(),
+      });
+      setParticipantRows(prev => prev.map(row => row.user_id === me ? { ...row, last_read_at: new Date().toISOString() } : row));
+    } catch {}
+  }, [conversationId, me]);
+
+  const hasBeenSeen = useCallback((createdAt: string) => {
+    const sentAt = new Date(createdAt).getTime();
+    if (!sentAt) return false;
+
+    const others = participantRows.filter(row => row.user_id !== me);
+    if (!others.length) return false;
+
+    if (!isGroup) {
+      const other = others.find(row => row.user_id === otherUid) || others[0];
+      const readAt = other?.last_read_at ? new Date(other.last_read_at).getTime() : 0;
+      return readAt >= sentAt;
+    }
+
+    return others.every(row => {
+      const readAt = row.last_read_at ? new Date(row.last_read_at).getTime() : 0;
+      return readAt >= sentAt;
+    });
+  }, [isGroup, me, otherUid, participantRows]);
+
+  const parseMessageContent = (raw: string) => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && ('text' in parsed || 'audio' in parsed || 'reply_to' in parsed)) {
+        const audio = parsed.audio;
+        const normalizedAudio = typeof audio === 'string'
+          ? { url: audio }
+          : audio && typeof audio === 'object'
+            ? audio
+            : null;
+
+        return {
+          text: typeof parsed.text === 'string' ? parsed.text : '',
+          audio: normalizedAudio,
+          reply_to: parsed.reply_to || null,
+        };
+      }
+    } catch {}
+    return { text: raw, audio: null, reply_to: null };
+  };
+
+  const resolveAudioSrc = (audio: any) => {
+    if (!audio) return '';
+    if (typeof audio === 'string') return audio;
+    return (
+      audio.url ||
+      audio.publicUrl ||
+      audio.src ||
+      (audio.path ? `${SB_URL}/storage/v1/object/public/audio/${audio.path}` : '') ||
+      ''
+    );
+  };
+
+  const resolveAudioLabel = (audio: any) => {
+    if (!audio) return 'Audio message';
+    if (typeof audio === 'string') return 'Audio message';
+    return audio.name || audio.fileName || 'Audio message';
+  };
 
   const handleUserTyping = () => {
     if (!otherUid) return;
@@ -106,7 +198,17 @@ export default function Conversation({
     lastIdRef.current = null;
     setIsTyping(false);
     isTypingSentRef.current = false;
+    
+    // Check alignment with the other participant
+    const otherParticipant = participants.find(uid => uid !== me);
+    if (otherParticipant) {
+      db.get('rs_alignments', `follower_uid=eq.${me}&following_uid=eq.${otherParticipant}`)
+        .then(d => { setIsAligned(d && d.length > 0); })
+        .catch(() => { setIsAligned(true); }); // Assume aligned on error
+    }
+    
     fetchMessages(true).finally(() => setLoading(false));
+    refreshReadState();
 
     // Subscribe to live WebSockets instead of polling!
     const unsubscribe = subscribeWS((data) => {
@@ -115,6 +217,9 @@ export default function Conversation({
           if (prev.find(m => m.id === data.message.id)) return prev;
           return [...prev, data.message];
         });
+        if (data.message.user_id !== me) {
+          refreshReadState();
+        }
       } else if (data.type === 'typing' && data.conversationId === conversationId && data.userId !== me) {
         setIsTyping(data.isTyping);
       } else if (data.type === 'error') {
@@ -130,14 +235,116 @@ export default function Conversation({
       unsubscribe();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [conversationId, fetchMessages]);
+  }, [conversationId, me, refreshReadState]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  const handleAttachClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowAttachMenu(s => !s);
+    // close sticker picker when toggling attach
+    setShowStickerPicker(false);
+  };
+
+  const onSelectImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    // Minimal placeholder behavior: insert file name into input for now
+    setText(prev => prev ? `${prev} [Image: ${f.name}]` : `[Image: ${f.name}]`);
+    setShowAttachMenu(false);
+    // reset input
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  };
+
+  
+
+  const startRecording = async () => {
+    try {
+      // Request mono audio with low sample rate for compression
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000,  // 16 kHz instead of 48kHz = 3x smaller
+          mono: true  // Mono instead of stereo = 2x smaller
+        }
+      });
+      
+      const mime = 'audio/webm';
+      const mr = new MediaRecorder(stream, { 
+        mimeType: mime,
+        audioBitsPerSecond: 32000  // 32 kbps ultra-low bitrate (very compressed)
+      });
+      
+      recordChunksRef.current = [];
+      mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) recordChunksRef.current.push(ev.data); };
+      mr.onstop = () => {
+        const blob = new Blob(recordChunksRef.current, { type: mime });
+        pendingAudioRef.current = blob;
+        const name = `recording-${Date.now()}.webm`;
+        setPendingAudioName(name);
+        
+        // stop all tracks
+        try { stream.getTracks().forEach(t => t.stop()); } catch {}
+        setIsRecording(false);
+        if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        setRecordSecs(0);
+      };
+      mr.start();
+      recorderRef.current = mr;
+      setIsRecording(true);
+      setRecordSecs(0);
+      recordTimerRef.current = window.setInterval(() => setRecordSecs(s => s + 1), 1000);
+    } catch (err) {
+      console.error('Microphone access denied', err);
+      alert('Microphone access is required to record audio.');
+    }
+  };
+
+  const stopRecording = () => {
+    try {
+      recorderRef.current?.stop();
+    } catch (e) { }
+    try { recorderRef.current = null; } catch {}
+  };
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handler = () => { setShowAttachMenu(false); setShowStickerPicker(false); };
+    if (showAttachMenu || showStickerPicker) document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showAttachMenu, showStickerPicker]);
+
+  // Cleanup recorder on unmount
+  useEffect(() => {
+    return () => {
+      try { recorderRef.current?.state !== 'inactive' && recorderRef.current?.stop(); } catch {}
+      if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+    };
+  }, []);
+
+  const openStickerPicker = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowStickerPicker(true);
+    setShowAttachMenu(false);
+  };
+
+  const selectSticker = (s: string) => {
+    setText(prev => prev ? `${prev} ${s}` : s);
+    setShowStickerPicker(false);
+    setShowAttachMenu(false);
+  };
+
+  const startReplyTo = (msgId: string, content: string, author?: string) => {
+    setReplyingTo({ id: msgId, content, author });
+    // focus input if needed
+  };
+
   const sendMessage = async () => {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && !pendingAudioRef.current) || sending) return;
     const content = text.trim();
     setText('');
     setSending(true);
@@ -169,6 +376,53 @@ export default function Conversation({
       content,
       created_at: new Date().toISOString(),
     };
+    const payload: any = { text: content };
+
+    // If there's a recorded audio blob, upload to cloud storage
+    if (pendingAudioRef.current && pendingAudioName) {
+      const blob = pendingAudioRef.current;
+      
+      // Convert blob to binary for upload
+      try {
+        const uploadRes = await fetch('/api/upload-audio', {
+          method: 'POST',
+          headers: { 
+            'x-user-id': me,
+            'x-file-name': pendingAudioName,
+            'Content-Type': 'audio/webm'
+          },
+          body: blob  // Send blob directly - fetch will handle binary encoding
+        });
+        
+        if (uploadRes.ok) {
+          const { url, path } = await uploadRes.json();
+          // Store only the public URL
+          payload.audio = { name: pendingAudioName, type: blob.type, url, path };
+          console.log('[Upload] Success:', url);
+        } else {
+          const errText = await uploadRes.text();
+          console.error('Upload failed:', uploadRes.status, errText);
+          // Fallback: store metadata only if upload fails
+          payload.audio = { name: pendingAudioName, type: blob.type };
+        }
+      } catch (err) {
+        console.error('Audio upload failed:', err);
+        // Fallback: store metadata only if upload fails
+        payload.audio = { name: pendingAudioName, type: blob.type };
+      }
+      
+      // clear pending audio
+      pendingAudioRef.current = null;
+      setPendingAudioName(null);
+    }
+
+    // Attach reply metadata if replyingTo set
+    if (replyingTo) {
+      payload.reply_to = { id: replyingTo.id, content: replyingTo.content, author: replyingTo.author };
+      setReplyingTo(null);
+    }
+
+    msg.content = (payload.audio || payload.reply_to) ? JSON.stringify(payload) : content;
 
     // 1. Optimistic Local Render (instant UX!)
     setMessages(prev => [...prev, msg]);
@@ -197,9 +451,9 @@ export default function Conversation({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 460 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Messages area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 4px 8px 0', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 8px 12px 4px', display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, scrollBehavior: 'smooth' }}>
         {messages.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: th.txt3, fontSize: 13, padding: 40, textAlign: 'center' }}>
             No messages yet — say hello! 👋
@@ -210,6 +464,11 @@ export default function Conversation({
             const prof = profiles[msg.user_id] || { name: 'User' };
             const prevSame = idx > 0 && messages[idx - 1].user_id === msg.user_id;
             const showAvatar = !fromMe && !prevSame;
+            const parsed = parseMessageContent(msg.content);
+            const replyPreview = parsed.reply_to?.content || '';
+            const audioSrc = resolveAudioSrc(parsed.audio);
+            const bubbleText = parsed.text || (parsed.audio ? '' : msg.content);
+            const seen = fromMe && hasBeenSeen(msg.created_at);
 
             return (
               <div
@@ -236,24 +495,62 @@ export default function Conversation({
                       {(prof as Profile).name || 'User'}
                     </span>
                   )}
-                  <div
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: fromMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                      background: fromMe
-                        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-                        : dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                      color: fromMe ? '#fff' : th.txt,
-                      fontSize: 14,
-                      lineHeight: 1.5,
-                      wordBreak: 'break-word',
-                      opacity: msg.id.startsWith('temp_') ? 0.6 : 1,
-                      boxShadow: fromMe ? '0 4px 12px rgba(99,102,241,0.3)' : 'none',
-                      transition: 'opacity 0.2s',
-                    }}
-                  >
-                    {msg.content}
-                  </div>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onDoubleClick={() => startReplyTo(msg.id, String(bubbleText || 'Audio message'), (profiles[msg.user_id]?.name || '').toString())}
+                          onTouchEnd={() => {
+                            const now = Date.now();
+                            if (lastTapRef.current && now - lastTapRef.current < 350) {
+                              startReplyTo(msg.id, String(bubbleText || 'Audio message'), (profiles[msg.user_id]?.name || '').toString());
+                              lastTapRef.current = null;
+                            } else {
+                              lastTapRef.current = now;
+                            }
+                          }}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: fromMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                            background: fromMe
+                              ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                              : dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                            color: fromMe ? '#fff' : th.txt,
+                            fontSize: 14,
+                            lineHeight: 1.5,
+                            wordBreak: 'break-word',
+                            opacity: msg.id.startsWith('temp_') ? 0.6 : 1,
+                            boxShadow: fromMe ? '0 4px 12px rgba(99,102,241,0.3)' : 'none',
+                            transition: 'opacity 0.2s',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {/* If this message is a reply to another, render quoted preview */}
+                          {parsed.reply_to ? (
+                            <div style={{ marginBottom: 8, padding: '6px 8px', borderRadius: 8, background: dk ? 'rgba(255,255,255,0.02)' : '#f1f5f9', color: th.txt3, fontSize: 12 }}>
+                              {replyPreview.slice(0, 120)}
+                            </div>
+                          ) : null}
+                          { parsed.audio ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+                              {audioSrc ? (
+                                <audio controls preload="none" src={audioSrc} style={{ width: '100%', maxWidth: '300px', height: 38 }} />
+                              ) : (
+                                <div style={{ fontSize: 13, color: fromMe ? '#fff' : th.txt, padding: '10px 12px', background: fromMe ? 'rgba(255,255,255,0.15)' : (dk ? 'rgba(255,255,255,0.05)' : '#f1f5f9'), borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  🎵 {resolveAudioLabel(parsed.audio)}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
+                              <span>{bubbleText}</span>
+                              {fromMe && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', marginBottom: 1, color: seen ? '#60a5fa' : 'rgba(255,255,255,0.75)' }}>
+                                  {seen ? <CheckCheck size={15} /> : <Check size={15} />}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                   {!prevSame && (
                     <span style={{ fontSize: 10, color: th.txt3, marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -280,9 +577,58 @@ export default function Conversation({
           gap: 10,
           paddingTop: 12,
           borderTop: `1px solid ${th.bdr}`,
-          marginTop: 4,
+          marginTop: 'auto',
+          flexShrink: 0,
+          alignItems: 'center',
+          position: 'relative',
         }}
       >
+        {/* Reply preview (when replyingTo is set) */}
+        {replyingTo && (
+          <div style={{ position: 'absolute', left: 64, right: 120, bottom: 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 12, color: th.txt3, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyingTo.author ? `${replyingTo.author}: ` : ''}{replyingTo.content}</div>
+            <button onClick={() => setReplyingTo(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3 }}>✕</button>
+          </div>
+        )}
+        {/* Hidden file inputs for attachments */}
+        <input ref={imageInputRef as any} onChange={onSelectImage} type="file" accept="image/*" style={{ display: 'none' }} />
+        
+        {/* Attach button + popover */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <button onClick={handleAttachClick} title="Attach" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 10, display: 'flex', alignItems: 'center' }}>
+            <Paperclip size={18} />
+          </button>
+          {showAttachMenu && !showStickerPicker && (
+            <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 44, left: 0, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 8, boxShadow: '0 8px 24px rgba(2,6,23,0.08)', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 60 }}>
+              <button onClick={() => imageInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><Image size={16} /> Image</button>
+              <button onClick={openStickerPicker} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><Smile size={16} /> Sticker</button>
+            </div>
+          )}
+
+          {/* Sticker picker panel */}
+          {showStickerPicker && (
+            <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 44, left: 0, width: 320, maxWidth: '90vw', background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, zIndex: 70 }}>
+              {STICKERS.map(s => (
+                <button key={s} onClick={() => selectSticker(s)} style={{ fontSize: 22, padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Recording UI (shows while recording) */}
+          {isRecording && (
+            <div style={{ position: 'absolute', bottom: 44, left: 0, width: 280, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 12, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', zIndex: 80 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 6, background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.6)', }} />
+                <div style={{ fontWeight: 700 }}>Recording…</div>
+                <div style={{ marginLeft: 'auto', fontSize: 12, color: th.txt3 }}>{Math.floor(recordSecs/60).toString().padStart(2,'0')}:{(recordSecs%60).toString().padStart(2,'0')}</div>
+                <button onClick={(e) => { e.stopPropagation(); stopRecording(); }} style={{ marginLeft: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt }}>
+                  Stop
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <input
           value={text}
           onChange={e => {
@@ -307,15 +653,36 @@ export default function Conversation({
           data-testid="input-message"
         />
         <button
+          onClick={(e) => { e.stopPropagation(); isRecording ? stopRecording() : startRecording(); }}
+          title={isRecording ? 'Stop recording' : 'Record audio'}
+          style={{
+            marginLeft: 8,
+            borderRadius: 12,
+            border: 'none',
+            background: isRecording ? 'linear-gradient(135deg,#ef4444,#f97316)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
+            color: isRecording ? '#fff' : th.txt3,
+            padding: '9px 10px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            transition: 'all 0.15s',
+            flexShrink: 0,
+          }}
+        >
+          <Mic size={16} />
+        </button>
+        <button
           onClick={sendMessage}
-          disabled={!text.trim() || sending}
+          disabled={(!text.trim() && !pendingAudioRef.current) || sending || !isAligned}
+          title={!isAligned ? 'You must be aligned with this user to send messages' : ''}
           style={{
             borderRadius: 14,
             border: 'none',
-            background: text.trim() ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
-            color: text.trim() ? '#fff' : th.txt3,
+            background: ((text.trim() || pendingAudioRef.current) && isAligned) ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
+            color: ((text.trim() || pendingAudioRef.current) && isAligned) ? '#fff' : th.txt3,
             padding: '11px 16px',
-            cursor: text.trim() ? 'pointer' : 'default',
+            cursor: ((text.trim() || pendingAudioRef.current) && isAligned) ? 'pointer' : 'default',
             display: 'flex',
             alignItems: 'center',
             gap: 6,

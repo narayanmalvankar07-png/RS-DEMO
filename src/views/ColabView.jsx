@@ -226,30 +226,30 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
 
   // Tasks
   const TASK_KEY = `rs_tasks_${page.id}`;
-  const [tasks, setTasks] = useState(() => ls.get(TASK_KEY, []));
+  const [tasks, setTasks] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", assignee_id: "", priority: "medium" });
 
   // Files
   const FILE_KEY = `rs_files_${page.id}`;
-  const [files, setFiles] = useState(() => ls.get(FILE_KEY, []));
+  const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
 
   // Meetings
   const MTG_KEY = `rs_mtg_${page.id}`;
-  const [meetings, setMeetings] = useState(() => ls.get(MTG_KEY, []));
+  const [meetings, setMeetings] = useState([]);
   const [showMtgForm, setShowMtgForm] = useState(false);
   const [mtgForm, setMtgForm] = useState({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "", with_note: "" });
 
   // Page member roles
   const ROLES_KEY = `rs_pg_page_roles_${page.id}`;
-  const [pageRoles, setPageRoles] = useState(() => ls.get(ROLES_KEY, {}));
+  const [pageRoles, setPageRoles] = useState({});
 
   // Calendly
   const CALENDLY_KEY = `rs_calendly_${page.id}`;
-  const [calendlyUrl, setCalendlyUrl] = useState(() => ls.get(CALENDLY_KEY, ""));
+  const [calendlyUrl, setCalendlyUrl] = useState("");
   const [editCalendly, setEditCalendly] = useState(false);
-  const [calendlyInput, setCalendlyInput] = useState(() => ls.get(CALENDLY_KEY, ""));
+  const [calendlyInput, setCalendlyInput] = useState("");
 
   // Member search
   const [memberSearch, setMemberSearch] = useState("");
@@ -259,13 +259,44 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
 
   useEffect(() => {
     (async () => {
-      const remote = await db.get("rs_page_messages", `page_id=eq.${page.id}&order=created_at.asc&limit=200`);
-      if (remote?.length) setMessages(remote);
+      const [remoteMessages, remoteTasks, remoteFiles, remoteMeetings, remoteRoles, remoteSettings] = await Promise.all([
+        db.get("rs_page_messages", `page_id=eq.${page.id}&order=created_at.asc&limit=200`),
+        db.get("rs_page_tasks", `page_id=eq.${page.id}&order=created_at.asc`),
+        db.get("rs_page_files", `page_id=eq.${page.id}&order=created_at.desc`),
+        db.get("rs_page_meetings", `page_id=eq.${page.id}&order=meeting_date.asc`),
+        db.get("rs_page_member_roles", `page_id=eq.${page.id}`),
+        db.get("rs_page_settings", `page_id=eq.${page.id}&limit=1`),
+      ]);
+
+      if (remoteMessages?.length) setMessages(remoteMessages);
       else setMessages(ls.get(MSG_KEY, []));
-    })();
-    (async () => {
-      const remote = await db.get("rs_page_meetings", `page_id=eq.${page.id}&order=meeting_date.asc`);
-      if (remote?.length) setMeetings(remote);
+
+      if (remoteTasks?.length) setTasks(remoteTasks);
+      else setTasks(ls.get(TASK_KEY, []));
+
+      if (remoteFiles?.length) setFiles(remoteFiles);
+      else setFiles(ls.get(FILE_KEY, []));
+
+      if (remoteMeetings?.length) setMeetings(remoteMeetings);
+      else setMeetings(ls.get(MTG_KEY, []));
+
+      if (remoteRoles?.length) {
+        const map = {};
+        remoteRoles.forEach(r => { map[r.user_id] = r.role_id; });
+        setPageRoles(map);
+      } else {
+        setPageRoles(ls.get(ROLES_KEY, {}));
+      }
+
+      const settings = remoteSettings?.[0];
+      if (settings) {
+        setCalendlyUrl(settings.calendly_url || "");
+        setCalendlyInput(settings.calendly_url || "");
+      } else {
+        const cached = ls.get(CALENDLY_KEY, "");
+        setCalendlyUrl(cached);
+        setCalendlyInput(cached);
+      }
     })();
   }, [page.id]);
 
@@ -285,6 +316,7 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   const addTask = () => {
     if (!taskForm.title.trim()) return;
     const task = { id: `task_${Date.now()}`, page_id: page.id, title: taskForm.title.trim(), assignee_id: taskForm.assignee_id, priority: taskForm.priority, status: "todo", created_by: me, created_at: new Date().toISOString() };
+    (async () => { await db.post("rs_page_tasks", task); })();
     const updated = [...tasks, task]; setTasks(updated); ls.set(TASK_KEY, updated);
     setTaskForm({ title: "", assignee_id: "", priority: "medium" }); setShowTaskForm(false);
   };
@@ -292,22 +324,25 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   const cycleTask = (taskId) => {
     const cycle = { todo: "in_progress", in_progress: "done", done: "todo" };
     const updated = tasks.map(t => t.id === taskId ? { ...t, status: cycle[t.status] } : t);
+    const next = updated.find(t => t.id === taskId);
+    if (next) db.patch("rs_page_tasks", `id=eq.${taskId}`, { status: next.status });
     setTasks(updated); ls.set(TASK_KEY, updated);
   };
 
-  const deleteTask = (id) => { const u = tasks.filter(t => t.id !== id); setTasks(u); ls.set(TASK_KEY, u); };
+  const deleteTask = (id) => { db.del("rs_page_tasks", `id=eq.${id}`); const u = tasks.filter(t => t.id !== id); setTasks(u); ls.set(TASK_KEY, u); };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const entry = { id: `file_${Date.now()}`, name: file.name, size: file.size, type: file.type, uploaded_by: me, created_at: new Date().toISOString(), dataUrl: ev.target.result };
+      db.post("rs_page_files", { page_id: page.id, startup_id: startup.id, name: file.name, size: file.size, type: file.type, uploaded_by: me, data_url: ev.target.result });
       const u = [...files, entry]; setFiles(u); ls.set(FILE_KEY, u);
     };
     reader.readAsDataURL(file);
     e.target.value = "";
   };
-  const deleteFile = (id) => { const u = files.filter(f => f.id !== id); setFiles(u); ls.set(FILE_KEY, u); };
+  const deleteFile = (id) => { db.del("rs_page_files", `id=eq.${id}`); const u = files.filter(f => f.id !== id); setFiles(u); ls.set(FILE_KEY, u); };
 
   const bookMeeting = async () => {
     if (!mtgForm.title.trim() || !mtgForm.date || !mtgForm.time) return;
@@ -318,7 +353,7 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
     setMeetings(m => [...m, mtg]); setMtgForm({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "", with_note: "" }); setShowMtgForm(false);
   };
 
-  const setMemberRole = (userId, role) => { const u = { ...pageRoles, [userId]: role }; setPageRoles(u); ls.set(ROLES_KEY, u); };
+  const setMemberRole = (userId, role) => { const u = { ...pageRoles, [userId]: role }; setPageRoles(u); ls.set(ROLES_KEY, u); db.upsert("rs_page_member_roles", { startup_id: startup.id, page_id: page.id, user_id: userId, role_id: role }); };
 
   const isPageAdmin = isFounder || pageRoles[me] === "admin";
 
@@ -326,6 +361,7 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
     const url = calendlyInput.trim();
     setCalendlyUrl(url);
     ls.set(CALENDLY_KEY, url);
+    db.upsert("rs_page_settings", { startup_id: startup.id, page_id: page.id, calendly_url: url, created_by: me });
     setEditCalendly(false);
   };
 
@@ -778,12 +814,12 @@ function MeetingsTab({ pages, startup, me, profiles, members, dk }) {
   const bookMeeting = async () => {
     if (!form.title.trim() || !form.date || !form.time || !bookingFor) return;
     setSaving(true);
-    const payload = { page_id: bookingFor, startup_id: startup.id, created_by: me, title: form.title.trim(), meeting_date: form.date, meeting_time: form.time, platform: form.platform, link: form.link.trim(), agenda: form.agenda.trim(), with_note: form.with_note.trim() };
+    const payload = { page_id: bookingFor, startup_id: startup.id, created_by: me, title: (form.title ?? "").trim(), meeting_date: form.date, meeting_time: form.time, platform: form.platform, link: (form.link ?? "").trim(), agenda: (form.agenda ?? "").trim(), with_note: (form.with_note ?? "").trim() };
     const saved = await db.post("rs_page_meetings", payload);
     const mtg = saved || { id: `local_${Date.now()}`, ...payload, created_at: new Date().toISOString() };
     if (!saved) { const loc = ls.get(`rs_mtg_${bookingFor}`, []); ls.set(`rs_mtg_${bookingFor}`, [...loc, mtg]); }
     setMeetingsByPage(prev => ({ ...prev, [bookingFor]: [...(prev[bookingFor] || []), mtg] }));
-    setForm({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "" });
+    setForm({ title: "", date: "", time: "", platform: "google_meet", link: "", agenda: "", with_note: "" });
     setBookingFor(null);
     setSaving(false);
   };
@@ -1074,13 +1110,14 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
 
   useEffect(() => {
     (async () => {
-      const [reqs, pgs, mbs, upds, myAccess, myPageReqs] = await Promise.all([
+      const [reqs, pgs, mbs, upds, myAccess, myPageReqs, pgMembers] = await Promise.all([
         db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
         db.get("rs_startup_pages", `startup_id=eq.${startup.id}&order=created_at.asc`),
         db.get("rs_page_access", `startup_id=eq.${startup.id}&status=eq.approved`),
         db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
         db.get("rs_page_access", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
         db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&user_id=eq.${me}`),
+        db.get("rs_page_members", `startup_id=eq.${startup.id}`),
       ]);
       setMyRequest(reqs?.[0] || null);
       // Fall back to localStorage cache if Supabase returned nothing
@@ -1088,6 +1125,7 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
       const resolvedPages = (pgs?.length) ? pgs : ls.get(PG_CACHE_KEY, []);
       setPages(resolvedPages);
       setMembers([...new Map((mbs || []).map(m => [m.user_id, m])).values()]);
+      setPageMembers(pgMembers || []);
       setUpdates(upds || []);
       setDbPageAccess(myAccess || []);
       setDbPageRequests(myPageReqs || []);
@@ -1364,14 +1402,14 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const [activePage, setActivePage] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
   const [memberViewMode, setMemberViewMode] = useState("all"); // "all" | "bypage"
-  const [memberRoles, setMemberRoles] = useState(() => ls.get(`rs_m_roles_${startup.id}`, {}));
+  const [memberRoles, setMemberRoles] = useState({});
   const [expandedMember, setExpandedMember] = useState(null);
 
   // Per-page requests/access (localStorage)
   const PG_REQ_KEY = `rs_pg_req_${startup.id}`;
   const PG_MEM_KEY = `rs_pg_mem_${startup.id}`;
   const [pageReqs, setPageReqs] = useState(() => ls.get(PG_REQ_KEY, []));
-  const [pageMembers, setPageMembers] = useState(() => ls.get(PG_MEM_KEY, []));
+  const [pageMembers, setPageMembers] = useState([]);
 
   const pendingPageReqs = pageReqs.filter(r => r.status === "pending");
 
@@ -1380,6 +1418,11 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     const updated = existing.includes(roleId) ? existing.filter(r => r !== roleId) : [...existing, roleId];
     const newRoles = { ...memberRoles, [userId]: updated };
     setMemberRoles(newRoles); ls.set(`rs_m_roles_${startup.id}`, newRoles);
+    if (existing.includes(roleId)) {
+      db.del("rs_startup_member_roles", `startup_id=eq.${startup.id}&user_id=eq.${userId}&role_id=eq.${roleId}`);
+    } else {
+      db.post("rs_startup_member_roles", { startup_id: startup.id, user_id: userId, role_id: roleId });
+    }
   };
 
   const assignMemberPage = (userId, pageId) => {
@@ -1393,11 +1436,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const PG_CACHE_KEY = `rs_pg_cache_${startup.id}`;
 
   const load = useCallback(async () => {
-    const [reqs, pgs, mbs, upds] = await Promise.all([
+    const [reqs, pgs, mbs, upds, pgMembers, startupRoles] = await Promise.all([
       db.get("rs_page_access_requests", `startup_id=eq.${startup.id}&order=created_at.desc`),
       db.get("rs_startup_pages", `startup_id=eq.${startup.id}&order=created_at.asc`),
       db.get("rs_page_access", `startup_id=eq.${startup.id}&status=eq.approved`),
       db.get("rs_startup_updates", `startup_id=eq.${startup.id}&order=created_at.desc&limit=20`),
+      db.get("rs_page_members", `startup_id=eq.${startup.id}`),
+      db.get("rs_startup_member_roles", `startup_id=eq.${startup.id}`),
     ]);
     // Split into startup join requests (no page_id) and page-specific access requests (have page_id)
     const allReqs = reqs || [];
@@ -1443,6 +1488,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       uniqueMembers.unshift({ user_id: startup.created_by, status: "approved" });
     }
     setMembers(uniqueMembers);
+    setPageMembers(pgMembers || []);
+    const rolesMap = {};
+    (startupRoles || []).forEach(r => {
+      if (!rolesMap[r.user_id]) rolesMap[r.user_id] = [];
+      rolesMap[r.user_id].push(r.role_id);
+    });
+    setMemberRoles(rolesMap);
     setUpdates(upds || []);
     setLoading(false);
   }, [startup.id, me]);
@@ -1517,6 +1569,8 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   const removeMember = async (userId) => {
     await db.del("rs_page_access", `startup_id=eq.${startup.id}&user_id=eq.${userId}`);
+    await db.del("rs_page_members", `startup_id=eq.${startup.id}&user_id=eq.${userId}`);
+    await db.del("rs_startup_member_roles", `startup_id=eq.${startup.id}&user_id=eq.${userId}`);
     setMembers(ms => ms.filter(m => m.user_id !== userId));
     // Remove their page memberships and pending requests
     const cleanedMems = pageMembers.filter(m => m.user_id !== userId);
@@ -1534,6 +1588,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       db.del("rs_startup_updates", `startup_id=eq.${startup.id}`),
       db.del("rs_page_access", `startup_id=eq.${startup.id}`),
       db.del("rs_page_access_requests", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_members", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_member_roles", `startup_id=eq.${startup.id}`),
+      db.del("rs_startup_member_roles", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_tasks", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_files", `startup_id=eq.${startup.id}`),
+      db.del("rs_page_settings", `startup_id=eq.${startup.id}`),
+      db.del("rs_saved_startups", `startup_id=eq.${startup.id}`),
     ]);
     addNotif?.({ type: "success", msg: "Colab deleted." });
     onBack();
@@ -1564,6 +1625,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   const deletePage = async (id) => {
     await db.del("rs_startup_pages", `id=eq.${id}`);
+    await Promise.all([
+      db.del("rs_page_members", `page_id=eq.${id}`),
+      db.del("rs_page_member_roles", `page_id=eq.${id}`),
+      db.del("rs_page_tasks", `page_id=eq.${id}`),
+      db.del("rs_page_files", `page_id=eq.${id}`),
+      db.del("rs_page_settings", `page_id=eq.${id}`),
+    ]);
     setPages(ps => { const updated = ps.filter(p => p.id !== id); ls.set(PG_CACHE_KEY, updated); return updated; });
     const cleanedMems = pageMembers.filter(m => m.page_id !== id);
     setPageMembers(cleanedMems); ls.set(PG_MEM_KEY, cleanedMems);
@@ -1586,7 +1654,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
 
   const inp = { background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const exists = pageMembers.find(m => m.page_id === pageId && m.user_id === userId); if (exists) return; const entry = { startup_id: startup.id, page_id: pageId, user_id: userId, created_by: me, created_at: new Date().toISOString() }; db.upsert("rs_page_members", entry); const mems = [...pageMembers, entry]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
@@ -2074,7 +2142,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [savedIds, setSavedIds] = useState(() => ls.get("rs_saved_startups", []));
+  const [savedIds, setSavedIds] = useState([]);
   const [savedOnly, setSavedOnly] = useState(false);
   const [selected, setSelected] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -2082,8 +2150,12 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
   const [latestUpdates, setLatestUpdates] = useState({});
 
   const load = useCallback(async () => {
-    const rows = await db.get("rs_startups", "order=created_at.desc");
+    const [rows, savedRows] = await Promise.all([
+      db.get("rs_startups", "order=created_at.desc"),
+      db.get("rs_saved_startups", `user_id=eq.${me}`),
+    ]);
     setStartups(rows || []);
+    setSavedIds((savedRows || []).map(r => r.startup_id));
     if (rows?.length) {
       const ids = rows.map(s => s.id);
       const upds = await db.get("rs_startup_updates", `startup_id=in.(${ids.join(",")})&order=created_at.desc`);
@@ -2092,14 +2164,15 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
       setLatestUpdates(map);
     }
     setLoading(false);
-  }, []);
+  }, [me]);
 
   useEffect(() => { load(); }, [load]);
 
   const toggleSave = (id) => {
     setSavedIds(prev => {
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      ls.set("rs_saved_startups", next);
+      if (next.includes(id)) db.upsert("rs_saved_startups", { startup_id: id, user_id: me });
+      else db.del("rs_saved_startups", `startup_id=eq.${id}&user_id=eq.${me}`);
       return next;
     });
   };

@@ -1,5 +1,5 @@
 // src/views/FeedView.jsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Hash, X, Bookmark, Sparkles } from "lucide-react";
 import { T, SEED_POSTS, WHO_OPTS, INT_OPTS } from '../config/constants.js';
 import { genId } from '../utils/helpers.js';
@@ -8,12 +8,13 @@ import Spin from '../components/ui/Spin.jsx';
 import Composer from '../components/shared/Composer.jsx';
 import PostCard from '../components/shared/PostCard.jsx';
 
-function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, bookmarks, onBookmark }) {
+function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, bookmarks, onBookmark, focusPostId, focusCommentId, onFocusHandled }) {
   const th = T(dk);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("For You");
   const [activeTag, setActiveTag] = useState(null);
+  const postRefs = useRef({});
 
   const load = useCallback(async () => {
     const [rp, ml, ac] = await Promise.all([
@@ -37,6 +38,17 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!focusPostId) return;
+    setTab("For You");
+    setActiveTag(null);
+    requestAnimationFrame(() => {
+      const el = postRefs.current[focusPostId];
+      if (el?.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      onFocusHandled?.();
+    });
+  }, [focusPostId, onFocusHandled]);
+
   const addPost = async (text, media, location, hashtags) => {
     const saved = await db.post("rs_posts", { uid: me, text, media, location, hashtags, like_count: 0, repost_count: 0 });
     if (saved) setPosts(ps => [{ id: saved.id, uid: me, text, media, location, hashtags, likes: 0, reposts: 0, liked: false, comments: [], ts: Date.now() }, ...ps]);
@@ -49,7 +61,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     if (nl) {
       await db.post("rs_post_likes", { post_id: id, uid: me });
       if (p.uid !== me) {
-        try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: "Someone liked your post", read: false }); } catch {}
+        try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: "Someone liked your post", post_id: id, profile_id: p.uid, read: false }); } catch {}
       }
     } else await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
     await db.patch("rs_posts", `id=eq.${id}`, { like_count: lc });
@@ -63,7 +75,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     await db.post("rs_posts", { uid: orig.uid, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me });
     addNotif({ type: "action", msg: "You reposted a signal" });
     if (orig.uid !== me) {
-      try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: "Someone reposted your post", read: false }); } catch {}
+      try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: "Someone reposted your post", post_id: orig.id, profile_id: orig.uid, read: false }); } catch {}
     }
   };
 
@@ -75,7 +87,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText });
     addNotif({ type: "action", msg: "You quote-reposted a signal" });
     if (orig.uid !== me) {
-      try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: "Someone quote-reposted your post", read: false }); } catch {}
+      try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: "Someone quote-reposted your post", post_id: orig.id, profile_id: orig.uid, read: false }); } catch {}
     }
   };
 
@@ -85,7 +97,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     if (saved) {
       setPosts(ps => ps.map(x => x.id === id ? { ...x, comments: [...x.comments, { ...saved, uid: me }] } : x));
       if (post && post.uid !== me) {
-        try { await db.post("rs_notifications", { uid: post.uid, type: "comment", msg: "Someone commented on your post", read: false }); } catch {}
+        try { await db.post("rs_notifications", { uid: post.uid, type: "comment", msg: "Someone commented on your post", post_id: id, comment_id: saved.id, comment_text: text, profile_id: post.uid, read: false }); } catch {}
       }
     }
   };
@@ -145,8 +157,8 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
           <p style={{ fontSize: 15 }}>{tab === "Bookmarks" ? "No bookmarks yet. Save posts to see them here." : activeTag ? `No posts with ${activeTag}` : "No posts yet. Be the first!"}</p>
         </div>
       ) : getFiltered().map((p, i) => (
-        <div key={p.id + p.ts} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 550)}ms both` }}>
-          <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} />
+        <div key={p.id + p.ts} ref={el => { if (el) postRefs.current[p.id] = el; }} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 550)}ms both` }}>
+          <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={focusPostId === p.id} highlightCommentId={focusCommentId} />
         </div>
       ))}
     </div>

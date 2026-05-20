@@ -86,6 +86,10 @@ export default function App() {
   const [tokenPop, setTokenPop] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [activeTag, setActiveTag] = useState(null);
+  const [notifFocus, setNotifFocus] = useState(null);
+
+  const NOTIF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+  const isRecentNotif = n => (n?.ts || 0) >= Date.now() - NOTIF_TTL_MS;
 
   const addNotif = useCallback(n => { setNotifs(ns => [{ id: genId(), ...n, ts: Date.now(), read: false }, ...ns]); }, []);
 
@@ -94,7 +98,6 @@ export default function App() {
     const timer = setInterval(() => loadNotifs(me), 15000);
     return () => clearInterval(timer);
   }, [screen, me]);
-  const unread = notifs.filter(n => !n.read).length;
   const urlRef = useRef(new URLSearchParams(window.location.search).get("ref") || "");
 
   const strToColor = s => strColor(s);
@@ -122,8 +125,8 @@ export default function App() {
           const existingIds = new Set(ns.map(n => n.id));
           const fresh = rows
             .filter(r => !existingIds.has(r.id))
-            .map(r => ({ id: r.id, type: r.type, msg: r.msg, ts: new Date(r.created_at).getTime(), read: r.read || false }));
-          return [...fresh, ...ns];
+            .map(r => ({ ...r, id: r.id, type: r.type, msg: r.msg, ts: new Date(r.created_at).getTime(), read: r.read || false }));
+          return [...fresh, ...ns].filter(isRecentNotif);
         });
       }
     } catch {}
@@ -236,10 +239,81 @@ export default function App() {
     setBookmarks(bs => bs.includes(postId) ? bs.filter(b => b !== postId) : [...bs, postId]);
   };
 
-  const navTo = v => { setView(v); setShowN(false); setProfUid(null); setSidebarOpen(false); };
+  const navTo = v => { setView(v); setShowN(false); setSidebarOpen(false); };
   const openProfile = id => { setProfUid(id); setView("profile"); setShowN(false); setSidebarOpen(false); };
   const sidebarNav = v => { if (v === "profile") openProfile(me); else navTo(v); };
-  const openMessage = uid => { setProfUid(uid); navTo("messages"); };
+  const handleNotificationClick = async n => {
+    try {
+      if (n?.post_id) {
+        setNotifFocus({ postId: n.post_id, commentId: n.comment_id || null });
+        setView("feed");
+        return;
+      }
+
+      if (n?.profile_id || n?.requester_uid || n?.target_uid) {
+        openProfile(n.profile_id || n.requester_uid || n.target_uid);
+        return;
+      }
+
+      if (n?.type === "comment" || n?.type === "like" || n?.type === "repost" || n?.type === "quote") {
+        const myPosts = await db.get("rs_posts", `uid=eq.${me}&order=created_at.desc&limit=20`);
+        let targetPostId = null;
+        let targetCommentId = null;
+
+        if (n.type === "comment") {
+          for (const post of myPosts || []) {
+            const comments = await db.get("rs_comments", `post_id=eq.${post.id}&order=created_at.desc&limit=20`);
+            if (comments?.length) {
+              targetPostId = post.id;
+              targetCommentId = comments[0].id;
+              break;
+            }
+          }
+        } else {
+          targetPostId = myPosts?.[0]?.id || null;
+        }
+
+        if (targetPostId) {
+          setNotifFocus({ postId: targetPostId, commentId: targetCommentId });
+          setView("feed");
+          return;
+        }
+      }
+
+      if (n?.type === "align_request") {
+        const pending = await db.get("rs_align_requests", `target_uid=eq.${me}&status=eq.pending&order=created_at.desc&limit=20`);
+        const requesterUid = pending?.[0]?.requester_uid;
+        if (requesterUid) {
+          openProfile(requesterUid);
+          return;
+        }
+      }
+
+      if (n?.type === "align_accept") {
+        const accepted = await db.get("rs_align_requests", `requester_uid=eq.${me}&status=eq.accepted&order=created_at.desc&limit=20`);
+        const targetUid = accepted?.[0]?.target_uid;
+        if (targetUid) {
+          openProfile(targetUid);
+          return;
+        }
+      }
+    } finally {
+      setShowN(false);
+    }
+  };
+  const openMessage = async uid => {
+    // Check if already aligned with this user
+    const aligned = await db.get("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
+    if (aligned && aligned.length > 0) {
+      // Already aligned - open messages directly
+      setProfUid(uid); setView("messages"); setShowN(false); setSidebarOpen(false);
+    } else {
+      // Not aligned - send a pending align request instead of auto-aligning
+      await db.upsert("rs_align_requests", { requester_uid: me, target_uid: uid, status: "pending" });
+      try { await db.post("rs_notifications", { uid, type: "align_request", msg: `📌 ${myProfile?.name || "Someone"} sent you an align request`, read: false }); } catch {}
+      addNotif({ type: "follow", msg: `📌 Align request sent to ${profiles[uid]?.name || "this user"}.`, profile_id: uid });
+    }
+  };
   const handleTag = tag => { setActiveTag(tag); navTo("feed"); };
 
   const [width, setWidth] = useState(window.innerWidth);
@@ -332,6 +406,8 @@ export default function App() {
   if (screen === "admin") return <AdminApp me={me} myProfile={myProfile} bals={bals} profiles={profiles} dk={dk} setDk={setDk} onSignOut={handleSignOut} />;
 
   const th = T(dk);
+  const visibleNotifs = notifs.filter(isRecentNotif);
+  const unread = visibleNotifs.filter(n => !n.read).length;
 
   const renderMain = () => {
     const common = { me, dk, bals, profiles, addNotif };
@@ -340,13 +416,13 @@ export default function App() {
       case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} />;
       case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
-      case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} />;
+      case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
       case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} />;
-      default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} />;
+      default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} />;
     }
   };
 
@@ -420,7 +496,7 @@ export default function App() {
                   <Bell size={18} />
                   {unread > 0 && <span style={{ position: "absolute", top: 0, right: 0, width: 15, height: 15, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 6px #ef4444", animation: "notifPop 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>{unread}</span>}
                 </button>
-                {showN && <NotifPanel notifs={notifs} setNotifs={setNotifs} onClose={() => setShowN(false)} dk={dk} onPoll={() => loadNotifs(me)} />}
+                {showN && <NotifPanel notifs={visibleNotifs} setNotifs={setNotifs} onClose={() => setShowN(false)} dk={dk} onPoll={() => loadNotifs(me)} onSelect={handleNotificationClick} />}
                 <div onClick={() => openProfile(me)} style={{ cursor: "pointer" }}><Av profile={myProfile || {}} size={30} bal={bals[me] ?? 0} /></div>
                 {!isMobile && (
                   <button onClick={handleSignOut} title="Sign out" className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: th.txt3, display: "flex", alignItems: "center" }}><LogOut size={14} /></button>
@@ -432,8 +508,8 @@ export default function App() {
 
         {/* Content area */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "10px 10px 96px" : "12px 16px 16px" }}>
-            <div key={view} className="rs-page-in" style={{ maxWidth: 640, margin: "0 auto" }}>{renderMain()}</div>
+          <div style={{ flex: 1, overflowY: view === "messages" ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
+            <div key={view} className="rs-page-in" style={{ width: view === "messages" ? "100%" : "auto", maxWidth: view === "messages" ? "none" : 640, margin: view === "messages" ? 0 : "0 auto", flex: view === "messages" ? 1 : "auto", overflow: view === "messages" ? "hidden" : "visible" }}>{renderMain()}</div>
           </div>
           {showRightPanel && (
             <div style={{ overflowY: "auto", padding: "12px 12px 12px 0", flexShrink: 0 }}>
