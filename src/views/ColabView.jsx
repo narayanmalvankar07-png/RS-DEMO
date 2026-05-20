@@ -1506,7 +1506,45 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     await db.upsert("rs_page_access", { startup_id: startup.id, user_id: req.user_id, status: "approved" });
     setRequests(rs => rs.map(r => r.id === req.id ? { ...r, status: "approved" } : r));
     setMembers(ms => ms.find(m => m.user_id === req.user_id) ? ms : [...ms, { user_id: req.user_id, status: "approved" }]);
-    // Page access is NOT auto-granted here — members must request each page individually
+    
+    // Auto-grant page access based on requested roles
+    const grantedPages = new Set();
+    const roles = req.selected_roles || [];
+    
+    for (const role of roles) {
+      const typeId = ROLE_PAGE_MAP[role];
+      if (typeId === null) {
+        // Co-founder: access to all pages
+        pages.forEach(p => grantedPages.add(p.id));
+      } else if (typeId) {
+        // Find pages matching the role's type_id
+        pages.filter(p => p.type_id === typeId).forEach(p => grantedPages.add(p.id));
+      }
+    }
+    
+    if (grantedPages.size > 0) {
+      const newMems = [];
+      const dbEntries = [];
+      for (const pid of grantedPages) {
+        const alreadyHas = pageMembers.find(m => m.page_id === pid && m.user_id === req.user_id);
+        if (!alreadyHas) {
+          newMems.push({ page_id: pid, user_id: req.user_id });
+          dbEntries.push({ startup_id: startup.id, page_id: pid, user_id: req.user_id, created_by: me, created_at: new Date().toISOString() });
+        }
+      }
+      if (dbEntries.length > 0) {
+        // Save to DB
+        await Promise.all(dbEntries.map(e => db.upsert("rs_page_members", e)));
+        // Update state
+        const updatedPageMems = [...pageMembers, ...newMems];
+        setPageMembers(updatedPageMems);
+        ls.set(PG_MEM_KEY, updatedPageMems);
+        addNotif?.({ type: "success", msg: `Approved and auto-granted access to ${dbEntries.length} page(s).` });
+        return;
+      }
+    }
+    
+    addNotif?.({ type: "success", msg: "Request approved." });
   };
 
   const rejectRequest = async (req) => {

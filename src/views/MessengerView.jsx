@@ -37,6 +37,21 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
           return audioName ? `🎵 ${audioName}` : "🎵 Audio message";
         }
 
+        if (parsed.attachment) {
+          let kind = parsed.attachment.kind;
+          if (!kind) {
+            const ftype = parsed.attachment.type || '';
+            const fname = parsed.attachment.name || '';
+            if (ftype.startsWith('image/')) kind = 'image';
+            else if (ftype === 'application/pdf' || fname.toLowerCase().endsWith('.pdf')) kind = 'pdf';
+            else kind = 'file';
+          }
+          
+          if (kind === 'image') return "🖼️ Image";
+          if (kind === 'pdf') return "📄 PDF";
+          return "📎 Attachment";
+        }
+
         if (parsed.reply_to?.content) {
           return String(parsed.reply_to.content).trim() || "No messages yet";
         }
@@ -192,7 +207,25 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
     getParticipants(conv).find(uid => uid !== me);
 
   // ── Filter conversations by search & deduplicate ───────────────────
-  const uniqueConvs = Array.from(new Map(conversations.map(c => [c.id, c])).values());
+  // Deduplicate 1-on-1 conversations by participant set so the same
+  // two-user chat doesn't show twice (different db rows).
+  const uniqueConvs = (() => {
+    const m = new Map();
+    for (const c of conversations || []) {
+      const parts = (c.rs_conversation_participants || []).map(p => p.user_id).sort();
+      const key = c.is_group ? `group:${c.id}` : `p:${parts.join('|')}`;
+      const existing = m.get(key);
+      if (!existing) {
+        m.set(key, c);
+      } else {
+        // prefer the conversation with the most recent activity
+        const a = existing.updated_at || existing.last_message_at || '';
+        const b = c.updated_at || c.last_message_at || '';
+        if (b > a) m.set(key, c);
+      }
+    }
+    return Array.from(m.values());
+  })();
   const filteredConvs = uniqueConvs.filter(c => {
     const name = getConvName(c).toLowerCase();
     return name.includes(search.toLowerCase());

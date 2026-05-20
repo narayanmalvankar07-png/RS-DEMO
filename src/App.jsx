@@ -34,6 +34,7 @@ import EventsView from "./views/EventsView";
 import SandboxView from "./views/SandboxView";
 import ContributeView from "./views/ContributeView";
 import ColabView from "./views/ColabView";
+import NotificationsView from "./views/NotificationsView";
 
 // ─── OAUTH TOKEN DETECTION (runs before React) ────────────────────
 (function detectOAuthReturn() {
@@ -93,6 +94,8 @@ export default function App() {
 
   const addNotif = useCallback(n => { setNotifs(ns => [{ id: genId(), ...n, ts: Date.now(), read: false }, ...ns]); }, []);
 
+  const strToColor = s => strColor(s);
+
   useEffect(() => {
     if (screen !== "app" || !me) return;
     const timer = setInterval(() => loadNotifs(me), 15000);
@@ -100,15 +103,13 @@ export default function App() {
   }, [screen, me]);
   const urlRef = useRef(new URLSearchParams(window.location.search).get("ref") || "");
 
-  const strToColor = s => strColor(s);
-
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     const rows = await db.get("rs_user_profiles", "order=created_at.desc");
     const map = {};
     (rows || []).forEach(r => { map[r.id] = { ...r, hue: strToColor(r.name || "?") }; });
     setProfiles(map);
     return map;
-  };
+  }, []);
 
   const loadBals = async () => {
     const rows = await db.get("rs_token_balances");
@@ -116,6 +117,15 @@ export default function App() {
     (rows || []).forEach(r => { map[r.uid] = r.balance; });
     setBals(map);
   };
+
+  useEffect(() => {
+    if (screen !== "app" || !me) return;
+    loadProfiles();
+    const timer = setInterval(() => {
+      loadProfiles();
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [screen, me, loadProfiles]);
 
   const loadNotifs = async uid => {
     try {
@@ -183,28 +193,36 @@ export default function App() {
     }
   };
 
-  const handleOnboardingDone = async ({ who, ints, refCode, refUid }) => {
+  const handleOnboardingDone = async ({ who, ints, refCode }) => {
     const nameToUse = myProfile?.name || "User";
     const handle = genHandle(nameToUse);
     const myRefCode = genRefCode(nameToUse);
     const isAdminEmail = myProfile?.email === ADMIN_EMAIL;
 
-    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: refUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user" };
+    let actualRefUid = null;
+    if (refCode && refCode.trim()) {
+      const rows = await db.get("rs_user_profiles", `ref_code=eq.${refCode.trim().toUpperCase()}`);
+      if (rows && rows.length > 0) {
+        actualRefUid = rows[0].id;
+      }
+    }
+
+    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user" };
     await db.upsert("rs_user_profiles", profileRow);
 
     let myBal = 0;
-    if (refUid) {
-      const refBalRows = await db.get("rs_token_balances", `uid=eq.${refUid}`);
+    if (actualRefUid) {
+      const refBalRows = await db.get("rs_token_balances", `uid=eq.${actualRefUid}`);
       const refBal = (refBalRows[0]?.balance || 0) + 2;
       myBal = 1;
       await Promise.all([
         db.upsert("rs_token_balances", { uid: me, balance: 1 }),
-        db.upsert("rs_token_balances", { uid: refUid, balance: refBal }),
+        db.upsert("rs_token_balances", { uid: actualRefUid, balance: refBal }),
         db.post("rs_token_txns", { uid: me, type: "earn", amount: 1, description: "Joined via referral" }),
-        db.post("rs_token_txns", { uid: refUid, type: "earn", amount: 2, description: `${nameToUse} joined via your referral` }),
-        db.post("rs_referrals", { referrer_uid: refUid, referee_uid: me, code_used: refCode }),
+        db.post("rs_token_txns", { uid: actualRefUid, type: "earn", amount: 2, description: `${nameToUse} joined via your referral` }),
+        db.post("rs_referrals", { referrer_uid: actualRefUid, referee_uid: me, code_used: refCode }),
       ]);
-      setBals(b => ({ ...b, [me]: 1, [refUid]: refBal }));
+      setBals(b => ({ ...b, [me]: 1, [actualRefUid]: refBal }));
     } else {
       await db.upsert("rs_token_balances", { uid: me, balance: 0 });
       setBals(b => ({ ...b, [me]: 0 }));
@@ -422,6 +440,7 @@ export default function App() {
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
       case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} />;
+      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} />;
     }
   };
@@ -508,8 +527,16 @@ export default function App() {
 
         {/* Content area */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <div style={{ flex: 1, minHeight: 0, overflowY: view === "messages" ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
-            <div key={view} className="rs-page-in" style={{ width: (view === "messages" || view === "network" || view === "feed") ? "100%" : "auto", maxWidth: (view === "messages" || view === "network" || view === "feed") ? "none" : 640, margin: (view === "messages" || view === "network" || view === "feed") ? 0 : "0 auto", flex: (view === "messages" || view === "network" || view === "feed") ? 1 : "auto", overflow: (view === "messages" || view === "network" || view === "feed") ? "hidden" : "visible" }}>{renderMain()}</div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: ["messages", "network", "feed"].includes(view) ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
+            {(() => {
+              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox"].includes(view);
+              const hasInternalScroll = ["messages", "network", "feed"].includes(view);
+              return (
+                <div key={view} className="rs-page-in" style={{ display: hasInternalScroll ? "flex" : "block", flexDirection: "column", width: isFullWidth ? "100%" : "auto", maxWidth: isFullWidth ? "none" : 640, margin: isFullWidth ? 0 : "0 auto", flex: hasInternalScroll ? 1 : "auto", overflow: hasInternalScroll ? "hidden" : "visible" }}>
+                  {renderMain()}
+                </div>
+              );
+            })()}
           </div>
           {showRightPanel && (
             <div style={{ overflowY: "auto", padding: "12px 12px 12px 0", flexShrink: 0 }}>

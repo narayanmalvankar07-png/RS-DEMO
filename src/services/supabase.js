@@ -37,6 +37,16 @@ const setCache = (key, data) => {
   try { localStorage.setItem(`rs_cache_${key}`, JSON.stringify(data)); } catch {}
 };
 
+const normalizeInsertBody = (table, body) => {
+  if (table !== "rs_notifications" || !body || typeof body !== "object") return body;
+  const normalized = { ...body };
+  if (normalized.profile_id && !normalized.uid) {
+    normalized.uid = normalized.profile_id;
+  }
+  delete normalized.profile_id;
+  return normalized;
+};
+
 const CACHED_TABLES = ["rs_posts", "rs_comments", "rs_post_likes", "rs_user_profiles"];
 
 const applyQuery = (data, q) => {
@@ -158,7 +168,8 @@ export const db = {
   },
   post: async (t, body) => {
     try {
-      const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "return=representation" }), body: JSON.stringify(body) });
+      const payload = normalizeInsertBody(t, body);
+      const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "return=representation" }), body: JSON.stringify(payload) });
       if (!r.ok) {
         const errText = await r.text().catch(() => r.status);
         console.error(`Supabase Error [POST ${t}] status=${r.status}:`, errText);
@@ -182,7 +193,8 @@ export const db = {
   postMany: async (t, rows) => {
     if (!rows?.length) return [];
     try {
-      const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "return=representation" }), body: JSON.stringify(rows) });
+      const payload = rows.map(row => normalizeInsertBody(t, row));
+      const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "return=representation" }), body: JSON.stringify(payload) });
       if (!r.ok) return [];
       const saved = await r.json();
 
@@ -240,7 +252,8 @@ export const db = {
   },
   upsert: async (t, body) => {
     try {
-      const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "resolution=merge-duplicates,return=representation" }), body: JSON.stringify(body) });
+      const payload = normalizeInsertBody(t, body);
+      const r = await fetch(`${SB_URL}/rest/v1/${t}`, { method: "POST", headers: authH({ Prefer: "resolution=merge-duplicates,return=representation" }), body: JSON.stringify(payload) });
       if (!r.ok) return null;
       const d = await r.json();
       const saved = Array.isArray(d) ? d[0] : d;

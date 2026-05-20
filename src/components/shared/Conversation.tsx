@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Check, CheckCheck, Send, Loader2, Paperclip, Image, Mic, Smile, FileText } from 'lucide-react';
+import { Check, CheckCheck, Send, Loader2, Paperclip, Image, Mic, Smile, FileText, MoreVertical } from 'lucide-react';
 import { SB_URL, T } from '../../config/constants.js';
 import { db } from '../../services/supabase.js';
 import { sendWSMessage, subscribeWS } from '../../services/websocket.js';
@@ -64,6 +64,7 @@ export default function Conversation({
   const lastIdRef = useRef<string | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<AttachmentMeta | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -85,6 +86,9 @@ export default function Conversation({
   const [replyingTo, setReplyingTo] = useState<null | { id: string; content: string; author?: string }>(null);
   const lastTapRef = useRef<number | null>(null);
   const pendingSentIdsRef = useRef<Set<string>>(new Set());
+  const [openMenuMessageId, setOpenMenuMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
 
   const refreshReadState = useCallback(async () => {
     try {
@@ -172,6 +176,16 @@ export default function Conversation({
     if (!attachment) return '';
     if (typeof attachment === 'string') return attachment;
     return attachment.url || attachment.publicUrl || attachment.src || '';
+  };
+
+  const buildEditedContent = (raw: string, nextText: string) => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && ('text' in parsed || 'audio' in parsed || 'attachment' in parsed || 'reply_to' in parsed)) {
+        return JSON.stringify({ ...parsed, text: nextText });
+      }
+    } catch {}
+    return nextText;
   };
 
   const handleUserTyping = () => {
@@ -277,6 +291,26 @@ export default function Conversation({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    if (editingMessageId) {
+      const current = messages.find(m => m.id === editingMessageId);
+      if (current) {
+        const parsed = parseMessageContent(current.content);
+        setEditDraft(parsed.text || '');
+      }
+    }
+  }, [editingMessageId, messages]);
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-message-action-menu]') || target?.closest('[data-message-action-button]')) return;
+      setOpenMenuMessageId(null);
+    };
+    if (openMenuMessageId) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openMenuMessageId]);
+
   const handleAttachClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowAttachMenu(s => !s);
@@ -323,6 +357,7 @@ export default function Conversation({
       } finally {
         setUploadingAttachment(false);
         if (imageInputRef.current) imageInputRef.current.value = '';
+        if (pdfInputRef.current) pdfInputRef.current.value = '';
       }
     })();
   };
@@ -338,7 +373,7 @@ export default function Conversation({
           noiseSuppression: true,
           autoGainControl: true,
           sampleRate: 16000,  // 16 kHz instead of 48kHz = 3x smaller
-          mono: true  // Mono instead of stereo = 2x smaller
+          channelCount: 1  // Mono instead of stereo = 2x smaller
         }
       });
       
@@ -572,6 +607,115 @@ export default function Conversation({
                       {(prof as Profile).name || 'User'}
                     </span>
                   )}
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <button
+                      type="button"
+                      data-message-action-button
+                      aria-label="Message options"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuMessageId(prev => prev === msg.id ? null : msg.id);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        bottom: 2,
+                        right: 0,
+                        width: 22,
+                        height: 22,
+                        border: 'none',
+                        background: 'transparent',
+                        color: th.txt2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: 'none',
+                        padding: 0,
+                        zIndex: 2,
+                      }}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                    {openMenuMessageId === msg.id && editingMessageId !== msg.id && (
+                      <div
+                        data-message-action-menu
+                        style={{
+                          position: 'absolute',
+                          top: 24,
+                          right: 0,
+                          minWidth: 120,
+                          background: th.surf,
+                          border: `1px solid ${th.bdr}`,
+                          borderRadius: 12,
+                          padding: 6,
+                          boxShadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
+                          zIndex: 20,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setOpenMenuMessageId(null);
+                            await db.del('rs_conversation_messages', `id=eq.${msg.id}`);
+                            setMessages(prev => prev.filter(m => m.id !== msg.id));
+                          }}
+                          style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: '#ef4444', fontSize: 13, fontWeight: 600 }}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuMessageId(null);
+                            setEditingMessageId(msg.id);
+                          }}
+                          style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: th.txt, fontSize: 13, fontWeight: 600 }}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
+                    {editingMessageId === msg.id && (
+                      <div style={{ marginTop: 8, padding: 10, borderRadius: 12, background: th.surf, border: `1px solid ${th.bdr}`, minWidth: 240 }}>
+                        <textarea
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          rows={3}
+                          style={{ width: '100%', resize: 'none', borderRadius: 10, border: `1px solid ${th.bdr}`, background: th.inp, color: th.txt, padding: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
+                        />
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingMessageId(null);
+                              setEditDraft('');
+                            }}
+                            style={{ border: 'none', background: 'transparent', color: th.txt3, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const current = messages.find(m => m.id === msg.id);
+                              if (!current) return;
+                              const nextText = editDraft.trim();
+                              const content = buildEditedContent(current.content, nextText);
+                              await db.patch('rs_conversation_messages', `id=eq.${msg.id}`, { content });
+                              setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content } : m));
+                              setEditingMessageId(null);
+                            }}
+                            style={{ border: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '8px 12px', borderRadius: 10 }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    )}
                         <div
                           role="button"
                           tabIndex={0}
@@ -661,6 +805,7 @@ export default function Conversation({
                             </div>
                           )}
                         </div>
+                  </div>
                   <span style={{ fontSize: 10, color: th.txt3, marginTop: 3, paddingLeft: 2, paddingRight: 2, opacity: prevSame ? 0.9 : 1 }}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -717,18 +862,19 @@ export default function Conversation({
           </div>
         )}
         {/* Hidden file inputs for attachments */}
-        <input ref={imageInputRef as any} onChange={onSelectImage} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} />
+        <input ref={imageInputRef as any} onChange={onSelectImage} type="file" accept="image/*" style={{ display: 'none' }} />
+        <input ref={pdfInputRef as any} onChange={onSelectImage} type="file" accept=".pdf,application/pdf" style={{ display: 'none' }} />
         
         {/* Attach button + popover */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <button onClick={handleAttachClick} title="Attach" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 10, display: 'flex', alignItems: 'center' }}>
+          <button onClick={handleAttachClick} title="Attach" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 10, display: 'flex', alignItems: 'center', color: th.txt2 }}>
             <Paperclip size={18} />
           </button>
           {showAttachMenu && !showStickerPicker && (
             <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 44, left: 0, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 8, boxShadow: '0 8px 24px rgba(2,6,23,0.08)', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 60 }}>
-              <button onClick={() => imageInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><Image size={16} /> Image</button>
-              <button onClick={() => imageInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><FileText size={16} /> PDF</button>
-              <button onClick={openStickerPicker} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><Smile size={16} /> Sticker</button>
+              <button onClick={() => imageInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt }}><Image size={16} /> Image</button>
+              <button onClick={() => pdfInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt }}><FileText size={16} /> PDF</button>
+              <button onClick={openStickerPicker} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt }}><Smile size={16} /> Sticker</button>
             </div>
           )}
 

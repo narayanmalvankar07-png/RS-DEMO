@@ -1,19 +1,20 @@
 import { useState } from "react";
-import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X } from "lucide-react";
+import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell } from "lucide-react";
 import { T } from "../../config/constants.js";
 import { canManageAds } from "../../utils/helpers.js";
 import Av from "../ui/Av.jsx";
 import RightSignalLogo from "../ui/RightSignalLogo.jsx";
 
 const NAV_LINKS = [
-  { id: "feed",       icon: Home,          label: "Feed" },
-  { id: "network",    icon: Users,         label: "Network" },
-  { id: "messages",   icon: MessageCircle, label: "Messages" },
-  { id: "colab",      icon: Lightbulb,     label: "Colab" },
-  { id: "events",     icon: Calendar,      label: "Events" },
-  { id: "sandbox",    icon: FlaskConical,  label: "Sandbox" },
-  { id: "contribute", icon: FileText,      label: "Contribute" },
-  { id: "wallet",     icon: Wallet,        label: "Wallet", walletBadge: true },
+  { id: "feed",          icon: Home,          label: "Feed" },
+  { id: "network",       icon: Users,         label: "Network" },
+  { id: "notifications", icon: Bell,          label: "Notifications" },
+  { id: "messages",      icon: MessageCircle, label: "Messages" },
+  { id: "colab",         icon: Lightbulb,     label: "Colab" },
+  { id: "events",        icon: Calendar,      label: "Events" },
+  { id: "sandbox",       icon: FlaskConical,  label: "Sandbox" },
+  { id: "contribute",    icon: FileText,      label: "Contribute" },
+  { id: "wallet",        icon: Wallet,        label: "Wallet", walletBadge: true },
 ];
 
 export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, onClose }) {

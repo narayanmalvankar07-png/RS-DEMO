@@ -1,12 +1,13 @@
-import { Home, Users, MessageCircle, Calendar, Wallet } from "lucide-react";
+import { Home, Users, MessageCircle, Calendar, Wallet, Bell } from "lucide-react";
 import { T } from "../../config/constants.js";
 
 const LINKS = [
-  { id: "feed",     icon: Home,          label: "Feed" },
-  { id: "network",  icon: Users,         label: "Network" },
-  { id: "messages", icon: MessageCircle, label: "Messages" },
-  { id: "events",   icon: Calendar,      label: "Events" },
-  { id: "wallet",   icon: Wallet,        label: "Wallet" },
+  { id: "feed",          icon: Home,          label: "Feed" },
+  { id: "network",       icon: Users,         label: "Network" },
+  { id: "notifications", icon: Bell,          label: "Notifications" },
+  { id: "messages",      icon: MessageCircle, label: "Messages" },
+  { id: "events",        icon: Calendar,      label: "Events" },
+  { id: "wallet",        icon: Wallet,        label: "Wallet" },
 ];
 
 export default function BottomNav({ view, setView, dk, bals, me }) {
