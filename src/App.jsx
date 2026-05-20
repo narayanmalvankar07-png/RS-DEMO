@@ -508,8 +508,8 @@ export default function App() {
 
         {/* Content area */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <div style={{ flex: 1, overflowY: view === "messages" ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
-            <div key={view} className="rs-page-in" style={{ width: view === "messages" ? "100%" : "auto", maxWidth: view === "messages" ? "none" : 640, margin: view === "messages" ? 0 : "0 auto", flex: view === "messages" ? 1 : "auto", overflow: view === "messages" ? "hidden" : "visible" }}>{renderMain()}</div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: view === "messages" ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
+            <div key={view} className="rs-page-in" style={{ width: (view === "messages" || view === "network" || view === "feed") ? "100%" : "auto", maxWidth: (view === "messages" || view === "network" || view === "feed") ? "none" : 640, margin: (view === "messages" || view === "network" || view === "feed") ? 0 : "0 auto", flex: (view === "messages" || view === "network" || view === "feed") ? 1 : "auto", overflow: (view === "messages" || view === "network" || view === "feed") ? "hidden" : "visible" }}>{renderMain()}</div>
           </div>
           {showRightPanel && (
             <div style={{ overflowY: "auto", padding: "12px 12px 12px 0", flexShrink: 0 }}>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Check, CheckCheck, Send, Loader2, Paperclip, Image, Mic, Smile } from 'lucide-react';
+import { Check, CheckCheck, Send, Loader2, Paperclip, Image, Mic, Smile, FileText } from 'lucide-react';
 import { SB_URL, T } from '../../config/constants.js';
 import { db } from '../../services/supabase.js';
 import { sendWSMessage, subscribeWS } from '../../services/websocket.js';
@@ -22,6 +22,15 @@ interface Profile {
   name?: string;
   avatar?: string;
   hue?: string;
+}
+
+interface AttachmentMeta {
+  name?: string;
+  type?: string;
+  url?: string;
+  path?: string;
+  kind?: 'image' | 'pdf' | 'file';
+  size?: number;
 }
 
 interface ConversationProps {
@@ -56,6 +65,8 @@ export default function Conversation({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<AttachmentMeta | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -73,6 +84,7 @@ export default function Conversation({
   const otherUid = participants.find(uid => uid !== me);
   const [replyingTo, setReplyingTo] = useState<null | { id: string; content: string; author?: string }>(null);
   const lastTapRef = useRef<number | null>(null);
+  const pendingSentIdsRef = useRef<Set<string>>(new Set());
 
   const refreshReadState = useCallback(async () => {
     try {
@@ -107,22 +119,29 @@ export default function Conversation({
   const parseMessageContent = (raw: string) => {
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object' && ('text' in parsed || 'audio' in parsed || 'reply_to' in parsed)) {
+      if (parsed && typeof parsed === 'object' && ('text' in parsed || 'audio' in parsed || 'attachment' in parsed || 'reply_to' in parsed)) {
         const audio = parsed.audio;
+        const attachment = parsed.attachment;
         const normalizedAudio = typeof audio === 'string'
           ? { url: audio }
           : audio && typeof audio === 'object'
             ? audio
             : null;
+        const normalizedAttachment = typeof attachment === 'string'
+          ? { url: attachment }
+          : attachment && typeof attachment === 'object'
+            ? { ...attachment, kind: attachment.kind || getAttachmentKind(attachment.type, attachment.name) }
+            : null;
 
         return {
           text: typeof parsed.text === 'string' ? parsed.text : '',
           audio: normalizedAudio,
+          attachment: normalizedAttachment,
           reply_to: parsed.reply_to || null,
         };
       }
     } catch {}
-    return { text: raw, audio: null, reply_to: null };
+    return { text: raw, audio: null, attachment: null, reply_to: null };
   };
 
   const resolveAudioSrc = (audio: any) => {
@@ -141,6 +160,18 @@ export default function Conversation({
     if (!audio) return 'Audio message';
     if (typeof audio === 'string') return 'Audio message';
     return audio.name || audio.fileName || 'Audio message';
+  };
+
+  const getAttachmentKind = (fileType?: string, fileName?: string): AttachmentMeta['kind'] => {
+    if (fileType?.startsWith('image/')) return 'image';
+    if (fileType === 'application/pdf' || fileName?.toLowerCase().endsWith('.pdf')) return 'pdf';
+    return 'file';
+  };
+
+  const resolveAttachmentSrc = (attachment: any) => {
+    if (!attachment) return '';
+    if (typeof attachment === 'string') return attachment;
+    return attachment.url || attachment.publicUrl || attachment.src || '';
   };
 
   const handleUserTyping = () => {
@@ -213,6 +244,11 @@ export default function Conversation({
     // Subscribe to live WebSockets instead of polling!
     const unsubscribe = subscribeWS((data) => {
       if (data.type === 'message' && data.message.conversation_id === conversationId) {
+        if (data.message.user_id === me && pendingSentIdsRef.current.has(data.message.id)) {
+          pendingSentIdsRef.current.delete(data.message.id);
+          return;
+        }
+
         setMessages(prev => {
           if (prev.find(m => m.id === data.message.id)) return prev;
           return [...prev, data.message];
@@ -251,11 +287,44 @@ export default function Conversation({
   const onSelectImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    // Minimal placeholder behavior: insert file name into input for now
-    setText(prev => prev ? `${prev} [Image: ${f.name}]` : `[Image: ${f.name}]`);
+    setUploadingAttachment(true);
     setShowAttachMenu(false);
-    // reset input
-    if (imageInputRef.current) imageInputRef.current.value = '';
+    setShowStickerPicker(false);
+
+    (async () => {
+      try {
+        const uploadRes = await fetch('/api/upload-attachment', {
+          method: 'POST',
+          headers: {
+            'x-user-id': me,
+            'x-file-name': f.name,
+            'Content-Type': f.type || 'application/octet-stream',
+          },
+          body: f,
+        });
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          throw new Error(errText || 'Attachment upload failed');
+        }
+
+        const { url, path } = await uploadRes.json();
+        setPendingAttachment({
+          name: f.name,
+          type: f.type || 'application/octet-stream',
+          url,
+          path,
+          kind: getAttachmentKind(f.type, f.name),
+          size: f.size,
+        });
+      } catch (err) {
+        console.error('Attachment upload failed:', err);
+        alert('Could not upload the selected file.');
+      } finally {
+        setUploadingAttachment(false);
+        if (imageInputRef.current) imageInputRef.current.value = '';
+      }
+    })();
   };
 
   
@@ -344,7 +413,7 @@ export default function Conversation({
   };
 
   const sendMessage = async () => {
-    if ((!text.trim() && !pendingAudioRef.current) || sending) return;
+    if ((!text.trim() && !pendingAudioRef.current && !pendingAttachment) || sending || uploadingAttachment) return;
     const content = text.trim();
     setText('');
     setSending(true);
@@ -368,6 +437,7 @@ export default function Conversation({
     const permanentId = (typeof crypto !== 'undefined' && crypto.randomUUID)
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    pendingSentIdsRef.current.add(permanentId);
 
     const msg: Message = {
       id: permanentId,
@@ -416,13 +486,18 @@ export default function Conversation({
       setPendingAudioName(null);
     }
 
+    if (pendingAttachment) {
+      payload.attachment = pendingAttachment;
+      setPendingAttachment(null);
+    }
+
     // Attach reply metadata if replyingTo set
     if (replyingTo) {
       payload.reply_to = { id: replyingTo.id, content: replyingTo.content, author: replyingTo.author };
       setReplyingTo(null);
     }
 
-    msg.content = (payload.audio || payload.reply_to) ? JSON.stringify(payload) : content;
+    msg.content = (payload.audio || payload.attachment || payload.reply_to) ? JSON.stringify(payload) : content;
 
     // 1. Optimistic Local Render (instant UX!)
     setMessages(prev => [...prev, msg]);
@@ -467,7 +542,9 @@ export default function Conversation({
             const parsed = parseMessageContent(msg.content);
             const replyPreview = parsed.reply_to?.content || '';
             const audioSrc = resolveAudioSrc(parsed.audio);
-            const bubbleText = parsed.text || (parsed.audio ? '' : msg.content);
+            const attachmentSrc = resolveAttachmentSrc(parsed.attachment);
+            const attachmentKind = parsed.attachment?.kind || getAttachmentKind(parsed.attachment?.type, parsed.attachment?.name);
+            const bubbleText = parsed.text || '';
             const seen = fromMe && hasBeenSeen(msg.created_at);
 
             return (
@@ -530,6 +607,9 @@ export default function Conversation({
                               {replyPreview.slice(0, 120)}
                             </div>
                           ) : null}
+                          {bubbleText ? (
+                            <div style={{ marginBottom: (parsed.audio || parsed.attachment) ? 8 : 0 }}>{bubbleText}</div>
+                          ) : null}
                           { parsed.audio ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
                               {audioSrc ? (
@@ -540,9 +620,39 @@ export default function Conversation({
                                 </div>
                               )}
                             </div>
+                          ) : parsed.attachment ? (
+                            attachmentKind === 'image' && attachmentSrc ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+                                <a href={attachmentSrc} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+                                  <img
+                                    src={attachmentSrc}
+                                    alt={parsed.attachment.name || 'Image attachment'}
+                                    style={{ maxWidth: '300px', maxHeight: '260px', width: '100%', borderRadius: 12, objectFit: 'cover', display: 'block' }}
+                                  />
+                                </a>
+                                <div style={{ fontSize: 12, color: fromMe ? 'rgba(255,255,255,0.8)' : th.txt3 }}>{parsed.attachment.name}</div>
+                              </div>
+                            ) : (
+                              <a
+                                href={attachmentSrc || '#'}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ textDecoration: 'none', color: 'inherit', display: 'flex' }}
+                                onClick={e => { if (!attachmentSrc) e.preventDefault(); }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220, padding: '10px 12px', borderRadius: 10, background: fromMe ? 'rgba(255,255,255,0.15)' : (dk ? 'rgba(255,255,255,0.05)' : '#f1f5f9') }}>
+                                  <div style={{ width: 34, height: 34, borderRadius: 10, background: fromMe ? 'rgba(255,255,255,0.18)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <FileText size={16} color={fromMe ? '#fff' : '#64748b'} />
+                                  </div>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: fromMe ? '#fff' : th.txt, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{parsed.attachment.name || 'Attachment'}</div>
+                                    <div style={{ fontSize: 11, color: fromMe ? 'rgba(255,255,255,0.72)' : th.txt3, textTransform: 'uppercase' }}>{attachmentKind === 'pdf' ? 'PDF document' : 'File attachment'}</div>
+                                  </div>
+                                </div>
+                              </a>
+                            )
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
-                              <span>{bubbleText}</span>
                               {fromMe && (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', marginBottom: 1, color: seen ? '#60a5fa' : 'rgba(255,255,255,0.75)' }}>
                                   {seen ? <CheckCheck size={15} /> : <Check size={15} />}
@@ -551,11 +661,9 @@ export default function Conversation({
                             </div>
                           )}
                         </div>
-                  {!prevSame && (
-                    <span style={{ fontSize: 10, color: th.txt3, marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
+                  <span style={{ fontSize: 10, color: th.txt3, marginTop: 3, paddingLeft: 2, paddingRight: 2, opacity: prevSame ? 0.9 : 1 }}>
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
               </div>
             );
@@ -585,13 +693,31 @@ export default function Conversation({
       >
         {/* Reply preview (when replyingTo is set) */}
         {replyingTo && (
-          <div style={{ position: 'absolute', left: 64, right: 120, bottom: 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'absolute', left: 64, right: 120, bottom: pendingAttachment ? 104 : 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ fontSize: 12, color: th.txt3, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyingTo.author ? `${replyingTo.author}: ` : ''}{replyingTo.content}</div>
             <button onClick={() => setReplyingTo(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3 }}>✕</button>
           </div>
         )}
+        {pendingAttachment && !uploadingAttachment && (
+          <div style={{ position: 'absolute', left: 64, right: 120, bottom: replyingTo ? 60 : 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: pendingAttachment.kind === 'image' ? '#dbeafe' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {pendingAttachment.kind === 'image' ? <Image size={15} color="#3b82f6" /> : <FileText size={15} color="#64748b" />}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: th.txt, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingAttachment.name}</div>
+              <div style={{ fontSize: 11, color: th.txt3 }}>{pendingAttachment.kind === 'pdf' ? 'PDF ready to send' : 'Image ready to send'}</div>
+            </div>
+            <button onClick={() => setPendingAttachment(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3 }}>✕</button>
+          </div>
+        )}
+        {uploadingAttachment && (
+          <div style={{ position: 'absolute', left: 64, right: 120, bottom: 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: th.txt3 }} />
+            <div style={{ fontSize: 12, color: th.txt3 }}>Uploading attachment…</div>
+          </div>
+        )}
         {/* Hidden file inputs for attachments */}
-        <input ref={imageInputRef as any} onChange={onSelectImage} type="file" accept="image/*" style={{ display: 'none' }} />
+        <input ref={imageInputRef as any} onChange={onSelectImage} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} />
         
         {/* Attach button + popover */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -601,6 +727,7 @@ export default function Conversation({
           {showAttachMenu && !showStickerPicker && (
             <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 44, left: 0, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 8, boxShadow: '0 8px 24px rgba(2,6,23,0.08)', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 60 }}>
               <button onClick={() => imageInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><Image size={16} /> Image</button>
+              <button onClick={() => imageInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><FileText size={16} /> PDF</button>
               <button onClick={openStickerPicker} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}><Smile size={16} /> Sticker</button>
             </div>
           )}
@@ -674,15 +801,15 @@ export default function Conversation({
         </button>
         <button
           onClick={sendMessage}
-          disabled={(!text.trim() && !pendingAudioRef.current) || sending || !isAligned}
+          disabled={(!text.trim() && !pendingAudioRef.current && !pendingAttachment) || sending || uploadingAttachment || !isAligned}
           title={!isAligned ? 'You must be aligned with this user to send messages' : ''}
           style={{
             borderRadius: 14,
             border: 'none',
-            background: ((text.trim() || pendingAudioRef.current) && isAligned) ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
-            color: ((text.trim() || pendingAudioRef.current) && isAligned) ? '#fff' : th.txt3,
+            background: ((text.trim() || pendingAudioRef.current || pendingAttachment) && isAligned) ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
+            color: ((text.trim() || pendingAudioRef.current || pendingAttachment) && isAligned) ? '#fff' : th.txt3,
             padding: '11px 16px',
-            cursor: ((text.trim() || pendingAudioRef.current) && isAligned) ? 'pointer' : 'default',
+            cursor: ((text.trim() || pendingAudioRef.current || pendingAttachment) && isAligned) ? 'pointer' : 'default',
             display: 'flex',
             alignItems: 'center',
             gap: 6,

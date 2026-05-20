@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 const app = express();
 app.use(cors());
 app.use("/api/upload-audio", express.raw({ type: "audio/*", limit: "10mb" }));
+app.use("/api/upload-attachment", express.raw({ type: "*/*", limit: "10mb" }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -307,6 +308,51 @@ app.post("/api/upload-audio", async (req, res) => {
     res.json({ url: publicUrl, path });
   } catch (err) {
     console.error("POST /api/upload-audio error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/upload-attachment ─────────────────────────────────────
+// Uploads image/PDF attachments to Supabase Storage under the user folder.
+app.post("/api/upload-attachment", async (req, res) => {
+  const userId = getUser(req);
+  if (!userId) return res.status(401).json({ error: "x-user-id header required" });
+
+  const fileName = req.headers["x-file-name"] || `attachment-${Date.now()}`;
+  const contentType = req.headers["content-type"] || "application/octet-stream";
+
+  try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_KEY) {
+      return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY for storage upload" });
+    }
+
+    const buffer = req.body;
+
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+      return res.status(400).json({ error: "No attachment data received" });
+    }
+
+    console.log(`[Upload] Uploading attachment: ${fileName}, type: ${contentType}, size: ${buffer.length} bytes`);
+
+    const path = `${userId}/attachments/${Date.now()}-${fileName}`;
+    const { error: uploadErr } = await supabase
+      .storage
+      .from('audio')
+      .upload(path, buffer, { contentType, upsert: false });
+
+    if (uploadErr) {
+      console.error(`[Upload] Error uploading attachment to Supabase:`, uploadErr);
+      throw uploadErr;
+    }
+
+    const { data: urlData } = supabase
+      .storage
+      .from('audio')
+      .getPublicUrl(path);
+
+    res.json({ url: urlData?.publicUrl, path, contentType });
+  } catch (err) {
+    console.error("POST /api/upload-attachment error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

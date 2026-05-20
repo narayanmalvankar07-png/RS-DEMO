@@ -124,43 +124,45 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   const whoOpt = WHO_OPTS.find(w => w.id === myProfile?.who);
 
   return (
-    <div>
-      {whoOpt && (
-        <div style={{ background: dk ? `linear-gradient(135deg,${whoOpt.c}18,transparent)` : `${whoOpt.c}10`, border: `1px solid ${whoOpt.c}30`, borderRadius: 16, padding: 12, marginBottom: 12, display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: `${whoOpt.c}18`, border: `1px solid ${whoOpt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", paddingRight: 4 }}>
+        {whoOpt && (
+          <div style={{ background: dk ? `linear-gradient(135deg,${whoOpt.c}18,transparent)` : `${whoOpt.c}10`, border: `1px solid ${whoOpt.c}30`, borderRadius: 16, padding: 12, marginBottom: 12, display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: `${whoOpt.c}18`, border: `1px solid ${whoOpt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <span style={{ fontSize: 16, color: whoOpt.c, fontWeight: 900 }}>{whoOpt.label[0]}</span>
             </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: th.txt }}>Welcome back, {myProfile?.name?.split(" ")[0]}!</div>
-            <div style={{ fontSize: 12, color: th.txt2 }}>Curated for {myProfile?.interests?.slice(0, 3).map(id => INT_OPTS.find(x => x.id === id)?.label).filter(Boolean).join(", ")}</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: th.txt }}>Welcome back, {myProfile?.name?.split(" ")[0]}!</div>
+              <div style={{ fontSize: 12, color: th.txt2 }}>Curated for {myProfile?.interests?.slice(0, 3).map(id => INT_OPTS.find(x => x.id === id)?.label).filter(Boolean).join(", ")}</div>
+            </div>
           </div>
+        )}
+        <Composer me={me} onPost={addPost} dk={dk} myProfile={myProfile} />
+        {activeTag && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, background: "#3b82f618", border: "1px solid #3b82f640", borderRadius: 10, padding: "8px 14px" }}>
+            <Hash size={14} style={{ color: "#3b82f6" }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6" }}>{activeTag}</span>
+            <button onClick={() => setActiveTag(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#3b82f6", display: "flex" }}><X size={14} /></button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 4, marginBottom: 14, background: th.surf2, borderRadius: 12, padding: 4, border: `1px solid ${th.bdr}` }}>
+          { ["For You", "Trending", "Following", "Bookmarks"].map(t => (
+            <button key={t} onClick={() => { setTab(t); setActiveTag(null); }} style={{ flex: 1, padding: "7px", borderRadius: 9, border: "none", background: tab === t && !activeTag ? "#3b82f6" : "transparent", color: tab === t && !activeTag ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all .2s" }}>{t}</button>
+          ))}
         </div>
-      )}
-      <Composer me={me} onPost={addPost} dk={dk} myProfile={myProfile} />
-      {activeTag && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, background: "#3b82f618", border: "1px solid #3b82f640", borderRadius: 10, padding: "8px 14px" }}>
-          <Hash size={14} style={{ color: "#3b82f6" }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6" }}>{activeTag}</span>
-          <button onClick={() => setActiveTag(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#3b82f6", display: "flex" }}><X size={14} /></button>
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 4, marginBottom: 14, background: th.surf2, borderRadius: 12, padding: 4, border: `1px solid ${th.bdr}` }}>
-        {["For You", "Trending", "Following", "Bookmarks"].map(t => (
-          <button key={t} onClick={() => { setTab(t); setActiveTag(null); }} style={{ flex: 1, padding: "7px", borderRadius: 9, border: "none", background: tab === t && !activeTag ? "#3b82f6" : "transparent", color: tab === t && !activeTag ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all .2s" }}>{t}</button>
+        {loading ? <Spin dk={dk} msg="Loading feed..." /> : getFiltered().length === 0 ? (
+          <div style={{ textAlign: "center", padding: 48, color: th.txt3, animation: "fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+              {tab === "Bookmarks" ? <Bookmark size={24} color="#6366f1" /> : <Sparkles size={24} color="#6366f1" />}
+            </div>
+            <p style={{ fontSize: 15 }}>{tab === "Bookmarks" ? "No bookmarks yet. Save posts to see them here." : activeTag ? `No posts with ${activeTag}` : "No posts yet. Be the first!"}</p>
+          </div>
+        ) : getFiltered().map((p, i) => (
+          <div key={p.id + p.ts} ref={el => { if (el) postRefs.current[p.id] = el; }} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 550)}ms both` }}>
+            <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={focusPostId === p.id} highlightCommentId={focusCommentId} />
+          </div>
         ))}
       </div>
-      {loading ? <Spin dk={dk} msg="Loading feed..." /> : getFiltered().length === 0 ? (
-        <div style={{ textAlign: "center", padding: 48, color: th.txt3, animation: "fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both" }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            {tab === "Bookmarks" ? <Bookmark size={24} color="#6366f1" /> : <Sparkles size={24} color="#6366f1" />}
-          </div>
-          <p style={{ fontSize: 15 }}>{tab === "Bookmarks" ? "No bookmarks yet. Save posts to see them here." : activeTag ? `No posts with ${activeTag}` : "No posts yet. Be the first!"}</p>
-        </div>
-      ) : getFiltered().map((p, i) => (
-        <div key={p.id + p.ts} ref={el => { if (el) postRefs.current[p.id] = el; }} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 550)}ms both` }}>
-          <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={focusPostId === p.id} highlightCommentId={focusCommentId} />
-        </div>
-      ))}
     </div>
   );
 }
