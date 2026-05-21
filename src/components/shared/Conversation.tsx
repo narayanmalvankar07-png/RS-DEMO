@@ -79,6 +79,13 @@ export default function Conversation({
   const [pendingAudioName, setPendingAudioName] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
+  // Visualizer and Auto-send refs
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const sendAfterRecordingRef = useRef(false);
+
   const discardAudio = useCallback(() => {
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
@@ -380,7 +387,75 @@ export default function Conversation({
     })();
   };
 
-  
+  const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  const startVisualizer = () => {
+    if (!canvasRef.current || !analyserRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const analyser = analyserRef.current;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      if (!canvasRef.current) return;
+      animationFrameRef.current = requestAnimationFrame(draw);
+
+      analyser.getByteFrequencyData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = 3;
+      const barGap = 2;
+      const totalBarWidth = barWidth + barGap;
+      const numBars = Math.floor(canvas.width / totalBarWidth);
+      const centerY = canvas.height / 2;
+
+      for (let i = 0; i < numBars; i++) {
+        const dataIndex = Math.floor((i / numBars) * bufferLength);
+        const val = dataArray[dataIndex] || 0;
+        const percent = val / 255;
+        const barHeight = Math.max(2, percent * (canvas.height - 4));
+
+        const x = i * totalBarWidth;
+        const y = centerY - barHeight / 2;
+
+        const grad = ctx.createLinearGradient(x, y, x, y + barHeight);
+        grad.addColorStop(0, '#8b5cf6');
+        grad.addColorStop(1, '#6366f1');
+        ctx.fillStyle = grad;
+
+        drawRoundedRect(ctx, x, y, barWidth, barHeight, 1.5);
+      }
+    };
+
+    draw();
+  };
+
+  useEffect(() => {
+    if (isRecording && canvasRef.current && analyserRef.current) {
+      startVisualizer();
+    }
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [isRecording]);
 
   const startRecording = async () => {
     try {
@@ -394,6 +469,23 @@ export default function Conversation({
           channelCount: 1  // Mono instead of stereo = 2x smaller
         }
       });
+
+      // Set up AudioContext & Analyser Node for visualizer
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const audioCtx = new AudioContextClass();
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64; // Small fftSize is perfect for 15-20 bars
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          audioCtxRef.current = audioCtx;
+          analyserRef.current = analyser;
+        }
+      } catch (ae) {
+        console.error('Failed to init Web Audio visualizer:', ae);
+      }
       
       const mime = 'audio/webm';
       const mr = new MediaRecorder(stream, { 
@@ -416,6 +508,19 @@ export default function Conversation({
         setIsRecording(false);
         if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
         setRecordSecs(0);
+
+        // Cleanup audio visualizer context
+        if (audioCtxRef.current) {
+          try { audioCtxRef.current.close(); } catch {}
+          audioCtxRef.current = null;
+        }
+        analyserRef.current = null;
+
+        // Auto-send if Send was clicked during active recording
+        if (sendAfterRecordingRef.current) {
+          sendAfterRecordingRef.current = false;
+          sendMessage();
+        }
       };
       mr.start();
       recorderRef.current = mr;
@@ -433,6 +538,11 @@ export default function Conversation({
       recorderRef.current?.stop();
     } catch (e) { }
     try { recorderRef.current = null; } catch {}
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
   };
 
   // Close menus when clicking outside
@@ -447,6 +557,10 @@ export default function Conversation({
     return () => {
       try { recorderRef.current?.state !== 'inactive' && recorderRef.current?.stop(); } catch {}
       if (recordTimerRef.current) { window.clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioCtxRef.current) {
+        try { audioCtxRef.current.close(); } catch {}
+      }
     };
   }, []);
 
@@ -468,7 +582,12 @@ export default function Conversation({
   };
 
   const sendMessage = async () => {
-    if ((!text.trim() && !pendingAudioName && !pendingAttachment) || sending || uploadingAttachment) return;
+    if (isRecording) {
+      sendAfterRecordingRef.current = true;
+      stopRecording();
+      return;
+    }
+    if ((!text.trim() && !pendingAudioRef.current && !pendingAttachment) || sending || uploadingAttachment) return;
     const content = text.trim();
     setText('');
     setSending(true);
@@ -504,8 +623,9 @@ export default function Conversation({
     const payload: any = { text: content };
 
     // If there's a recorded audio blob, upload to cloud storage
-    if (pendingAudioRef.current && pendingAudioName) {
+    if (pendingAudioRef.current) {
       const blob = pendingAudioRef.current;
+      const audioName = pendingAudioName || `recording-${Date.now()}.webm`;
       
       // Convert blob to binary for upload
       try {
@@ -513,7 +633,7 @@ export default function Conversation({
           method: 'POST',
           headers: { 
             'x-user-id': me,
-            'x-file-name': pendingAudioName,
+            'x-file-name': audioName,
             'Content-Type': 'audio/webm'
           },
           body: blob  // Send blob directly - fetch will handle binary encoding
@@ -522,18 +642,18 @@ export default function Conversation({
         if (uploadRes.ok) {
           const { url, path } = await uploadRes.json();
           // Store only the public URL
-          payload.audio = { name: pendingAudioName, type: blob.type, url, path };
+          payload.audio = { name: audioName, type: blob.type, url, path };
           console.log('[Upload] Success:', url);
         } else {
           const errText = await uploadRes.text();
           console.error('Upload failed:', uploadRes.status, errText);
           // Fallback: store metadata only if upload fails
-          payload.audio = { name: pendingAudioName, type: blob.type };
+          payload.audio = { name: audioName, type: blob.type };
         }
       } catch (err) {
         console.error('Audio upload failed:', err);
         // Fallback: store metadata only if upload fails
-        payload.audio = { name: pendingAudioName, type: blob.type };
+        payload.audio = { name: audioName, type: blob.type };
       }
       
       // clear pending audio
@@ -955,12 +1075,13 @@ export default function Conversation({
 
               {/* Recording UI (shows while recording) */}
               {isRecording && (
-                <div style={{ position: 'absolute', bottom: 44, left: 0, width: 280, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 12, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', zIndex: 80 }} onClick={e => e.stopPropagation()}>
+                <div style={{ position: 'absolute', bottom: 44, left: 0, width: 280, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 12, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', zIndex: 80, backdropFilter: th.blur, WebkitBackdropFilter: th.blur }} onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 6, background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.6)', }} />
-                    <div style={{ fontWeight: 700 }}>Recording…</div>
-                    <div style={{ marginLeft: 'auto', fontSize: 12, color: th.txt3 }}>{Math.floor(recordSecs/60).toString().padStart(2,'0')}:{(recordSecs%60).toString().padStart(2,'0')}</div>
-                    <button onClick={(e) => { e.stopPropagation(); stopRecording(); }} style={{ marginLeft: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>Recording…</div>
+                    <canvas ref={canvasRef} width={80} height={20} style={{ flex: 1, maxHeight: 20, minWidth: 60 }} />
+                    <div style={{ fontSize: 12, color: th.txt3 }}>{Math.floor(recordSecs/60).toString().padStart(2,'0')}:{(recordSecs%60).toString().padStart(2,'0')}</div>
+                    <button onClick={(e) => { e.stopPropagation(); stopRecording(); }} style={{ marginLeft: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt, fontSize: 13, fontWeight: 600 }}>
                       Stop
                     </button>
                   </div>
@@ -1015,15 +1136,15 @@ export default function Conversation({
 
             <button
               onClick={sendMessage}
-              disabled={(!text.trim() && !pendingAudioName && !pendingAttachment) || sending || uploadingAttachment || !isAligned}
+              disabled={(!text.trim() && !pendingAudioName && !pendingAttachment && !isRecording) || sending || uploadingAttachment || !isAligned}
               title={!isAligned ? 'You must be aligned with this user to send messages' : ''}
               style={{
                 borderRadius: 14,
                 border: 'none',
-                background: ((text.trim() || pendingAudioName || pendingAttachment) && isAligned) ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
-                color: ((text.trim() || pendingAudioName || pendingAttachment) && isAligned) ? '#fff' : th.txt3,
+                background: ((text.trim() || pendingAudioName || pendingAttachment || isRecording) && isAligned) ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : (dk ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
+                color: ((text.trim() || pendingAudioName || pendingAttachment || isRecording) && isAligned) ? '#fff' : th.txt3,
                 padding: '11px 16px',
-                cursor: ((text.trim() || pendingAudioName || pendingAttachment) && isAligned) ? 'pointer' : 'default',
+                cursor: ((text.trim() || pendingAudioName || pendingAttachment || isRecording) && isAligned) ? 'pointer' : 'default',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
