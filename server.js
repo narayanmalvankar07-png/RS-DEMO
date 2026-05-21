@@ -461,6 +461,48 @@ wss.on("connection", (ws) => {
             }
           });
         }
+      } else if (msg.type === "edit_message") {
+        const { messageId, conversationId, content, participants } = msg;
+        if (participants && Array.isArray(participants)) {
+          participants.forEach((uid) => {
+            const userSockets = clients.get(uid);
+            if (userSockets) {
+              userSockets.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) {
+                  s.send(JSON.stringify({ type: "edit_message", messageId, conversationId, content }));
+                }
+              });
+            }
+          });
+        }
+      } else if (msg.type === "delete_message") {
+        const { messageId, conversationId, participants } = msg;
+        if (participants && Array.isArray(participants)) {
+          participants.forEach((uid) => {
+            const userSockets = clients.get(uid);
+            if (userSockets) {
+              userSockets.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) {
+                  s.send(JSON.stringify({ type: "delete_message", messageId, conversationId }));
+                }
+              });
+            }
+          });
+        }
+      } else if (msg.type === "react_message") {
+        const { messageId, conversationId, reactions, participants } = msg;
+        if (participants && Array.isArray(participants)) {
+          participants.forEach((uid) => {
+            const userSockets = clients.get(uid);
+            if (userSockets) {
+              userSockets.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) {
+                  s.send(JSON.stringify({ type: "react_message", messageId, conversationId, reactions }));
+                }
+              });
+            }
+          });
+        }
       }
     } catch (err) {
       console.error("[WS] Error handling message:", err.message);

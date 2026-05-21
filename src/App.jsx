@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Sun, Moon, Bell, LogOut, Menu, Search, X } from "lucide-react";
+import { Toaster } from "sonner";
 
 // ─── IMPORTS ──────────────────────────────────────────────────────
 // Config & Helpers
@@ -601,6 +602,25 @@ export default function App() {
       {isMobile && (
         <BottomNav view={view} setView={sidebarNav} dk={dk} bals={bals} me={me} unreadNotifs={unread} unreadMsgs={unreadMsgCount} />
       )}
+
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: dk ? "rgba(15, 23, 42, 0.65)" : "rgba(255, 255, 255, 0.65)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: dk ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(0, 0, 0, 0.08)",
+            color: dk ? "#f8fafc" : "#0f172a",
+            borderRadius: "16px",
+            boxShadow: dk ? "0 8px 32px rgba(0, 0, 0, 0.4)" : "0 8px 32px rgba(0, 0, 0, 0.1)",
+            fontFamily: "inherit",
+            fontSize: "14px",
+            fontWeight: "600",
+          }
+        }}
+        richColors
+      />
     </div>
   );
 }

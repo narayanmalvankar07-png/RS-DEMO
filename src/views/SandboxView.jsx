@@ -4,6 +4,7 @@ import { T, ST_LABEL, PH_LABEL, SB_CYCLE, SEED_SANDBOX, WHO_OPTS } from "../conf
 import { db } from "../services/supabase.js";
 import Spin from "../components/ui/Spin.jsx";
 import Card from "../components/ui/Card.jsx";
+import { toast } from "sonner";
 
 const STATUS_COLORS = {
   submitted: "#94a3b8", shortlisted_50: "#3b82f6", shortlisted_30: "#8b5cf6",
@@ -42,6 +43,7 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
       const successMsg = SB_CYCLE.isOpen 
         ? `🚀 Startup idea submitted to ${SB_CYCLE.title}!`
         : "🚀 Startup idea submitted for the upcoming cohort!";
+      toast.success(successMsg);
       addNotif?.({ type: "success", msg: successMsg });
       setForm({ title: "", problem: "", solution: "", audience: "" });
       setShowForm(false);
@@ -73,22 +75,33 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: th.txt }}>Startup Sandbox</h2>
             <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "#3b82f618", color: "#3b82f6", fontWeight: 700 }}>{SB_CYCLE.title}</span>
+            {SB_CYCLE.isOpen ? (
+              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "rgba(16, 185, 129, 0.12)", color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981" }} />
+                Open
+              </span>
+            ) : (
+              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(239, 68, 68, 0.2)" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
+                Closed
+              </span>
+            )}
           </div>
           <p style={{ margin: 0, color: th.txt3, fontSize: 13 }}>
             Phase: <strong style={{ color: "#f59e0b" }}>{PH_LABEL[SB_CYCLE.phase]}</strong> · {entries.length} startup{entries.length !== 1 ? "s" : ""} in cohort
           </p>
         </div>
-        {!hasSubmittedThisCohort && (
+        {SB_CYCLE.isOpen && !hasSubmittedThisCohort && (
           <button onClick={() => setShowForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 7, background: "#3b82f6", color: "#fff", border: "none", borderRadius: 12, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
-            <PlusCircle size={16} />{SB_CYCLE.isOpen ? "Submit Idea" : "Submit for Upcoming Cohort"}
+            <PlusCircle size={16} />{showForm ? "Hide Form" : "Submit Idea"}
           </button>
         )}
       </div>
 
-      {showForm && (
+      {(!SB_CYCLE.isOpen ? !hasSubmittedThisCohort : showForm) && (
         <Card dk={dk} style={{ marginBottom: 18, padding: 20 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: th.txt, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
             <Lightbulb size={18} color="#f59e0b" /> {SB_CYCLE.isOpen ? "Submit Your Startup Idea" : "Submit Idea for Upcoming Cohort"}
@@ -130,7 +143,9 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
             ))}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${th.bdr}`, background: "transparent", color: th.txt2, cursor: "pointer", fontSize: 13 }}>Cancel</button>
+            {SB_CYCLE.isOpen && (
+              <button onClick={() => setShowForm(false)} style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${th.bdr}`, background: "transparent", color: th.txt2, cursor: "pointer", fontSize: 13 }}>Cancel</button>
+            )}
             <button onClick={submit} disabled={submitting} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 10, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
               {submitting ? "Submitting…" : <><ArrowRight size={14} />Submit</>}
             </button>

@@ -256,7 +256,12 @@ export const db = {
   },
   patch: async (t, q, body) => {
     try {
-      await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "PATCH", headers: authH(), body: JSON.stringify(body) });
+      const r = await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "PATCH", headers: authH(), body: JSON.stringify(body) });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => r.status);
+        console.error(`Supabase Error [PATCH ${t}] status=${r.status}:`, errText);
+        return;
+      }
 
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
@@ -273,11 +278,18 @@ export const db = {
           setCache(t, updated);
         }
       }
-    } catch { }
+    } catch (e) {
+      console.error(`Supabase Error [PATCH Exception ${t}]:`, e.message);
+    }
   },
   del: async (t, q) => {
     try {
-      await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "DELETE", headers: authH() });
+      const r = await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "DELETE", headers: authH() });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => r.status);
+        console.error(`Supabase Error [DELETE ${t}] status=${r.status}:`, errText);
+        return;
+      }
 
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
@@ -295,7 +307,9 @@ export const db = {
         }
         setCache(t, filtered);
       }
-    } catch { }
+    } catch (e) {
+      console.error(`Supabase Error [DELETE Exception ${t}]:`, e.message);
+    }
   },
   upsert: async (t, body) => {
     try {

@@ -181,14 +181,47 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       setEditing(false);
     }
   };
+  const toggleAlign = async () => {
+    if (checkingAlign) return;
+    setCheckingAlign(true);
+    const targetName = profile.name || "a member";
+    const myName = profiles[me]?.name || "a member";
 
-  const giveToken = async () => {
-    const current = bals[uid] ?? 0;
-    const newBal = current + 1;
-    setBals(b => ({ ...b, [uid]: newBal }));
-    await db.upsert("rs_token_balances", { uid, balance: newBal });
-    await db.post("rs_token_txns", { uid, type: "earn", amount: 1, description: `Gift from ${profiles[me]?.name || "a member"}` });
-    addNotif?.({ type: "token", msg: `◈ You gifted 1 SGN to ${profile.name}` });
+    if (isAligned) {
+      // Unfollow / Misalign
+      setIsAligned(false);
+      try {
+        await db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
+        addNotif?.({ type: "info", msg: `⛓️ You misaligned with ${targetName}` });
+      } catch (err) {
+        console.error("Failed to misalign:", err);
+        setIsAligned(true);
+      } finally {
+        setCheckingAlign(false);
+      }
+    } else {
+      // Follow / Align
+      setIsAligned(true);
+      try {
+        await db.upsert("rs_alignments", { follower_uid: me, following_uid: uid });
+        try {
+          await db.post("rs_notifications", {
+            uid: uid,
+            type: "align_accept",
+            msg: `✅ ${myName} aligned with you`,
+            read: false
+          });
+        } catch (notifErr) {
+          console.error("Notification post failed:", notifErr);
+        }
+        addNotif?.({ type: "success", msg: `🔗 You are now aligned with ${targetName}!` });
+      } catch (err) {
+        console.error("Failed to align:", err);
+        setIsAligned(false);
+      } finally {
+        setCheckingAlign(false);
+      }
+    }
   };
 
   const whoOpt = WHO_OPTS.find(w => w.id === profile.who);
@@ -404,9 +437,66 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                 style={{ display: "flex", alignItems: "center", gap: 6, background: isAligned ? "#3b82f6" : "#9333ea", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: isAligned ? "pointer" : "not-allowed", fontWeight: 600, fontSize: 13, opacity: isAligned ? 1 : 0.6 }}>
                 <MessageCircle size={15} />Message
               </button>
-              <button onClick={giveToken} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10b981", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
-                <Heart size={15} />Give +1 SGN
-              </button>
+              {isAligned ? (
+                <button
+                  onClick={toggleAlign}
+                  disabled={checkingAlign}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: dk ? "rgba(239, 68, 68, 0.08)" : "rgba(239, 68, 68, 0.05)",
+                    color: "#ef4444",
+                    border: `1px solid ${dk ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.15)"}`,
+                    borderRadius: 10,
+                    padding: "10px 16px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = dk ? "rgba(239, 68, 68, 0.15)" : "rgba(239, 68, 68, 0.1)";
+                    e.currentTarget.style.borderColor = "#ef4444";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = dk ? "rgba(239, 68, 68, 0.08)" : "rgba(239, 68, 68, 0.05)";
+                    e.currentTarget.style.borderColor = dk ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.15)";
+                  }}
+                >
+                  <X size={15} />Misalign
+                </button>
+              ) : (
+                <button
+                  onClick={toggleAlign}
+                  disabled={checkingAlign}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "10px 16px",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    boxShadow: "0 4px 12px rgba(99, 102, 241, 0.2)",
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.2)";
+                  }}
+                >
+                  <Zap size={15} />Align
+                </button>
+              )}
             </>
           )}
           {isOwnProfile && !editing && (
