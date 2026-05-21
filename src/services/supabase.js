@@ -117,6 +117,12 @@ const applyQuery = (data, q) => {
     result = result.filter(x => x.email === emailMatch[1]);
   }
 
+  // Filter: ref_code=eq.X
+  const refCodeMatch = q.match(/ref_code=eq\.([^&]+)/);
+  if (refCodeMatch) {
+    result = result.filter(x => x.ref_code === refCodeMatch[1]);
+  }
+
   // Sort
   if (q.includes("order=created_at.desc")) {
     result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -139,7 +145,7 @@ export const db = {
   get: async (t, q = "") => {
     if (CACHED_TABLES.includes(t)) {
       const local = getCache(t);
-      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.");
+      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.");
       const isFullCached = localStorage.getItem(`rs_cache_full_${t}`) === "true";
 
       if (isFiltered) {
