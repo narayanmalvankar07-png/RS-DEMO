@@ -8,7 +8,7 @@ const authH = (extra = {}) => {
     if (sess?.access_token) {
       return { ...H, Authorization: `Bearer ${sess.access_token}`, ...extra };
     }
-  } catch {}
+  } catch { }
   return { ...H, ...extra };
 };
 
@@ -34,16 +34,62 @@ const getCache = (key) => {
   try { return JSON.parse(localStorage.getItem(`rs_cache_${key}`) || "[]"); } catch { return []; }
 };
 const setCache = (key, data) => {
-  try { localStorage.setItem(`rs_cache_${key}`, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(`rs_cache_${key}`, JSON.stringify(data)); } catch { }
+};
+
+const parseNotifications = (rows) => {
+  if (!rows) return rows;
+  const isArray = Array.isArray(rows);
+  const list = isArray ? rows : [rows];
+
+  const processed = list.map(row => {
+    if (!row || typeof row !== "object" || !row.msg) return row;
+    const msgStr = String(row.msg).trim();
+    if (msgStr.startsWith("{") && msgStr.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(msgStr);
+        if (parsed && typeof parsed === "object") {
+          const newRow = { ...row, ...parsed };
+          if (parsed.text !== undefined) {
+            newRow.msg = parsed.text;
+          }
+          return newRow;
+        }
+      } catch (e) {
+        // Keep row as is
+      }
+    }
+    return row;
+  });
+
+  return isArray ? processed : processed[0];
 };
 
 const normalizeInsertBody = (table, body) => {
   if (table !== "rs_notifications" || !body || typeof body !== "object") return body;
   const normalized = { ...body };
-  if (normalized.profile_id && !normalized.uid) {
-    normalized.uid = normalized.profile_id;
+
+  if (normalized.profile_id && !normalized.requester_uid) {
+    normalized.requester_uid = normalized.profile_id;
   }
-  delete normalized.profile_id;
+
+  const standardFields = ["id", "uid", "type", "msg", "read", "created_at"];
+  const extraFields = {};
+  let hasExtra = false;
+
+  for (const key of Object.keys(normalized)) {
+    if (!standardFields.includes(key)) {
+      extraFields[key] = normalized[key];
+      delete normalized[key];
+      hasExtra = true;
+    }
+  }
+
+  if (hasExtra) {
+    extraFields.text = normalized.msg || "";
+    normalized.msg = JSON.stringify(extraFields);
+  }
+
   return normalized;
 };
 
@@ -131,7 +177,7 @@ export const db = {
         try {
           const r = await fetch(`${SB_URL}/rest/v1/${t}${deltaQuery ? "?" + deltaQuery : ""}`, { headers: authH() });
           const fresh = r.ok ? await r.json() : [];
-          
+
           let merged = [...local];
           if (fresh?.length) {
             const mergedMap = new Map(local.map(item => [item.id || `${item.post_id}_${item.uid}`, item]));
@@ -163,7 +209,8 @@ export const db = {
 
     try {
       const r = await fetch(`${SB_URL}/rest/v1/${t}${q ? "?" + q : ""}`, { headers: authH() });
-      return r.ok ? r.json() : [];
+      const data = r.ok ? await r.json() : [];
+      return t === "rs_notifications" ? parseNotifications(data) : data;
     } catch { return []; }
   },
   post: async (t, body) => {
@@ -184,7 +231,7 @@ export const db = {
         local.push(saved);
         setCache(t, local);
       }
-      return saved;
+      return t === "rs_notifications" ? parseNotifications(saved) : saved;
     } catch (e) {
       console.error(`Supabase Error [POST ${t}]:`, e.message);
       return null;
@@ -204,13 +251,13 @@ export const db = {
         const merged = [...local, ...saved];
         setCache(t, merged);
       }
-      return saved;
+      return t === "rs_notifications" ? parseNotifications(saved) : saved;
     } catch { return []; }
   },
   patch: async (t, q, body) => {
-    try { 
+    try {
       await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "PATCH", headers: authH(), body: JSON.stringify(body) });
-      
+
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
         const local = getCache(t);
@@ -226,12 +273,12 @@ export const db = {
           setCache(t, updated);
         }
       }
-    } catch {}
+    } catch { }
   },
   del: async (t, q) => {
-    try { 
+    try {
       await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "DELETE", headers: authH() });
-      
+
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
         const local = getCache(t);
@@ -248,7 +295,7 @@ export const db = {
         }
         setCache(t, filtered);
       }
-    } catch {}
+    } catch { }
   },
   upsert: async (t, body) => {
     try {
@@ -265,7 +312,7 @@ export const db = {
         filtered.push(saved);
         setCache(t, filtered);
       }
-      return saved;
+      return t === "rs_notifications" ? parseNotifications(saved) : saved;
     } catch { return null; }
   },
 };

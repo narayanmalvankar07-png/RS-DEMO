@@ -57,7 +57,7 @@ import NotificationsView from "./views/NotificationsView";
         window.history.replaceState({}, "", window.location.pathname);
       }
     }
-  } catch {}
+  } catch { }
 })();
 
 // ─── APP ROOT ─────────────────────────────────────────────────────
@@ -81,6 +81,11 @@ export default function App() {
   const [dk, setDk] = useState(false);
   const [view, setView] = useState("feed");
   const [profUid, setProfUid] = useState(null);
+
+  const handleProfileUpdate = useCallback((uid, updates) => {
+    setProfiles(prev => ({ ...prev, [uid]: { ...prev[uid], ...updates } }));
+    if (uid === me) setMyProfile(prev => ({ ...prev, ...updates }));
+  }, [me]);
   const [notifs, setNotifs] = useState([{ id: "n0", type: "token", msg: "Welcome to RightSignal!", ts: Date.now() - 60000, read: false }]);
   const [showN, setShowN] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -139,11 +144,11 @@ export default function App() {
           return [...fresh, ...ns].filter(isRecentNotif);
         });
       }
-    } catch {}
+    } catch { }
   };
 
   const seedIfNeeded = async () => {
-    const [evs, sbx, ctb, pts] = await Promise.all([db.get("rs_events","select=id&limit=1"), db.get("rs_sandbox","select=id&limit=1"), db.get("rs_contributions","select=id&limit=1"), db.get("rs_posts","select=id&limit=1")]);
+    const [evs, sbx, ctb, pts] = await Promise.all([db.get("rs_events", "select=id&limit=1"), db.get("rs_sandbox", "select=id&limit=1"), db.get("rs_contributions", "select=id&limit=1"), db.get("rs_posts", "select=id&limit=1")]);
     if (!evs?.length) await db.postMany("rs_events", SEED_EVENTS);
     if (!sbx?.length) await db.postMany("rs_sandbox", SEED_SANDBOX);
     if (!ctb?.length) await db.postMany("rs_contributions", SEED_CONTRIBS);
@@ -156,7 +161,7 @@ export default function App() {
       if (existing?.length) {
         await db.patch("rs_user_profiles", `email=eq.${ADMIN_EMAIL}`, { is_admin: true, system_role: "admin" });
       }
-    } catch {}
+    } catch { }
   };
 
   const handleAuth = async (sess, authUser, isNewUser, name) => {
@@ -328,7 +333,7 @@ export default function App() {
     } else {
       // Not aligned - send a pending align request instead of auto-aligning
       await db.upsert("rs_align_requests", { requester_uid: me, target_uid: uid, status: "pending" });
-      try { await db.post("rs_notifications", { uid, type: "align_request", msg: `📌 ${myProfile?.name || "Someone"} sent you an align request`, read: false }); } catch {}
+      try { await db.post("rs_notifications", { uid, type: "align_request", msg: `📌 ${myProfile?.name || "Someone"} sent you an align request`, read: false }); } catch { }
       addNotif({ type: "follow", msg: `📌 Align request sent to ${profiles[uid]?.name || "this user"}.`, profile_id: uid });
     }
   };
@@ -360,7 +365,7 @@ export default function App() {
           await handleAuth(sess, u, false, "");
           return true;
         }
-      } catch {}
+      } catch { }
       localStorage.removeItem("rs_session");
       sessionStorage.removeItem("rs_oauth_return");
       return false;
@@ -373,7 +378,7 @@ export default function App() {
         try {
           const sess = JSON.parse(oauthReturn);
           if (await trySession(sess)) return;
-        } catch {}
+        } catch { }
       }
 
       const stored = localStorage.getItem("rs_session");
@@ -381,7 +386,7 @@ export default function App() {
         try {
           const sess = JSON.parse(stored);
           if (await trySession(sess)) return;
-        } catch {}
+        } catch { }
         localStorage.removeItem("rs_session");
       }
 
@@ -418,7 +423,7 @@ export default function App() {
       <span style={{ color: "rgba(160,185,255,.65)", fontSize: 13, fontWeight: 500, letterSpacing: "0.5px", animation: "pulse 2s ease-in-out infinite" }}>Signing you in…</span>
     </div>
   );
-  
+
   if (screen === "auth") return <><GlobalCSS dk={false} /><AuthScreen onAuth={handleAuth} /></>;
   if (screen === "onboarding") return <><GlobalCSS dk={false} /><Onboarding user={myProfile || {}} onComplete={handleOnboardingDone} /></>;
   if (screen === "admin") return <AdminApp me={me} myProfile={myProfile} bals={bals} profiles={profiles} dk={dk} setDk={setDk} onSignOut={handleSignOut} />;
@@ -430,7 +435,7 @@ export default function App() {
   const renderMain = () => {
     const common = { me, dk, bals, profiles, addNotif };
     switch (view) {
-      case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} />;
+      case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} />;
       case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} />;
       case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
@@ -529,7 +534,7 @@ export default function App() {
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
           <div style={{ flex: 1, minHeight: 0, overflowY: ["messages", "network", "feed"].includes(view) ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
             {(() => {
-              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox"].includes(view);
+              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox", "profile"].includes(view);
               const hasInternalScroll = ["messages", "network", "feed"].includes(view);
               return (
                 <div key={view} className="rs-page-in" style={{ display: hasInternalScroll ? "flex" : "block", flexDirection: "column", width: isFullWidth ? "100%" : "auto", maxWidth: isFullWidth ? "none" : 640, margin: isFullWidth ? 0 : "0 auto", flex: hasInternalScroll ? 1 : "auto", overflow: hasInternalScroll ? "hidden" : "visible" }}>

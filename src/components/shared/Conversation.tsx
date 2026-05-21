@@ -608,74 +608,78 @@ export default function Conversation({
                     </span>
                   )}
                   <div style={{ position: 'relative', width: '100%' }}>
-                    <button
-                      type="button"
-                      data-message-action-button
-                      aria-label="Message options"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuMessageId(prev => prev === msg.id ? null : msg.id);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        bottom: 2,
-                        right: 0,
-                        width: 22,
-                        height: 22,
-                        border: 'none',
-                        background: 'transparent',
-                        color: th.txt2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        boxShadow: 'none',
-                        padding: 0,
-                        zIndex: 2,
-                      }}
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    {openMenuMessageId === msg.id && editingMessageId !== msg.id && (
-                      <div
-                        data-message-action-menu
-                        style={{
-                          position: 'absolute',
-                          top: 24,
-                          right: 0,
-                          minWidth: 120,
-                          background: th.surf,
-                          border: `1px solid ${th.bdr}`,
-                          borderRadius: 12,
-                          padding: 6,
-                          boxShadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
-                          zIndex: 20,
-                        }}
-                      >
+                    {fromMe && (
+                      <>
                         <button
                           type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            setOpenMenuMessageId(null);
-                            await db.del('rs_conversation_messages', `id=eq.${msg.id}`);
-                            setMessages(prev => prev.filter(m => m.id !== msg.id));
-                          }}
-                          style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: '#ef4444', fontSize: 13, fontWeight: 600 }}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          type="button"
+                          data-message-action-button
+                          aria-label="Message options"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenMenuMessageId(null);
-                            setEditingMessageId(msg.id);
+                            setOpenMenuMessageId(prev => prev === msg.id ? null : msg.id);
                           }}
-                          style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: th.txt, fontSize: 13, fontWeight: 600 }}
+                          style={{
+                            position: 'absolute',
+                            bottom: 2,
+                            right: 0,
+                            width: 22,
+                            height: 22,
+                            border: 'none',
+                            background: 'transparent',
+                            color: th.txt2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: 'none',
+                            padding: 0,
+                            zIndex: 2,
+                          }}
                         >
-                          Edit
+                          <MoreVertical size={16} />
                         </button>
-                      </div>
+                        {openMenuMessageId === msg.id && editingMessageId !== msg.id && (
+                          <div
+                            data-message-action-menu
+                            style={{
+                              position: 'absolute',
+                              top: 24,
+                              right: 0,
+                              minWidth: 120,
+                              background: th.surf,
+                              border: `1px solid ${th.bdr}`,
+                              borderRadius: 12,
+                              padding: 6,
+                              boxShadow: '0 12px 30px rgba(15, 23, 42, 0.16)',
+                              zIndex: 20,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setOpenMenuMessageId(null);
+                                await db.del('rs_conversation_messages', `id=eq.${msg.id}`);
+                                setMessages(prev => prev.filter(m => m.id !== msg.id));
+                              }}
+                              style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: '#ef4444', fontSize: 13, fontWeight: 600 }}
+                            >
+                              Delete
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuMessageId(null);
+                                setEditingMessageId(msg.id);
+                              }}
+                              style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', color: th.txt, fontSize: 13, fontWeight: 600 }}
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                     {editingMessageId === msg.id && (
                       <div style={{ marginTop: 8, padding: 10, borderRadius: 12, background: th.surf, border: `1px solid ${th.bdr}`, minWidth: 240 }}>

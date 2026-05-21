@@ -15,19 +15,22 @@ import Card from "../components/ui/Card.jsx";
 import Spin from "../components/ui/Spin.jsx";
 import PostCard from "../components/shared/PostCard.jsx";
 
-export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif }) {
+export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif, onProfileUpdate }) {
   const th = T(dk);
   const profile = profiles[uid] || { name: "Unknown", handle: "unknown", bio: "No profile available." };
   const balance = bals[uid] ?? 0;
   const role = ROLES[profile.system_role] || "Member";
   const isOwnProfile = uid === me;
   const [posts, setPosts] = useState([]);
+  const [likedPosts, setLikedPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingLikes, setLoadingLikes] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState(profile.bio || "");
   const [editName, setEditName] = useState(profile.name || "");
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("posts");
+  const [reposts, setReposts] = useState([]);
   const [isAligned, setIsAligned] = useState(false);
   const [checkingAlign, setCheckingAlign] = useState(false);
 
@@ -38,11 +41,35 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
 
   useEffect(() => {
     setLoadingPosts(true);
-    db.get("rs_posts", `uid=eq.${uid}&order=created_at.desc&limit=20`).then(d => {
-      setPosts(d || []);
+    db.get("rs_posts", `order=created_at.desc&limit=150`).then(d => {
+      const myFeed = (d || []);
+      const myOriginals = myFeed.filter(p => p.uid === uid && p.reposted_by !== uid);
+      const myReposts = myFeed.filter(p => p.reposted_by === uid);
+      setPosts(myOriginals.slice(0, 30));
+      setReposts(myReposts.slice(0, 30));
       setLoadingPosts(false);
     });
   }, [uid]);
+
+  useEffect(() => {
+    if (tab === "likes" && likedPosts.length === 0) {
+      setLoadingLikes(true);
+      // Fetch from local cache without a query so it doesn't try to override with an empty remote result if offline/syncing
+      db.get("rs_post_likes", "").then(allLikes => {
+        const likes = (allLikes || []).filter(l => l.uid === uid);
+        if (!likes.length) {
+          setLoadingLikes(false);
+          return;
+        }
+        db.get("rs_posts", `order=created_at.desc&limit=200`).then(allPosts => {
+          const likedIds = new Set(likes.map(l => l.post_id));
+          const p = (allPosts || []).filter(x => likedIds.has(x.id));
+          setLikedPosts(p);
+          setLoadingLikes(false);
+        });
+      });
+    }
+  }, [tab, uid, likedPosts.length]);
 
   useEffect(() => {
     if (isOwnProfile) return;
@@ -56,6 +83,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const saveProfile = async () => {
     setSaving(true);
     await db.patch("rs_user_profiles", `id=eq.${uid}`, { name: editName, bio: editBio });
+    onProfileUpdate?.(uid, { name: editName, bio: editBio });
     setSaving(false);
     setEditing(false);
   };
@@ -127,19 +155,19 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap", alignItems: "center" }}>
           {!isOwnProfile && (
             <>
-              <button 
+              <button
                 onClick={() => {
                   if (!isAligned) {
                     addNotif?.({ type: "warning", msg: "🔗 Align First - Send an align request to message this user" });
                     return;
                   }
                   onMessage(uid);
-                }} 
-                disabled={checkingAlign} 
-                title={!isAligned ? "Align First" : ""} 
+                }}
+                disabled={checkingAlign}
+                title={!isAligned ? "Align First" : ""}
                 style={{ display: "flex", alignItems: "center", gap: 6, background: isAligned ? "#3b82f6" : "#9333ea", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: isAligned ? "pointer" : "not-allowed", fontWeight: 600, fontSize: 13, opacity: isAligned ? 1 : 0.6 }}>
                 <MessageCircle size={15} />Message
               </button>
@@ -154,56 +182,84 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             </button>
           )}
           {isOwnProfile && editing && (
-            <>
+            <div style={{ display: "flex", gap: 8 }}>
               <button onClick={saveProfile} disabled={saving} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10b981", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
                 <Check size={15} />{saving ? "Saving…" : "Save"}
               </button>
               <button onClick={() => setEditing(false)} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, color: th.txt, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontSize: 13 }}>
                 <X size={15} />Cancel
               </button>
-            </>
+            </div>
           )}
+
+          {/* About items moved to the right */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginLeft: "auto" }}>
+            {[
+              { label: "Email", value: profile.email },
+              { label: "Role", value: whoOpt ? whoOpt.label : null },
+              { label: "System", value: role },
+              { label: "Ref Code", value: profile.ref_code },
+            ].filter(x => x.value).map(({ label, value }) => (
+              <span key={label} style={{ fontSize: 11, background: th.surf, border: `1px solid ${th.bdr}`, padding: "5px 10px", borderRadius: 8, color: th.txt2, display: "inline-flex", gap: 6 }}>
+                <span style={{ fontWeight: 700, color: th.txt }}>{label}:</span> {value}
+              </span>
+            ))}
+          </div>
         </div>
       </Card>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 14, background: th.surf2, borderRadius: 10, padding: 4, border: `1px solid ${th.bdr}` }}>
-        {["posts", "about"].map(t => (
+        {["posts", "reposts", "likes"].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: "7px", borderRadius: 7, border: "none", background: tab === t ? "#3b82f6" : "transparent", color: tab === t ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>{t}</button>
         ))}
       </div>
 
       {tab === "posts" && (
         loadingPosts ? <Spin dk={dk} msg="Loading posts…" /> :
-        posts.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-            <p>No posts yet.</p>
-          </div>
-        ) : (
-          <div>
-            {posts.map(p => (
-              <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: false, comments: [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => {}} onRepost={() => {}} onQuoteRepost={() => {}} onComment={() => {}} onBookmark={() => {}} dk={dk} onProfile={() => {}} bals={bals} profiles={profiles} onTag={() => {}} bookmarks={[]} />
-            ))}
-          </div>
-        )
+          posts.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+              <p>No posts yet.</p>
+            </div>
+          ) : (
+            <div>
+              {posts.map(p => (
+                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: false, comments: [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => { }} onRepost={() => { }} onQuoteRepost={() => { }} onComment={() => { }} onBookmark={() => { }} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
+              ))}
+            </div>
+          )
       )}
 
-      {tab === "about" && (
-        <Card dk={dk} style={{ padding: 20 }}>
-          <div style={{ display: "grid", gap: 14 }}>
-            {[
-              { label: "Email", value: profile.email },
-              { label: "Role", value: whoOpt ? whoOpt.label : "—" },
-              { label: "System Role", value: role },
-              { label: "Referral Code", value: profile.ref_code || "—" },
-            ].filter(x => x.value).map(({ label, value }) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: `1px solid ${th.bdr}` }}>
-                <span style={{ fontSize: 13, color: th.txt3, fontWeight: 600 }}>{label}</span>
-                <span style={{ fontSize: 13, color: th.txt }}>{value}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
+      {tab === "likes" && (
+        loadingLikes ? <Spin dk={dk} msg="Loading likes…" /> :
+          likedPosts.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🤍</div>
+              <p>No liked posts yet.</p>
+            </div>
+          ) : (
+            <div>
+              {likedPosts.map(p => (
+                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: true, comments: [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => { }} onRepost={() => { }} onQuoteRepost={() => { }} onComment={() => { }} onBookmark={() => { }} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
+              ))}
+            </div>
+          )
+      )}
+
+      {tab === "reposts" && (
+        loadingPosts ? <Spin dk={dk} msg="Loading reposts…" /> :
+          reposts.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🔁</div>
+              <p>No reposts yet.</p>
+            </div>
+          ) : (
+            <div>
+              {reposts.map(p => (
+                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: false, comments: [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => { }} onRepost={() => { }} onQuoteRepost={() => { }} onComment={() => { }} onBookmark={() => { }} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
+              ))}
+            </div>
+          )
       )}
     </div>
   );

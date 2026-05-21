@@ -56,7 +56,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     if (nl) {
       await db.post("rs_post_likes", { post_id: id, uid: me });
       if (p.uid !== me) {
-        try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch {}
+        try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (like):", e); }
       }
     } else await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
     await db.patch("rs_posts", `id=eq.${id}`, { like_count: lc });
@@ -70,7 +70,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     await db.post("rs_posts", { uid: orig.uid, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me });
     addNotif({ type: "action", msg: "You reposted a signal" });
     if (orig.uid !== me) {
-      try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch {}
+      try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (repost):", e); }
     }
   };
 
@@ -82,7 +82,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText });
     addNotif({ type: "action", msg: "You quote-reposted a signal" });
     if (orig.uid !== me) {
-      try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: `${myProfile?.name || "Someone"} quote-reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch {}
+      try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: `${myProfile?.name || "Someone"} quote-reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (quote):", e); }
     }
   };
 
@@ -92,7 +92,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     if (saved) {
       setPosts(ps => ps.map(x => x.id === id ? { ...x, comments: [...x.comments, { ...saved, uid: me }] } : x));
       if (post && post.uid !== me) {
-        try { await db.post("rs_notifications", { uid: post.uid, type: "comment", msg: `${myProfile?.name || "Someone"} commented on your post`, post_id: id, comment_id: saved.id, comment_text: text, profile_id: me, read: false }); } catch {}
+        try { await db.post("rs_notifications", { uid: post.uid, type: "comment", msg: `${myProfile?.name || "Someone"} commented on your post`, post_id: id, comment_id: saved.id, comment_text: text, profile_id: me, read: false }); } catch (e) { console.error("Notification error (comment):", e); }
       }
     }
   };
@@ -154,7 +154,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
               </div>
             )}
             <div style={{ display: "flex", gap: 4, marginBottom: 14, background: th.surf2, borderRadius: 12, padding: 4, border: `1px solid ${th.bdr}` }}>
-              { ["For You", "Trending", "Following", "Bookmarks"].map(t => (
+              {["For You", "Trending", "Following", "Bookmarks"].map(t => (
                 <button key={t} onClick={() => { setTab(t); setActiveTag(null); }} style={{ flex: 1, padding: "7px", borderRadius: 9, border: "none", background: tab === t && !activeTag ? "#3b82f6" : "transparent", color: tab === t && !activeTag ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all .2s" }}>{t}</button>
               ))}
             </div>
