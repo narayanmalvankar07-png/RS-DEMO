@@ -40,6 +40,36 @@ export default function GlobalCSS({ dk }) {
       @keyframes pulse    { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
       @keyframes orb      { 0%,100% { transform:translate(0,0) scale(1); } 33% { transform:translate(30px,-20px) scale(1.05); } 66% { transform:translate(-15px,25px) scale(0.97); } }
 
+      /* Rocket Animations */
+      @keyframes rocketHover {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        25% { transform: translateY(-7px) rotate(-4deg); }
+        50% { transform: translateY(-13px) rotate(0deg); }
+        75% { transform: translateY(-6px) rotate(4deg); }
+      }
+      @keyframes thrusterFlame {
+        0%, 100% { transform: scaleY(1.1) scaleX(1.05); opacity: 0.95; }
+        50% { transform: scaleY(0.85) scaleX(0.9); opacity: 0.75; }
+      }
+      @keyframes thrusterPlasma {
+        0%, 100% { transform: scale(1.2); opacity: 0.9; }
+        50% { transform: scale(0.85); opacity: 0.6; }
+      }
+      @keyframes exhaustSmokeEmit {
+        0% { transform: translateY(0) scale(0.4) translateX(0); opacity: 0.8; }
+        50% { transform: translateY(22px) scale(1.1) translateX(-4px); opacity: 0.5; }
+        100% { transform: translateY(45px) scale(1.6) translateX(4px); opacity: 0; }
+      }
+      @keyframes orbitalSpin3D {
+        0% { transform: rotateX(68deg) rotateY(12deg) rotateZ(0deg); }
+        100% { transform: rotateX(68deg) rotateY(12deg) rotateZ(360deg); }
+      }
+      @keyframes modalSpringIn {
+        0% { opacity: 0; transform: scale(0.92) translateY(24px); filter: blur(4px); }
+        70% { transform: scale(1.015) translateY(-2px); filter: blur(0); }
+        100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+      }
+
       @keyframes floatTopIn {
         from { opacity: 0; transform: translateY(-16px) scale(0.97); }
         to   { opacity: 1; transform: translateY(0) scale(1); }
@@ -81,6 +111,12 @@ export default function GlobalCSS({ dk }) {
       .rs-float-bottom { animation: floatBottomIn 0.45s cubic-bezier(0.22,1,0.36,1) both; animation-delay: 0.08s; }
       .rs-page-in      { animation: pageIn 0.42s cubic-bezier(0.22,1,0.36,1) both; }
       .rs-search-expand { animation: searchExpand 0.25s cubic-bezier(0.22,1,0.36,1) both; transform-origin: left center; }
+      .rs-modal-spring { animation: modalSpringIn 0.42s cubic-bezier(0.34,1.56,0.64,1) both; }
+      .rs-rocket-hover { animation: rocketHover 2.8s ease-in-out infinite; }
+      .rs-thruster-flame { animation: thrusterFlame 0.16s ease-in-out infinite; }
+      .rs-thruster-plasma { animation: thrusterPlasma 0.1s ease-in-out infinite; }
+      .rs-exhaust-smoke { animation: exhaustSmokeEmit 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+      .rs-orbital-spin { animation: orbitalSpin3D 7s linear infinite; }
 
       /* Stagger children */
       .rs-stagger > * { animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }

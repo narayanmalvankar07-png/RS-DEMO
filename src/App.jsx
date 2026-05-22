@@ -79,7 +79,20 @@ export default function App() {
   const [myProfile, setMyProfile] = useState(null);
   const [profiles, setProfiles] = useState({});
   const [bals, setBals] = useState({});
-  const [dk, setDk] = useState(false);
+  const [dk, setDk] = useState(() => {
+    try {
+      const stored = localStorage.getItem("rs_theme_mode");
+      if (stored !== null) return stored === "true";
+    } catch (e) {}
+    return true;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("rs_theme_mode", dk.toString());
+    } catch (e) {}
+  }, [dk]);
+
   const [view, setView] = useState("feed");
   const [profUid, setProfUid] = useState(null);
 
@@ -471,8 +484,8 @@ export default function App() {
     </div>
   );
 
-  if (screen === "auth") return <><GlobalCSS dk={false} /><AuthScreen onAuth={handleAuth} /></>;
-  if (screen === "onboarding") return <><GlobalCSS dk={false} /><Onboarding user={myProfile || {}} onComplete={handleOnboardingDone} /></>;
+  if (screen === "auth") return <><GlobalCSS dk={dk} /><AuthScreen onAuth={handleAuth} /></>;
+  if (screen === "onboarding") return <><GlobalCSS dk={dk} /><Onboarding user={myProfile || {}} onComplete={handleOnboardingDone} /></>;
   if (screen === "admin") return <AdminApp me={me} myProfile={myProfile} bals={bals} profiles={profiles} dk={dk} setDk={setDk} onSignOut={handleSignOut} />;
 
   const th = T(dk);
