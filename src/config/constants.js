@@ -67,10 +67,10 @@ export const PHASES = ["week1", "week2", "week3", "week4", "hackathon"];
 export const PH_LABEL = { week1: "Idea Eval", week2: "Interviews", week3: "Refinement", week4: "Final", hackathon: "Hackathon" };
 
 // Status Labels
-export const ST_LABEL = { submitted: "Pending", shortlisted_50: "Week 1 ✓", shortlisted_30: "Week 2 ✓", shortlisted_15: "Week 3 ✓", finalist_10: "Top 10 Finalist", winner: "Winner 🏆", rejected: "Not Selected" };
+export const ST_LABEL = { submitted: "Pending", shortlisted_50: "Week 1 ✓", shortlisted_30: "Week 2 ✓", shortlisted_15: "Week 3 ✓", finalist_10: "Top 10 Finalist", winner: "Winner 🏆", rejected: "Not Selected", upcoming: "Upcoming Cohort 📅" };
 
 // Sandbox Cycle
-export const SB_CYCLE = { title: "Sandbox Cohort 3", phase: "week2" };
+export const SB_CYCLE = { title: "Sandbox Cohort 3", phase: "week2", isOpen: false };
 
 // Category Colors
 export const CAT_COLORS = { Technology: "#3b82f6", Product: "#10b981", Developer: "#06b6d4", Leadership: "#8b5cf6", Design: "#ec4899", Startup: "#f97316", General: "#6b7280" };

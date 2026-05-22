@@ -117,6 +117,12 @@ const applyQuery = (data, q) => {
     result = result.filter(x => x.email === emailMatch[1]);
   }
 
+  // Filter: ref_code=eq.X
+  const refCodeMatch = q.match(/ref_code=eq\.([^&]+)/);
+  if (refCodeMatch) {
+    result = result.filter(x => x.ref_code === refCodeMatch[1]);
+  }
+
   // Sort
   if (q.includes("order=created_at.desc")) {
     result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -139,7 +145,7 @@ export const db = {
   get: async (t, q = "") => {
     if (CACHED_TABLES.includes(t)) {
       const local = getCache(t);
-      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.");
+      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.");
       const isFullCached = localStorage.getItem(`rs_cache_full_${t}`) === "true";
 
       if (isFiltered) {
@@ -256,7 +262,12 @@ export const db = {
   },
   patch: async (t, q, body) => {
     try {
-      await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "PATCH", headers: authH(), body: JSON.stringify(body) });
+      const r = await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "PATCH", headers: authH(), body: JSON.stringify(body) });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => r.status);
+        console.error(`Supabase Error [PATCH ${t}] status=${r.status}:`, errText);
+        return;
+      }
 
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
@@ -273,11 +284,18 @@ export const db = {
           setCache(t, updated);
         }
       }
-    } catch { }
+    } catch (e) {
+      console.error(`Supabase Error [PATCH Exception ${t}]:`, e.message);
+    }
   },
   del: async (t, q) => {
     try {
-      await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "DELETE", headers: authH() });
+      const r = await fetch(`${SB_URL}/rest/v1/${t}?${q}`, { method: "DELETE", headers: authH() });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => r.status);
+        console.error(`Supabase Error [DELETE ${t}] status=${r.status}:`, errText);
+        return;
+      }
 
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
@@ -295,7 +313,9 @@ export const db = {
         }
         setCache(t, filtered);
       }
-    } catch { }
+    } catch (e) {
+      console.error(`Supabase Error [DELETE Exception ${t}]:`, e.message);
+    }
   },
   upsert: async (t, body) => {
     try {

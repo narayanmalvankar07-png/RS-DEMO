@@ -50,7 +50,7 @@ export default function AuthScreen({ onAuth }) {
       <div className="rs-scale-in" style={{ width: "min(440px, 100%)" }}>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <img src="/logo.jpeg" alt="Logo" style={{ width: 52, height: 52, borderRadius: 16, objectFit: "contain", margin: "0 auto 14px", display: "block" }} />
+          <img src="/logo.png" alt="Logo" style={{ width: 52, height: 52, borderRadius: 16, objectFit: "contain", margin: "0 auto 14px", display: "block" }} />
           <div style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", letterSpacing: "-0.5px" }}>RightSignal</div>
           <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(180,200,255,0.45)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 3 }}>Signal Over Noise</div>
           <p style={{ color: "rgba(180,205,255,0.5)", fontSize: 14, marginTop: 8 }}>Where founders &amp; investors meet</p>
@@ -59,7 +59,7 @@ export default function AuthScreen({ onAuth }) {
         <div style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(28px) saturate(1.8)", WebkitBackdropFilter: "blur(28px) saturate(1.8)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 28, padding: "26px 28px" }}>
 
           <div style={{ display: "flex", gap: 4, marginBottom: 22, background: "rgba(255,255,255,0.05)", borderRadius: 14, padding: 4 }}>
-            {[["login","Sign In"],["signup","Sign Up"]].map(([tab, label]) => (
+            {[["login", "Sign In"], ["signup", "Sign Up"]].map(([tab, label]) => (
               <button key={tab} onClick={() => { setMode(tab); setError(""); }}
                 style={{ flex: 1, padding: "9px", borderRadius: 11, border: "none", cursor: "pointer", background: mode === tab ? "rgba(99,102,241,0.8)" : "transparent", color: mode === tab ? "#fff" : "rgba(180,205,255,0.55)", fontWeight: mode === tab ? 700 : 500, fontSize: 13, backdropFilter: mode === tab ? "blur(10px)" : "none", boxShadow: mode === tab ? "0 4px 12px rgba(99,102,241,0.3)" : "none" }}>
                 {label}
@@ -73,10 +73,10 @@ export default function AuthScreen({ onAuth }) {
             onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
           >
             <svg width="18" height="18" viewBox="0 0 18 18">
-              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-              <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
-              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+              <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" />
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" />
             </svg>
             Continue with Google
           </button>

@@ -2,15 +2,15 @@ import { Home, Users, MessageCircle, Calendar, Wallet, Bell } from "lucide-react
 import { T } from "../../config/constants.js";
 
 const LINKS = [
-  { id: "feed",          icon: Home,          label: "Feed" },
-  { id: "network",       icon: Users,         label: "Network" },
-  { id: "notifications", icon: Bell,          label: "Notifications" },
-  { id: "messages",      icon: MessageCircle, label: "Messages" },
-  { id: "events",        icon: Calendar,      label: "Events" },
-  { id: "wallet",        icon: Wallet,        label: "Wallet" },
+  { id: "feed", icon: Home, label: "Feed" },
+  { id: "network", icon: Users, label: "Network" },
+  { id: "notifications", icon: Bell, label: "Notifications" },
+  { id: "messages", icon: MessageCircle, label: "Messages" },
+  { id: "events", icon: Calendar, label: "Events" },
+  { id: "wallet", icon: Wallet, label: "Wallet" },
 ];
 
-export default function BottomNav({ view, setView, dk, bals, me }) {
+export default function BottomNav({ view, setView, dk, bals, me, unreadNotifs = 0, unreadMsgs = 0 }) {
   const th = T(dk);
   const bal = bals[me] ?? 0;
 
@@ -74,6 +74,28 @@ export default function BottomNav({ view, setView, dk, bals, me }) {
                 boxShadow: "0 0 6px rgba(245,158,11,0.6)",
               }}>
                 {bal}
+              </span>
+            )}
+            {link.id === "notifications" && unreadNotifs > 0 && (
+              <span style={{
+                position: "absolute", top: 6, right: "calc(50% - 16px)",
+                background: "#ef4444", color: "#fff", fontSize: 8, fontWeight: 800,
+                padding: "1px 4px", borderRadius: 99, minWidth: 14, height: 14,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 6px rgba(239,68,68,0.6)",
+              }}>
+                {unreadNotifs}
+              </span>
+            )}
+            {link.id === "messages" && unreadMsgs > 0 && (
+              <span style={{
+                position: "absolute", top: 6, right: "calc(50% - 16px)",
+                background: "#ef4444", color: "#fff", fontSize: 8, fontWeight: 800,
+                padding: "1px 4px", borderRadius: 99, minWidth: 14, height: 14,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 6px rgba(239,68,68,0.6)",
+              }}>
+                {unreadMsgs}
               </span>
             )}
           </button>

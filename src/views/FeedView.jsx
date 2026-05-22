@@ -8,28 +8,32 @@ import Spin from '../components/ui/Spin.jsx';
 import Composer from '../components/shared/Composer.jsx';
 import PostCard from '../components/shared/PostCard.jsx';
 
-function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, bookmarks, onBookmark, focusPostId, focusCommentId, onFocusHandled }) {
+function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, bookmarks, onBookmark, focusPostId, focusCommentId, onFocusHandled, activeTag: propActiveTag, setActiveTag: propSetActiveTag }) {
   const th = T(dk);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("For You");
-  const [activeTag, setActiveTag] = useState(null);
+  const [localActiveTag, setLocalActiveTag] = useState(null);
+  const activeTag = propActiveTag !== undefined ? propActiveTag : localActiveTag;
+  const setActiveTag = propSetActiveTag !== undefined ? propSetActiveTag : setLocalActiveTag;
   const postRefs = useRef({});
 
   const load = useCallback(async () => {
-    const [rp, ml, ac] = await Promise.all([
+    const [rp, ml, ac, myReposts] = await Promise.all([
       db.get("rs_posts", "order=created_at.desc&limit=80"),
       db.get("rs_post_likes", `uid=eq.${me}`),
       db.get("rs_comments", "order=created_at.asc"),
+      db.get("rs_posts", `reposted_by=eq.${me}`)
     ]);
     const ls = new Set((ml || []).map(l => l.post_id));
+    const repSet = new Set((myReposts || []).filter(r => r.original_post_id).map(r => r.original_post_id));
     let rows = rp || [];
     if (!rows.length) { await db.postMany("rs_posts", SEED_POSTS); rows = await db.get("rs_posts", "order=created_at.desc&limit=80") || []; }
     setPosts(rows.map(p => ({
       id: p.id, uid: p.uid, text: p.text, media: p.media || [],
       hashtags: p.hashtags || [], location: p.location,
       likes: p.like_count || 0, reposts: p.repost_count || 0,
-      liked: ls.has(p.id), comments: (ac || []).filter(c => c.post_id === p.id),
+      liked: ls.has(p.id), reposted: repSet.has(p.id), comments: (ac || []).filter(c => c.post_id === p.id),
       ts: new Date(p.created_at).getTime(), reposted_by: p.reposted_by,
       quote_text: p.quote_text, is_sponsored: p.is_sponsored,
     })));
@@ -64,10 +68,10 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
 
   const doRepost = async orig => {
     const nc = (orig.reposts || 0) + 1;
-    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, comments: [], ts: Date.now(), reposted_by: me };
-    setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc } : x)]);
+    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, original_post_id: orig.id };
+    setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
     await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: orig.uid, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me });
+    await db.post("rs_posts", { uid: orig.uid, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
     addNotif({ type: "action", msg: "You reposted a signal" });
     if (orig.uid !== me) {
       try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (repost):", e); }
@@ -76,14 +80,29 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
 
   const doQuoteRepost = async (orig, quoteText) => {
     const nc = (orig.reposts || 0) + 1;
-    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, comments: [], ts: Date.now(), reposted_by: me, quote_text: quoteText };
-    setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc } : x)]);
+    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, quote_text: quoteText, original_post_id: orig.id };
+    setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
     await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText });
+    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
     addNotif({ type: "action", msg: "You quote-reposted a signal" });
     if (orig.uid !== me) {
       try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: `${myProfile?.name || "Someone"} quote-reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (quote):", e); }
     }
+  };
+
+  const doUndoRepost = async id => {
+    let origId = id;
+    let p = posts.find(x => x.id === id);
+    if (p && p.reposted_by === me && p.original_post_id) {
+      origId = p.original_post_id;
+      p = posts.find(x => x.id === origId) || p;
+    }
+    if (!p) return;
+    const nc = Math.max(0, (p.reposts || 0) - 1);
+    setPosts(ps => ps.filter(x => !(x.original_post_id === origId && x.reposted_by === me && !x.quote_text))
+                     .map(x => x.id === origId ? { ...x, reposts: nc, reposted: false } : x));
+    await db.patch("rs_posts", `id=eq.${origId}`, { repost_count: nc });
+    await db.del("rs_posts", `original_post_id=eq.${origId}&reposted_by=eq.${me}`);
   };
 
   const addComment = async (id, text) => {
@@ -128,7 +147,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
             </button>
             {getFiltered().filter(p => p.id === focusPostId).map((p, i) => (
               <div key={p.id + p.ts} ref={el => { if (el) postRefs.current[p.id] = el; }} style={{ animation: `fadeUp 0.3s cubic-bezier(0.22,1,0.36,1) both` }}>
-                <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={true} highlightCommentId={focusCommentId} />
+                <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onUndoRepost={doUndoRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={true} highlightCommentId={focusCommentId} />
               </div>
             ))}
           </>
@@ -167,7 +186,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
               </div>
             ) : getFiltered().map((p, i) => (
               <div key={p.id + p.ts} ref={el => { if (el) postRefs.current[p.id] = el; }} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 550)}ms both` }}>
-                <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={false} highlightCommentId={null} />
+                <PostCard post={p} me={me} onLike={toggleLike} onRepost={doRepost} onUndoRepost={doUndoRepost} onQuoteRepost={doQuoteRepost} onComment={addComment} onBookmark={onBookmark} onDelete={deletePost} onEdit={editPost} dk={dk} onProfile={onProfile} bals={bals} profiles={profiles} onTag={setActiveTag} bookmarks={bookmarks} forceShowComments={false} highlightCommentId={null} />
               </div>
             ))}
           </>

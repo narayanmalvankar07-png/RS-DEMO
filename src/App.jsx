@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Sun, Moon, Bell, LogOut, Menu, Search, X } from "lucide-react";
+import { Toaster } from "sonner";
 
 // ─── IMPORTS ──────────────────────────────────────────────────────
 // Config & Helpers
 import { ADMIN_EMAIL, WHO_OPTS, SEED_EVENTS, SEED_SANDBOX, SEED_CONTRIBS, SEED_POSTS, T } from "./config/constants";
 import { genId, strColor, genHandle, genRefCode } from "./utils/helpers";
 import { sbAuth, db } from "./services/supabase";
-import { connectWebSocket, disconnectWebSocket } from "./services/websocket";
+import { connectWebSocket, disconnectWebSocket, subscribeWS } from "./services/websocket";
 
 // UI Components
 import GlobalCSS from "./components/ui/GlobalCSS";
@@ -87,6 +88,52 @@ export default function App() {
     if (uid === me) setMyProfile(prev => ({ ...prev, ...updates }));
   }, [me]);
   const [notifs, setNotifs] = useState([{ id: "n0", type: "token", msg: "Welcome to RightSignal!", ts: Date.now() - 60000, read: false }]);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+
+  const loadUnreadMsgCount = useCallback(async () => {
+    if (!me) return;
+    try {
+      const res = await fetch("/api/conversations", {
+        headers: { "x-user-id": me },
+      });
+      if (res.ok) {
+        const convs = await res.json();
+        const myParts = await db.get("rs_conversation_participants", `user_id=eq.${me}`);
+        const partMap = {};
+        (myParts || []).forEach(p => {
+          partMap[p.conversation_id] = p.last_read_at;
+        });
+
+        let count = 0;
+        (convs || []).forEach(conv => {
+          if (conv.last_message_at && conv.last_message_user_id !== me) {
+            const lastRead = partMap[conv.id];
+            if (!lastRead || new Date(conv.last_message_at) > new Date(lastRead)) {
+              count++;
+            }
+          }
+        });
+        setUnreadMsgCount(count);
+      }
+    } catch (e) {
+      console.error("Failed to load unread message count:", e);
+    }
+  }, [me]);
+
+  useEffect(() => {
+    if (screen !== "app" || !me) return;
+    loadUnreadMsgCount();
+    const unsubscribe = subscribeWS((data) => {
+      if (data.type === "message") {
+        loadUnreadMsgCount();
+      }
+    });
+    const timer = setInterval(loadUnreadMsgCount, 8000);
+    return () => {
+      unsubscribe();
+      clearInterval(timer);
+    };
+  }, [screen, me, loadUnreadMsgCount, view]);
   const [showN, setShowN] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [tokenPop, setTokenPop] = useState(null);
@@ -436,17 +483,17 @@ export default function App() {
     const common = { me, dk, bals, profiles, addNotif };
     switch (view) {
       case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} />;
-      case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} />;
+      case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} onProfileUpdate={handleProfileUpdate} addNotif={addNotif} />;
       case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
-      case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} />;
+      case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
       case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} />;
       case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
-      default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} />;
+      default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }
   };
 
@@ -459,14 +506,14 @@ export default function App() {
       {!isMobile && (
         <>
           <div style={{ width: 234, flexShrink: 0 }} />
-          <Sidebar view={view} setView={sidebarNav} me={me} dk={dk} bals={bals} myProfile={myProfile} />
+          <Sidebar view={view} setView={sidebarNav} me={me} dk={dk} bals={bals} myProfile={myProfile} unreadNotifs={unread} unreadMsgs={unreadMsgCount} />
         </>
       )}
 
       {/* Mobile drawer sidebar */}
       {isMobile && (
         <Sidebar view={view} setView={sidebarNav} me={me} dk={dk} bals={bals} myProfile={myProfile}
-          open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          open={sidebarOpen} onClose={() => setSidebarOpen(false)} unreadNotifs={unread} unreadMsgs={unreadMsgCount} />
       )}
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -553,8 +600,27 @@ export default function App() {
 
       {/* Mobile bottom navigation */}
       {isMobile && (
-        <BottomNav view={view} setView={sidebarNav} dk={dk} bals={bals} me={me} />
+        <BottomNav view={view} setView={sidebarNav} dk={dk} bals={bals} me={me} unreadNotifs={unread} unreadMsgs={unreadMsgCount} />
       )}
+
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: dk ? "rgba(15, 23, 42, 0.65)" : "rgba(255, 255, 255, 0.65)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: dk ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(0, 0, 0, 0.08)",
+            color: dk ? "#f8fafc" : "#0f172a",
+            borderRadius: "16px",
+            boxShadow: dk ? "0 8px 32px rgba(0, 0, 0, 0.4)" : "0 8px 32px rgba(0, 0, 0, 0.1)",
+            fontFamily: "inherit",
+            fontSize: "14px",
+            fontWeight: "600",
+          }
+        }}
+        richColors
+      />
     </div>
   );
 }

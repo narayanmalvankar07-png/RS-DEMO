@@ -9,30 +9,30 @@ import Card from '../ui/Card.jsx';
 import ShareModal from './ShareModal.jsx';
 import QuoteRepostModal from './QuoteRepostModal.jsx';
 
-function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBookmark, onDelete, onEdit, dk, onProfile, bals, profiles, onTag, bookmarks = [], forceShowComments = false, highlightCommentId = null }) {
+function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onComment, onBookmark, onDelete, onEdit, dk, onProfile, bals, profiles, onTag, bookmarks = [], forceShowComments = false, highlightCommentId = null }) {
   const th = T(dk);
-  const [showCmt, setShowCmt]         = useState(false);
-  const [cmt, setCmt]                 = useState("");
-  const [mediaIdx, setMediaIdx]       = useState(0);
-  const [showShare, setShowShare]     = useState(false);
+  const [showCmt, setShowCmt] = useState(false);
+  const [cmt, setCmt] = useState("");
+  const [mediaIdx, setMediaIdx] = useState(0);
+  const [showShare, setShowShare] = useState(false);
   const [showRepostMenu, setShowRepostMenu] = useState(false);
-  const [showMenu, setShowMenu]       = useState(false);
-  const [editing, setEditing]         = useState(false);
-  const [editText, setEditText]       = useState(post.text || "");
-  const [editError, setEditError]     = useState("");
-  const [copied, setCopied]           = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(post.text || "");
+  const [editError, setEditError] = useState("");
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
     if (forceShowComments) setShowCmt(true);
   }, [forceShowComments]);
 
-  const auth       = profiles[post.uid] || { name: "RightSignal User", hue: "#6b7280" };
-  const bal        = bals[post.uid] ?? 0;
+  const auth = profiles[post.uid] || { name: "RightSignal User", hue: "#6b7280" };
+  const bal = bals[post.uid] ?? 0;
   const mediaItems = post.media || [];
   const isBookmarked = bookmarks.includes(post.id);
-  const isOwn      = post.uid === me;
-  const canEdit    = Date.now() - post.ts < 5 * 60 * 1000;
+  const isOwn = post.uid === me;
+  const canEdit = Date.now() - post.ts < 5 * 60 * 1000;
 
   useEffect(() => {
     if (!showMenu) return;
@@ -67,20 +67,20 @@ function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBook
     try {
       await navigator.clipboard.writeText(`${window.location.origin}?post=${post.id}`);
       setCopied(true); setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch { }
     setShowMenu(false);
   };
 
   const menuItems = isOwn
     ? [
-        { icon: Pencil, label: "Edit post", action: handleEditClick, color: th.txt2 },
-        { icon: Trash2, label: "Delete post", action: handleDelete, color: "#ef4444" },
-        { icon: Link,   label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
-      ]
+      { icon: Pencil, label: "Edit post", action: handleEditClick, color: th.txt2 },
+      { icon: Trash2, label: "Delete post", action: handleDelete, color: "#ef4444" },
+      { icon: Link, label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
+    ]
     : [
-        { icon: Flag, label: "Report post",  action: () => { alert("Post reported. Thank you."); setShowMenu(false); }, color: "#f59e0b" },
-        { icon: Link, label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
-      ];
+      { icon: Flag, label: "Report post", action: () => { alert("Post reported. Thank you."); setShowMenu(false); }, color: "#f59e0b" },
+      { icon: Link, label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
+    ];
 
   return (
     <>
@@ -176,15 +176,15 @@ function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBook
               </div>
             )}
             {mediaItems.length > 0 && (
-              <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#000", marginBottom: 10 }}>
+              <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)", marginBottom: 10, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: mediaItems[mediaIdx]?.type === "audio" ? 60 : 120 }}>
                 {mediaItems[mediaIdx]?.type === "audio"
-                  ? <div style={{ height: 60, background: "linear-gradient(135deg,#8b5cf6,#3b82f6)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
-                      <Mic size={20} color="#fff" />
-                      <audio src={mediaItems[mediaIdx].url} controls style={{ flex: 1, height: 36 }} />
-                    </div>
+                  ? <div style={{ width: "100%", height: 60, background: "linear-gradient(135deg,#8b5cf6,#3b82f6)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px" }}>
+                    <Mic size={20} color="#fff" />
+                    <audio src={mediaItems[mediaIdx].url} controls style={{ flex: 1, height: 36 }} />
+                  </div>
                   : mediaItems[mediaIdx]?.type?.startsWith("video")
-                    ? <video src={mediaItems[mediaIdx].url} controls style={{ width: "100%", maxHeight: 320, objectFit: "contain" }} />
-                    : <img src={mediaItems[mediaIdx]?.url} alt="post" style={{ width: "100%", maxHeight: 360, objectFit: "cover", display: "block" }} />
+                    ? <video src={mediaItems[mediaIdx].url} controls style={{ maxWidth: "100%", maxHeight: 450, objectFit: "contain", display: "block" }} />
+                    : <img src={mediaItems[mediaIdx]?.url} alt="post" style={{ maxWidth: "100%", maxHeight: 450, objectFit: "contain", display: "block" }} />
                 }
                 {mediaItems.length > 1 && (
                   <>
@@ -225,8 +225,8 @@ function PostCard({ post, me, onLike, onRepost, onQuoteRepost, onComment, onBook
               <button onClick={() => setShowCmt(x => !x)} className="rs-icon-btn" style={{ display: "flex", alignItems: "center", gap: 4, background: showCmt ? "#3b82f618" : "transparent", border: "none", cursor: "pointer", padding: "5px 8px", borderRadius: 8, color: showCmt ? "#3b82f6" : th.txt3, fontSize: 13 }}>
                 <MessageCircle size={14} /> {post.comments?.length || ""}
               </button>
-              <button onClick={() => setShowRepostMenu(true)} className="rs-icon-btn" style={{ display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "none", cursor: "pointer", padding: "5px 8px", borderRadius: 8, color: th.txt3, fontSize: 13 }}>
-                <Repeat2 size={14} /> {fmt(post.reposts)}
+              <button onClick={() => post.reposted ? onUndoRepost?.(post.id) : setShowRepostMenu(true)} className="rs-icon-btn" style={{ display: "flex", alignItems: "center", gap: 4, background: post.reposted ? "#10b98118" : "transparent", border: "none", cursor: "pointer", padding: "5px 8px", borderRadius: 8, color: post.reposted ? "#10b981" : th.txt3, fontSize: 13, fontWeight: post.reposted ? 700 : 400 }}>
+                <Repeat2 size={14} color={post.reposted ? "#10b981" : "currentColor"} style={{ transition: "transform 0.25s", transform: post.reposted ? "scale(1.15)" : "scale(1)" }} /> {fmt(post.reposts)}
               </button>
               <button onClick={() => setShowShare(true)} className="rs-icon-btn" style={{ display: "flex", alignItems: "center", gap: 4, background: "transparent", border: "none", cursor: "pointer", padding: "5px 8px", borderRadius: 8, color: th.txt3, fontSize: 13 }}>
                 <Share2 size={14} />

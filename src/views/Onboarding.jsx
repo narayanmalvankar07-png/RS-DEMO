@@ -19,6 +19,17 @@ export default function Onboarding({ user, onComplete }) {
   const [ints, setInts] = useState(user?.interests || []);
   const urlRef = new URLSearchParams(window.location.search).get("ref") || "";
   const [refCode, setRefCode] = useState(urlRef);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onComplete({ who, ints, refCode });
+    } catch (err) {
+      setSubmitting(false);
+    }
+  };
 
   const darkBg = [
     "radial-gradient(ellipse 80% 70% at 15% 10%, rgba(99,102,241,0.18) 0%, transparent 55%)",
@@ -105,14 +116,15 @@ export default function Onboarding({ user, onComplete }) {
           </div>
         </div>
 
-        <button onClick={() => onComplete({ who, ints, refCode })} className="rs-btn-spring" style={{
+        <button onClick={handleSubmit} disabled={submitting} className="rs-btn-spring" style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           width: "100%", padding: "14px 20px", borderRadius: 18, border: "none",
-          background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff",
-          fontWeight: 700, fontSize: 15, cursor: "pointer",
-          boxShadow: "0 8px 32px rgba(99,102,241,0.35)",
+          background: submitting ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", 
+          color: submitting ? "rgba(255,255,255,0.5)" : "#fff",
+          fontWeight: 700, fontSize: 15, cursor: submitting ? "not-allowed" : "pointer",
+          boxShadow: submitting ? "none" : "0 8px 32px rgba(99,102,241,0.35)",
         }}>
-          Complete Setup <ArrowRight size={18} />
+          {submitting ? "Completing Setup..." : "Complete Setup"} {!submitting && <ArrowRight size={18} />}
         </button>
       </div>
     </div>

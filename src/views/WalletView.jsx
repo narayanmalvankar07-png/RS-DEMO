@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, History, Gift, ExternalLink } from "lucide-react";
+import { Copy, Check, History, Gift, ExternalLink, Sparkles } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import Card from "../components/ui/Card.jsx";
 import Spin from "../components/ui/Spin.jsx";
+import { toast } from "sonner";
 
 function ago(ts) {
   const s = (Date.now() - new Date(ts).getTime()) / 1000;
@@ -17,7 +18,7 @@ function CopyButton({ text, dk }) {
   const th = T(dk);
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(text).catch(() => {});
+    navigator.clipboard.writeText(text).catch(() => { });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -28,12 +29,102 @@ function CopyButton({ text, dk }) {
   );
 }
 
-export default function WalletView({ me, bals, setBals, dk, myProfile }) {
+export default function WalletView({ me, bals, setBals, dk, myProfile, onProfileUpdate, addNotif }) {
   const th = T(dk);
   const balance = bals[me] ?? 0;
   const [txns, setTxns] = useState([]);
   const [loadingTxns, setLoadingTxns] = useState(true);
   const [referrals, setReferrals] = useState([]);
+
+  const [claimCode, setClaimCode] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState("");
+
+  const handleClaim = async (e) => {
+    if (e) e.preventDefault();
+    const code = claimCode.trim().toUpperCase();
+    if (!code) {
+      setClaimError("Please enter a referral code.");
+      return;
+    }
+    if (code === myProfile?.ref_code?.toUpperCase()) {
+      setClaimError("You cannot claim your own referral code.");
+      return;
+    }
+
+    setClaiming(true);
+    setClaimError("");
+
+    try {
+      const refRows = await db.get("rs_user_profiles", `ref_code=eq.${code}`);
+      if (!refRows || refRows.length === 0) {
+        setClaimError("Invalid referral code. Please check and try again.");
+        setClaiming(false);
+        return;
+      }
+
+      const referrer = refRows[0];
+      const referrerUid = referrer.id;
+
+      if (referrerUid === me) {
+        setClaimError("You cannot claim your own referral code.");
+        setClaiming(false);
+        return;
+      }
+
+      const existingRefs = await db.get("rs_referrals", `referee_uid=eq.${me}`);
+      if (existingRefs && existingRefs.length > 0) {
+        setClaimError("You have already claimed a referral code.");
+        setClaiming(false);
+        return;
+      }
+
+      const myCurrentBal = bals[me] ?? 0;
+      const refBalRows = await db.get("rs_token_balances", `uid=eq.${referrerUid}`);
+      const refCurrentBal = refBalRows?.[0]?.balance || 0;
+
+      const myNewBal = myCurrentBal + 1;
+      const refNewBal = refCurrentBal + 2;
+
+      await Promise.all([
+        db.upsert("rs_token_balances", { uid: me, balance: myNewBal }),
+        db.upsert("rs_token_balances", { uid: referrerUid, balance: refNewBal }),
+        db.post("rs_token_txns", { uid: me, type: "earn", amount: 1, description: `Claimed referral code ${code}` }),
+        db.post("rs_token_txns", { uid: referrerUid, type: "earn", amount: 2, description: `${myProfile?.name || "A friend"} joined using your code` }),
+        db.post("rs_referrals", { referrer_uid: referrerUid, referee_uid: me, code_used: code }),
+        db.patch("rs_user_profiles", `id=eq.${me}`, { referred_by: referrerUid }),
+      ]);
+
+      setBals((prev) => ({
+        ...prev,
+        [me]: myNewBal,
+        [referrerUid]: refNewBal,
+      }));
+
+      if (onProfileUpdate) {
+        onProfileUpdate(me, { referred_by: referrerUid });
+      }
+
+      toast.success("◈ +1 SGN — Referral code claimed successfully!");
+      if (addNotif) {
+        addNotif({
+          id: Date.now().toString(),
+          type: "token",
+          msg: `◈ +1 SGN — Welcome referral bonus!`,
+          ts: Date.now(),
+          read: false,
+        });
+      }
+
+      const freshTxns = await db.get("rs_token_txns", `uid=eq.${me}&order=created_at.desc&limit=30`);
+      setTxns(freshTxns || []);
+    } catch (err) {
+      console.error("Claim referral error:", err);
+      setClaimError("An unexpected error occurred. Please try again.");
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -57,8 +148,8 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
       color: "#25D366",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.115.549 4.099 1.508 5.818L0 24l6.335-1.493A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.795 9.795 0 0 1-5.027-1.383l-.36-.214-3.762.886.945-3.658-.236-.376A9.785 9.785 0 0 1 2.182 12C2.182 6.579 6.579 2.182 12 2.182c5.421 0 9.818 4.397 9.818 9.818 0 5.421-4.397 9.818-9.818 9.818z"/>
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.115.549 4.099 1.508 5.818L0 24l6.335-1.493A11.95 11.95 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.795 9.795 0 0 1-5.027-1.383l-.36-.214-3.762.886.945-3.658-.236-.376A9.785 9.785 0 0 1 2.182 12C2.182 6.579 6.579 2.182 12 2.182c5.421 0 9.818 4.397 9.818 9.818 0 5.421-4.397 9.818-9.818 9.818z" />
         </svg>
       ),
       url: `https://wa.me/?text=${encodeURIComponent(`Join RightSignal and earn SGN tokens! Use my referral: ${refLink}`)}`,
@@ -68,7 +159,7 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
       color: "#000",
       icon: (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
         </svg>
       ),
       url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join RightSignal — signal over noise for founders & investors! Use my referral: ${refLink}`)}`,
@@ -78,7 +169,7 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
       color: "#26A5E4",
       icon: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-2.04 9.61c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.393c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.903.612z"/>
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-2.04 9.61c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.393c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.903.612z" />
         </svg>
       ),
       url: `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent("Join RightSignal and earn SGN tokens!")}`,
@@ -88,7 +179,7 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
       color: "#0A66C2",
       icon: (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
         </svg>
       ),
       url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(refLink)}`,
@@ -124,6 +215,74 @@ export default function WalletView({ me, bals, setBals, dk, myProfile }) {
           ))}
         </div>
       </div>
+
+      {!myProfile?.referred_by && (
+        <Card dk={dk} style={{ padding: 20, marginBottom: 14, background: dk ? "rgba(245,158,11,.03)" : "rgba(245,158,11,.01)", border: "1px solid rgba(245,158,11,.2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <Sparkles size={16} color="#f59e0b" className="rs-pulse" />
+            <span style={{ fontSize: 15, fontWeight: 700, color: th.txt }}>Have a Referral Code?</span>
+          </div>
+          <p style={{ margin: "0 0 14px 0", color: th.txt3, fontSize: 12, lineHeight: 1.4 }}>
+            Enter a friend's referral code to claim your welcome bonus. You'll get <strong style={{ color: "#10b981" }}>+1 SGN</strong> and they'll receive <strong style={{ color: "#f59e0b" }}>+2 SGN</strong>!
+          </p>
+          <form onSubmit={handleClaim} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                value={claimCode}
+                onChange={(e) => {
+                  setClaimCode(e.target.value);
+                  if (claimError) setClaimError("");
+                }}
+                disabled={claiming}
+                placeholder="E.G. ABCDE-1234"
+                style={{
+                  flex: 1,
+                  borderRadius: 10,
+                  border: `1px solid ${claimError ? "#ef4444" : th.bdr}`,
+                  padding: "10px 14px",
+                  background: th.surf2,
+                  color: th.txt,
+                  outline: "none",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 1.5,
+                  fontFamily: "monospace",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={claiming || !claimCode.trim()}
+                className="rs-btn-spring"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: claiming || !claimCode.trim() ? th.bdr : "linear-gradient(135deg,#d97706,#f59e0b)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: claiming || !claimCode.trim() ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  boxShadow: claiming || !claimCode.trim() ? "none" : "0 4px 12px rgba(245,158,11,.2)",
+                }}
+              >
+                {claiming ? "Claiming..." : "Claim Code"}
+              </button>
+            </div>
+            {claimError && (
+              <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                ⚠️ {claimError}
+              </div>
+            )}
+          </form>
+        </Card>
+      )}
 
       <Card dk={dk} style={{ padding: 20, marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>

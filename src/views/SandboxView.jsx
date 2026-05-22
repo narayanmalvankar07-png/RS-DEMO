@@ -4,10 +4,12 @@ import { T, ST_LABEL, PH_LABEL, SB_CYCLE, SEED_SANDBOX, WHO_OPTS } from "../conf
 import { db } from "../services/supabase.js";
 import Spin from "../components/ui/Spin.jsx";
 import Card from "../components/ui/Card.jsx";
+import { toast } from "sonner";
 
 const STATUS_COLORS = {
   submitted: "#94a3b8", shortlisted_50: "#3b82f6", shortlisted_30: "#8b5cf6",
   shortlisted_15: "#f59e0b", finalist_10: "#f97316", winner: "#10b981", rejected: "#ef4444",
+  upcoming: "#8b5cf6",
 };
 
 export default function SandboxView({ me, dk, myProfile, addNotif }) {
@@ -34,23 +36,30 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
   const submit = async () => {
     if (!form.title.trim() || !form.problem.trim()) return;
     setSubmitting(true);
-    const saved = await db.post("rs_sandbox", { uid: me, ...form, status: "submitted", score_w1: null, score_w2: null, score_w3: null });
+    const initialStatus = SB_CYCLE.isOpen ? "submitted" : "upcoming";
+    const saved = await db.post("rs_sandbox", { uid: me, ...form, status: initialStatus, score_w1: null, score_w2: null, score_w3: null });
     if (saved) {
       setEntries(prev => [saved, ...prev]);
-      addNotif?.({ type: "success", msg: "🚀 Startup idea submitted to Sandbox!" });
+      const successMsg = SB_CYCLE.isOpen
+        ? `🚀 Startup idea submitted to ${SB_CYCLE.title}!`
+        : "🚀 Startup idea submitted for the upcoming cohort!";
+      toast.success(successMsg);
+      addNotif?.({ type: "success", msg: successMsg });
       setForm({ title: "", problem: "", solution: "", audience: "" });
       setShowForm(false);
     }
     setSubmitting(false);
   };
 
-  const myEntry = entries.find(e => e.uid === me);
-  const phases = ["all", "week1", "week2", "finalist_10", "winner"];
+  const myCurrentEntry = entries.find(e => e.uid === me && e.status !== "upcoming");
+  const myUpcomingEntry = entries.find(e => e.uid === me && e.status === "upcoming");
+  const hasSubmittedThisCohort = SB_CYCLE.isOpen ? !!myCurrentEntry : !!myUpcomingEntry;
+  const hasUpcomingEntries = entries.some(e => e.status === "upcoming");
 
   const filtered = filter === "all" ? entries :
     filter === "week1" ? entries.filter(e => ["shortlisted_50", "submitted"].includes(e.status)) :
-    filter === "week2" ? entries.filter(e => ["shortlisted_30", "shortlisted_15"].includes(e.status)) :
-    entries.filter(e => e.status === filter);
+      filter === "week2" ? entries.filter(e => ["shortlisted_30", "shortlisted_15"].includes(e.status)) :
+        entries.filter(e => e.status === filter);
 
   const scoreBar = (val, label) => val != null ? (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -66,26 +75,59 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: th.txt }}>Startup Sandbox</h2>
             <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "#3b82f618", color: "#3b82f6", fontWeight: 700 }}>{SB_CYCLE.title}</span>
+            {SB_CYCLE.isOpen ? (
+              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "rgba(16, 185, 129, 0.12)", color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981" }} />
+                Open
+              </span>
+            ) : (
+              <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(239, 68, 68, 0.2)" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444" }} />
+                Closed
+              </span>
+            )}
           </div>
           <p style={{ margin: 0, color: th.txt3, fontSize: 13 }}>
             Phase: <strong style={{ color: "#f59e0b" }}>{PH_LABEL[SB_CYCLE.phase]}</strong> · {entries.length} startup{entries.length !== 1 ? "s" : ""} in cohort
           </p>
         </div>
-        {!myEntry && (
+        {SB_CYCLE.isOpen && !hasSubmittedThisCohort && (
           <button onClick={() => setShowForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 7, background: "#3b82f6", color: "#fff", border: "none", borderRadius: 12, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
-            <PlusCircle size={16} />Submit Idea
+            <PlusCircle size={16} />{showForm ? "Hide Form" : "Submit Idea"}
           </button>
         )}
       </div>
 
-      {showForm && (
+      {(!SB_CYCLE.isOpen ? !hasSubmittedThisCohort : showForm) && (
         <Card dk={dk} style={{ marginBottom: 18, padding: 20 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: th.txt, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            <Lightbulb size={18} color="#f59e0b" /> Submit Your Startup Idea
+            <Lightbulb size={18} color="#f59e0b" /> {SB_CYCLE.isOpen ? "Submit Your Startup Idea" : "Submit Idea for Upcoming Cohort"}
           </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "12px 14px", borderRadius: 12, background: th.surf2, border: `1px solid ${th.bdr}`, marginBottom: 16 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: th.txt3, letterSpacing: "0.05em" }}>TARGET COHORT</span>
+            {SB_CYCLE.isOpen ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 8px #10b981" }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>{SB_CYCLE.title} <span style={{ color: "#10b981", fontWeight: 600 }}>(Currently Open)</span></span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", boxShadow: "0 0 8px #f59e0b" }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>Upcoming Cohort <span style={{ color: "#f59e0b", fontWeight: 600 }}>(Cohort {parseInt(SB_CYCLE.title.match(/\d+/)?.[0] || "3") + 1})</span></span>
+              </div>
+            )}
+            <p style={{ margin: "6px 0 0 0", fontSize: 11, color: th.txt2, lineHeight: 1.4 }}>
+              {SB_CYCLE.isOpen
+                ? `Applications for ${SB_CYCLE.title} are open! Submit your startup idea to be evaluated for this cohort.`
+                : `Applications for ${SB_CYCLE.title} are closed. You can submit your startup idea now to secure a spot in the upcoming cohort.`
+              }
+            </p>
+          </div>
+
           <div style={{ display: "grid", gap: 10 }}>
             {[
               { key: "title", placeholder: "Startup name", label: "Name *" },
@@ -101,7 +143,9 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
             ))}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
-            <button onClick={() => setShowForm(false)} style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${th.bdr}`, background: "transparent", color: th.txt2, cursor: "pointer", fontSize: 13 }}>Cancel</button>
+            {SB_CYCLE.isOpen && (
+              <button onClick={() => setShowForm(false)} style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${th.bdr}`, background: "transparent", color: th.txt2, cursor: "pointer", fontSize: 13 }}>Cancel</button>
+            )}
             <button onClick={submit} disabled={submitting} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 10, border: "none", background: "#3b82f6", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
               {submitting ? "Submitting…" : <><ArrowRight size={14} />Submit</>}
             </button>
@@ -110,7 +154,14 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
       )}
 
       <div style={{ display: "flex", gap: 5, marginBottom: 14, flexWrap: "wrap" }}>
-        {[["all", "All"], ["week1", "Week 1"], ["week2", "Week 2"], ["finalist_10", "Top 10"], ["winner", "Winners"]].map(([id, label]) => (
+        {[
+          ["all", "All"],
+          ["week1", "Week 1"],
+          ["week2", "Week 2"],
+          ["finalist_10", "Top 10"],
+          ["winner", "Winners"],
+          ...(hasUpcomingEntries ? [["upcoming", "Upcoming"]] : [])
+        ].map(([id, label]) => (
           <button key={id} onClick={() => setFilter(id)} style={{ padding: "5px 13px", borderRadius: 20, border: `1px solid ${filter === id ? "#3b82f6" : th.bdr}`, background: filter === id ? "#3b82f618" : "transparent", color: filter === id ? "#3b82f6" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{label}</button>
         ))}
       </div>

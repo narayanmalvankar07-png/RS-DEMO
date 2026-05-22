@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut } from "lucide-react";
+import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import { ago } from "../utils/helpers.js";
@@ -23,65 +23,65 @@ function Logo({ src, size = 56, radius = 16, fontSize = 28 }) {
 const genRefCode = n => n.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
 
 const PAGE_TYPES = [
-  { id: "community",  label: "Community",  desc: "Public audience — announcements, community engagement",         c: "#3b82f6", e: "🌐" },
-  { id: "product",    label: "Product",    desc: "Product updates & roadmap",                                     c: "#10b981", e: "🚀" },
-  { id: "tech",       label: "Tech",       desc: "Engineers — dev logs, architecture, code discussions",          c: "#8b5cf6", e: "🤖" },
+  { id: "community", label: "Community", desc: "Public audience — announcements, community engagement", c: "#3b82f6", e: "🌐" },
+  { id: "product", label: "Product", desc: "Product updates & roadmap", c: "#10b981", e: "🚀" },
+  { id: "tech", label: "Tech", desc: "Engineers — dev logs, architecture, code discussions", c: "#8b5cf6", e: "🤖" },
   { id: "investment", label: "Investment", desc: "Investors & advisors — pitch decks, funding updates, traction", c: "#f59e0b", e: "💰" },
-  { id: "marketing",  label: "Marketing",  desc: "Growth team — campaigns, content strategy, analytics",          c: "#ec4899", e: "📣" },
-  { id: "sales",      label: "Sales",      desc: "Sales team — deals, pipeline, customer outreach",               c: "#06b6d4", e: "🤝" },
+  { id: "marketing", label: "Marketing", desc: "Growth team — campaigns, content strategy, analytics", c: "#ec4899", e: "📣" },
+  { id: "sales", label: "Sales", desc: "Sales team — deals, pipeline, customer outreach", c: "#06b6d4", e: "🤝" },
 ];
 
 const JOIN_ROLES = [
-  { id: "developer",  label: "Developer",  e: "⚡", c: "#3b82f6" },
-  { id: "designer",   label: "Designer",   e: "🎨", c: "#ec4899" },
-  { id: "marketer",   label: "Marketer",   e: "📢", c: "#f97316" },
-  { id: "investor",   label: "Investor",   e: "💰", c: "#10b981" },
-  { id: "advisor",    label: "Advisor",    e: "🎯", c: "#8b5cf6" },
-  { id: "cofounder",  label: "Co-Founder", e: "🚀", c: "#ef4444" },
+  { id: "developer", label: "Developer", e: "⚡", c: "#3b82f6" },
+  { id: "designer", label: "Designer", e: "🎨", c: "#ec4899" },
+  { id: "marketer", label: "Marketer", e: "📢", c: "#f97316" },
+  { id: "investor", label: "Investor", e: "💰", c: "#10b981" },
+  { id: "advisor", label: "Advisor", e: "🎯", c: "#8b5cf6" },
+  { id: "cofounder", label: "Co-Founder", e: "🚀", c: "#ef4444" },
 ];
 
 // Maps join role → page type_id (null = all pages, undefined = no auto-page)
 const ROLE_PAGE_MAP = {
-  developer:  "tech",
-  designer:   "product",
-  marketer:   "marketing",
-  investor:   "investment",
-  advisor:    "investment",
-  cofounder:  null,
+  developer: "tech",
+  designer: "product",
+  marketer: "marketing",
+  investor: "investment",
+  advisor: "investment",
+  cofounder: null,
 };
 
 // Default pages created automatically when a colab is launched
 // One page per JOIN_ROLE, named exactly after the role
 const DEFAULT_ROLE_PAGES = [
-  { name: "Developer",  type_id: "tech",       description: "Engineers — dev logs, architecture, code discussions" },
-  { name: "Designer",   type_id: "product",    description: "Design team — UI/UX, prototypes, product vision" },
-  { name: "Marketer",   type_id: "marketing",  description: "Growth team — campaigns, content strategy, analytics" },
-  { name: "Investor",   type_id: "investment", description: "Investors & advisors — pitch decks, funding updates, traction" },
-  { name: "Advisor",    type_id: "investment", description: "Advisors — strategic guidance and mentorship" },
-  { name: "Co-Founder", type_id: "community",  description: "Co-founders — shared vision, leadership and decisions" },
+  { name: "Developer", type_id: "tech", description: "Engineers — dev logs, architecture, code discussions" },
+  { name: "Designer", type_id: "product", description: "Design team — UI/UX, prototypes, product vision" },
+  { name: "Marketer", type_id: "marketing", description: "Growth team — campaigns, content strategy, analytics" },
+  { name: "Investor", type_id: "investment", description: "Investors & advisors — pitch decks, funding updates, traction" },
+  { name: "Advisor", type_id: "investment", description: "Advisors — strategic guidance and mentorship" },
+  { name: "Co-Founder", type_id: "community", description: "Co-founders — shared vision, leadership and decisions" },
 ];
 
 // Per-page-type request config — each page has its own question/context
 const PAGE_REQUEST_CONFIG = {
-  community:  { icon: "🌐", question: "How will you contribute to the community?",           placeholder: "Share ideas, help members, moderate discussions, grow the audience…",    color: "#3b82f6" },
-  product:    { icon: "🚀", question: "What product skills do you bring?",                   placeholder: "UX/UI design, roadmap planning, user research, prototyping…",             color: "#10b981" },
-  tech:       { icon: "🤖", question: "What is your technical background?",                  placeholder: "Languages, frameworks, open-source projects, relevant experience…",       color: "#8b5cf6" },
-  investment: { icon: "💰", question: "What is your investment or advisory background?",     placeholder: "Stage focus, sector expertise, ticket size, portfolio companies…",        color: "#f59e0b" },
-  marketing:  { icon: "📣", question: "What is your marketing experience?",                  placeholder: "Growth hacking, content, SEO, paid ads, brand strategy, campaigns…",      color: "#ec4899" },
-  sales:      { icon: "🤝", question: "What sales experience do you have?",                  placeholder: "B2B/B2C, enterprise deals, partnerships, pipeline management…",           color: "#06b6d4" },
+  community: { icon: "🌐", question: "How will you contribute to the community?", placeholder: "Share ideas, help members, moderate discussions, grow the audience…", color: "#3b82f6" },
+  product: { icon: "🚀", question: "What product skills do you bring?", placeholder: "UX/UI design, roadmap planning, user research, prototyping…", color: "#10b981" },
+  tech: { icon: "🤖", question: "What is your technical background?", placeholder: "Languages, frameworks, open-source projects, relevant experience…", color: "#8b5cf6" },
+  investment: { icon: "💰", question: "What is your investment or advisory background?", placeholder: "Stage focus, sector expertise, ticket size, portfolio companies…", color: "#f59e0b" },
+  marketing: { icon: "📣", question: "What is your marketing experience?", placeholder: "Growth hacking, content, SEO, paid ads, brand strategy, campaigns…", color: "#ec4899" },
+  sales: { icon: "🤝", question: "What sales experience do you have?", placeholder: "B2B/B2C, enterprise deals, partnerships, pipeline management…", color: "#06b6d4" },
 };
 
 // ─── Local storage helpers ──────────────────────────────────────────
 const ls = {
   get: (k, def = []) => { try { return JSON.parse(localStorage.getItem(k) ?? "null") ?? def; } catch { return def; } },
-  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } },
 };
 
 // ─── CopyBtn ───────────────────────────────────────────────────────
 function CopyBtn({ text, label = "Copy" }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(text); } catch {}
+    try { await navigator.clipboard.writeText(text); } catch { }
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
   return (
@@ -208,7 +208,7 @@ function FeedbackSection({ startupId, me, profiles, dk }) {
 }
 
 // ─── Page Chat View (WhatsApp-style) ───────────────────────────────
-function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack, onAddPageMember = () => {} }) {
+function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack, onAddPageMember = () => { } }) {
   const th = T(dk);
   const pt = PAGE_TYPES.find(p => p.id === page.type_id) || PAGE_TYPES[0];
   const pgMems = pageMembers.filter(m => m.page_id === page.id);
@@ -707,12 +707,12 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
             const searchTerm = memberSearch.toLowerCase().trim();
             const searchResults = searchTerm
               ? availableToAdd.filter(m => {
-                  const p = profiles[m.user_id];
-                  if (!p) return false;
-                  return (p.name || "").toLowerCase().includes(searchTerm) ||
-                    (p.handle || "").toLowerCase().includes(searchTerm) ||
-                    (p.email || "").toLowerCase().includes(searchTerm);
-                })
+                const p = profiles[m.user_id];
+                if (!p) return false;
+                return (p.name || "").toLowerCase().includes(searchTerm) ||
+                  (p.handle || "").toLowerCase().includes(searchTerm) ||
+                  (p.email || "").toLowerCase().includes(searchTerm);
+              })
               : availableToAdd.slice(0, 6);
             return (
               <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 14, marginBottom: 14 }}>
@@ -922,8 +922,56 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
   const [form, setForm] = useState({ name: existing?.name || "", logo: existing?.logo || "🚀", description: existing?.description || "", website: existing?.website || "", github_link: existing?.github_link || "", twitter: existing?.social_links?.twitter || "", linkedin: existing?.social_links?.linkedin || "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.name.trim() && form.description.trim();
-  const EMOJIS = ["🚀","💡","⚡","🎯","💰","🌍","🔥","🤝","📊","🎨","🛠️","🧠","💎","🌱","🔬","📱"];
+  const EMOJIS = ["🚀", "💡", "⚡", "🎯", "💰", "🌍", "🔥", "🤝", "📊", "🎨", "🛠️", "🧠", "💎", "🌱", "🔬", "📱"];
   const inp = { width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
+
+  const fileInputRef = useRef(null);
+  const [logoType, setLogoType] = useState(form.logo && (form.logo.startsWith("data:") || form.logo.startsWith("http")) ? "image" : "emoji");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+
+    try {
+      const res = await fetch("/api/upload-attachment", {
+        method: "POST",
+        headers: {
+          "x-user-id": me,
+          "x-file-name": file.name,
+          "Content-Type": file.type || "application/octet-stream"
+        },
+        body: file
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          set("logo", data.url);
+          setUploadingLogo(false);
+          return;
+        }
+      }
+
+      console.warn("Server upload failed, falling back to base64 reader");
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        set("logo", ev.target.result);
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+
+    } catch (err) {
+      console.error("Image upload failed, falling back to base64 reader:", err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        set("logo", ev.target.result);
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const save = async () => {
     if (!valid) return; setSaving(true);
@@ -947,14 +995,61 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: th.txt }}>{existing ? "Edit Startup" : `Create Startup — Step ${step}/2`}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={18} /></button>
         </div>
-        {!existing && <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>{[1,2].map(s => <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, background: s <= step ? "#3b82f6" : th.bdr, transition: "all 0.3s" }} />)}</div>}
+        {!existing && <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>{[1, 2].map(s => <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, background: s <= step ? "#3b82f6" : th.bdr, transition: "all 0.3s" }} />)}</div>}
         {step === 1 && (
           <>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Logo Emoji</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: th.surf2, borderRadius: 10, padding: 10, border: `1px solid ${th.bdr}` }}>
-                {EMOJIS.map(e => <button key={e} onClick={() => set("logo", e)} style={{ fontSize: 20, background: form.logo === e ? "#3b82f618" : "none", border: form.logo === e ? "2px solid #3b82f6" : "2px solid transparent", borderRadius: 8, width: 36, height: 36, cursor: "pointer" }}>{e}</button>)}
+              <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 6 }}>Startup Logo</label>
+
+              <div style={{ display: "flex", gap: 2, marginBottom: 10, background: th.surf2, borderRadius: 10, padding: 3, border: `1px solid ${th.bdr}` }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogoType("emoji");
+                    if (form.logo && (form.logo.startsWith("data:") || form.logo.startsWith("http"))) {
+                      set("logo", "🚀");
+                    }
+                  }}
+                  style={{ flex: 1, padding: "6px 12px", borderRadius: 8, background: logoType === "emoji" ? (dk ? "rgba(255,255,255,0.08)" : "#fff") : "transparent", color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", border: logoType === "emoji" ? `1px solid ${th.bdr}` : "1px solid transparent", boxShadow: logoType === "emoji" ? "0 1px 3px rgba(0,0,0,0.05)" : "none" }}
+                >
+                  Pick Emoji
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogoType("image")}
+                  style={{ flex: 1, padding: "6px 12px", borderRadius: 8, background: logoType === "image" ? (dk ? "rgba(255,255,255,0.08)" : "#fff") : "transparent", color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", border: logoType === "image" ? `1px solid ${th.bdr}` : "1px solid transparent", boxShadow: logoType === "image" ? "0 1px 3px rgba(0,0,0,0.05)" : "none" }}
+                >
+                  Upload Image
+                </button>
               </div>
+
+              {logoType === "emoji" ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: th.surf2, borderRadius: 10, padding: 10, border: `1px solid ${th.bdr}` }}>
+                  {EMOJIS.map(e => <button key={e} type="button" onClick={() => set("logo", e)} style={{ fontSize: 20, background: form.logo === e ? "#3b82f618" : "none", border: form.logo === e ? "2px solid #3b82f6" : "2px solid transparent", borderRadius: 8, width: 36, height: 36, cursor: "pointer" }}>{e}</button>)}
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 14, background: th.surf2, borderRadius: 10, padding: 12, border: `1px solid ${th.bdr}` }}>
+                  <Logo src={form.logo} size={56} radius={14} fontSize={28} />
+                  <div style={{ flex: 1 }}>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingLogo}
+                      style={{ display: "flex", alignItems: "center", gap: 6, background: dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)", border: `1px dashed ${th.bdr}`, borderRadius: 8, padding: "8px 14px", cursor: "pointer", color: th.txt2, fontSize: 12, fontWeight: 600, width: "100%", justifyContent: "center", transition: "all 0.2s" }}
+                    >
+                      {uploadingLogo ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={14} />}
+                      {uploadingLogo ? "Uploading..." : "Choose Image from PC"}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={handleImageUpload}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             {[{ k: "name", l: "Startup Name *", p: "e.g. SkillSwap" }, { k: "description", l: "Description *", p: "What are you building?", rows: 3 }].map(({ k, l, p, rows }) => (
               <div key={k} style={{ marginBottom: 12 }}>
@@ -1506,11 +1601,11 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     await db.upsert("rs_page_access", { startup_id: startup.id, user_id: req.user_id, status: "approved" });
     setRequests(rs => rs.map(r => r.id === req.id ? { ...r, status: "approved" } : r));
     setMembers(ms => ms.find(m => m.user_id === req.user_id) ? ms : [...ms, { user_id: req.user_id, status: "approved" }]);
-    
+
     // Auto-grant page access based on requested roles
     const grantedPages = new Set();
     const roles = req.selected_roles || [];
-    
+
     for (const role of roles) {
       const typeId = ROLE_PAGE_MAP[role];
       if (typeId === null) {
@@ -1521,7 +1616,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
         pages.filter(p => p.type_id === typeId).forEach(p => grantedPages.add(p.id));
       }
     }
-    
+
     if (grantedPages.size > 0) {
       const newMems = [];
       const dbEntries = [];
@@ -1543,7 +1638,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
         return;
       }
     }
-    
+
     addNotif?.({ type: "success", msg: "Request approved." });
   };
 
@@ -1699,7 +1794,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
       {viewingProfile && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9998, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "16px", overflowY: "auto" }} onClick={() => setViewingProfile(null)}>
           <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 680, background: dk ? "rgba(8,15,30,0.98)" : "#f8fafc", backdropFilter: "blur(24px)", border: `1px solid ${T(dk).bdr}`, borderRadius: 22, padding: "20px", marginTop: 16, marginBottom: 16, animation: "fadeUp 0.22s ease both" }}>
-            <ProfileView uid={viewingProfile} me={me} dk={dk} bals={bals} profiles={profiles} setBals={() => {}} onBack={() => setViewingProfile(null)} onMessage={() => {}} addNotif={addNotif} />
+            <ProfileView uid={viewingProfile} me={me} dk={dk} bals={bals} profiles={profiles} setBals={() => { }} onBack={() => setViewingProfile(null)} onMessage={() => { }} addNotif={addNotif} />
           </div>
         </div>
       )}
@@ -1776,7 +1871,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
               {/* ── Summary strip ── */}
               {(() => {
                 const pendingJoin = requests.filter(r => r.status === "pending" && profiles[r.user_id]).length;
-                const totalJoin   = requests.filter(r => profiles[r.user_id]).length;
+                const totalJoin = requests.filter(r => profiles[r.user_id]).length;
                 const pendingPage = pageReqs.filter(r => r.status === "pending").length;
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
@@ -1884,7 +1979,7 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
               ) : requests.filter(r => profiles[r.user_id]).map(req => {
                 const prof = profiles[req.user_id] || { name: "Applicant" };
                 const statusColor = req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b";
-                const statusBg   = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
+                const statusBg = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
                 return (
                   <div key={req.id} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "16px", marginBottom: 10, animation: "fadeUp 0.2s ease both" }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>

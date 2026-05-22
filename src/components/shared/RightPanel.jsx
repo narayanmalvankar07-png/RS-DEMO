@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { ExternalLink, TrendingUp, Rocket, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Sparkles, Building2, User } from "lucide-react";
 import { T, WHO_OPTS } from "../../config/constants.js";
 import Av from "../ui/Av.jsx";
+import { db } from "../../services/supabase.js";
 
 const ROLE_ICON_MAP = {
   founder: Rocket, investor: TrendingUp, professional: Briefcase,
@@ -9,7 +11,7 @@ const ROLE_ICON_MAP = {
   researcher: Microscope, creator: Sparkles, executive: Building2,
 };
 
-const TRENDING = [
+const DEFAULT_TRENDING = [
   ["#startupsandbox", 361], ["#buildinpublic", 348], ["#startups", 227],
   ["#rightsignal", 121], ["#founders", 121],
 ];
@@ -19,6 +21,69 @@ export default function RightPanel({ dk, myProfile, onProfile, bals, onWallet, p
   const balance = bals[myProfile?.id] ?? 0;
   const whoOpt = WHO_OPTS.find(w => w.id === myProfile?.who);
   const RoleIcon = whoOpt ? (ROLE_ICON_MAP[whoOpt.id] || User) : null;
+
+  const [trending, setTrending] = useState(DEFAULT_TRENDING);
+
+  useEffect(() => {
+    let active = true;
+    const fetchTrending = async () => {
+      try {
+        const posts = await db.get("rs_posts", "order=created_at.desc&limit=150");
+        if (!active) return;
+        if (!posts || posts.length === 0) {
+          setTrending(DEFAULT_TRENDING);
+          return;
+        }
+
+        const freq = {};
+        posts.forEach(p => {
+          const postTags = new Set();
+          if (Array.isArray(p.hashtags)) {
+            p.hashtags.forEach(tag => {
+              if (tag) {
+                postTags.add(tag.startsWith('#') ? tag.toLowerCase() : `#${tag.toLowerCase()}`);
+              }
+            });
+          }
+          if (p.text) {
+            const matches = p.text.match(/#[a-zA-Z0-9_]+/g);
+            if (matches) {
+              matches.forEach(tag => {
+                postTags.add(tag.toLowerCase());
+              });
+            }
+          }
+          postTags.forEach(tag => {
+            freq[tag] = (freq[tag] || 0) + 1;
+          });
+        });
+
+        const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+        const result = [...sorted];
+        if (result.length < 5) {
+          const existingTags = new Set(result.map(r => r[0]));
+          for (const [tag, count] of DEFAULT_TRENDING) {
+            if (!existingTags.has(tag)) {
+              result.push([tag, count]);
+              existingTags.add(tag);
+            }
+            if (result.length >= 5) break;
+          }
+        }
+        setTrending(result.slice(0, 5));
+      } catch (err) {
+        console.error("Error fetching trending:", err);
+        if (active) setTrending(DEFAULT_TRENDING);
+      }
+    };
+
+    fetchTrending();
+    const interval = setInterval(fetchTrending, 30000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const glassCard = {
     borderRadius: 20,
@@ -77,7 +142,7 @@ export default function RightPanel({ dk, myProfile, onProfile, bals, onWallet, p
           <span style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>Trending (24h)</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          {TRENDING.map(([tag, count]) => (
+          {trending.map(([tag, count]) => (
             <button key={tag} onClick={() => onTag(tag)}
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", borderRadius: 10, border: "none", background: "transparent", cursor: "pointer", width: "100%", transition: "background 0.15s" }}
               onMouseEnter={e => e.currentTarget.style.background = th.surf2}

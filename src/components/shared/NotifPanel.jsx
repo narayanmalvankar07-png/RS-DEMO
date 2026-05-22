@@ -4,9 +4,9 @@ import { T } from "../../config/constants.js";
 
 export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll, onSelect }) {
   const th = T(dk);
-  const panelBg = dk ? "rgba(10, 14, 30, 0.96)" : "rgba(255, 255, 255, 0.95)";
-  const hdrBdr = dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
-  const unreadBg = dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.07)";
+  const panelBg  = dk ? "rgba(10, 14, 30, 0.96)" : "rgba(255, 255, 255, 0.95)";
+  const hdrBdr   = dk ? "rgba(255,255,255,0.10)"  : "rgba(0,0,0,0.08)";
+  const unreadBg = dk ? "rgba(99,102,241,0.12)"   : "rgba(99,102,241,0.07)";
   const ttlMs = 30 * 24 * 60 * 60 * 1000;
   const visibleNotifs = notifs.filter(n => (n.ts || 0) >= Date.now() - ttlMs);
 

@@ -6,18 +6,18 @@ import Av from "../ui/Av.jsx";
 import RightSignalLogo from "../ui/RightSignalLogo.jsx";
 
 const NAV_LINKS = [
-  { id: "feed",          icon: Home,          label: "Feed" },
-  { id: "network",       icon: Users,         label: "Network" },
-  { id: "notifications", icon: Bell,          label: "Notifications" },
-  { id: "messages",      icon: MessageCircle, label: "Messages" },
-  { id: "colab",         icon: Lightbulb,     label: "Colab" },
-  { id: "events",        icon: Calendar,      label: "Events" },
-  { id: "sandbox",       icon: FlaskConical,  label: "Sandbox" },
-  { id: "contribute",    icon: FileText,      label: "Contribute" },
-  { id: "wallet",        icon: Wallet,        label: "Wallet", walletBadge: true },
+  { id: "feed", icon: Home, label: "Feed" },
+  { id: "network", icon: Users, label: "Network" },
+  { id: "notifications", icon: Bell, label: "Notifications" },
+  { id: "messages", icon: MessageCircle, label: "Messages" },
+  { id: "colab", icon: Lightbulb, label: "Colab" },
+  { id: "events", icon: Calendar, label: "Events" },
+  { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
+  { id: "contribute", icon: FileText, label: "Contribute" },
+  { id: "wallet", icon: Wallet, label: "Wallet", walletBadge: true },
 ];
 
-export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, onClose }) {
+export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, onClose, unreadNotifs = 0, unreadMsgs = 0 }) {
   const th = T(dk);
   const bal = bals[me] ?? 0;
 
@@ -78,6 +78,36 @@ export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, 
               )}
               <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
               <span style={{ flex: 1 }}>{link.label}</span>
+              {link.id === "notifications" && unreadNotifs > 0 && (
+                <span style={{
+                  background: dk ? "rgba(255, 255, 255, 0.08)" : "#fff",
+                  color: dk ? "#f87171" : "#b91c1c",
+                  fontSize: 11, fontWeight: 800,
+                  minWidth: 16, height: 18,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  borderRadius: 6,
+                  border: dk ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(0, 0, 0, 0.08)",
+                  boxShadow: dk ? "0 4px 12px rgba(0, 0, 0, 0.4)" : "0 4px 10px rgba(0, 0, 0, 0.06)",
+                  padding: "0 5px",
+                }}>
+                  {unreadNotifs}
+                </span>
+              )}
+              {link.id === "messages" && unreadMsgs > 0 && (
+                <span style={{
+                  background: dk ? "rgba(255, 255, 255, 0.08)" : "#fff",
+                  color: dk ? "#f87171" : "#b91c1c",
+                  fontSize: 11, fontWeight: 800,
+                  minWidth: 16, height: 18,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  borderRadius: 6,
+                  border: dk ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid rgba(0, 0, 0, 0.08)",
+                  boxShadow: dk ? "0 4px 12px rgba(0, 0, 0, 0.4)" : "0 4px 10px rgba(0, 0, 0, 0.06)",
+                  padding: "0 5px",
+                }}>
+                  {unreadMsgs}
+                </span>
+              )}
               {link.walletBadge && (
                 <span style={{
                   background: dk ? "rgba(245,158,11,0.18)" : "rgba(245,158,11,0.12)",

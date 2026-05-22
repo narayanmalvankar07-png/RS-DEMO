@@ -268,7 +268,7 @@ app.post("/api/upload-audio", async (req, res) => {
   if (!userId) return res.status(401).json({ error: "x-user-id header required" });
 
   const fileName = req.headers['x-file-name'] || `recording-${Date.now()}.webm`;
-  
+
   try {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_KEY) {
       return res.status(500).json({ error: "Server missing SUPABASE_SERVICE_ROLE_KEY for storage upload" });
@@ -276,7 +276,7 @@ app.post("/api/upload-audio", async (req, res) => {
 
     // req.body contains raw binary because express.raw is bound on this route
     const buffer = req.body;
-    
+
     if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
       return res.status(400).json({ error: "No audio data received" });
     }
@@ -401,6 +401,10 @@ setInterval(async () => {
 wss.on("connection", (ws) => {
   let myUserId = null;
 
+  ws.on("error", (err) => {
+    console.error(`[WS] Socket error for user ${myUserId || "unknown"}:`, err.message);
+  });
+
   ws.on("message", (messageStr) => {
     try {
       const msg = JSON.parse(messageStr);
@@ -457,6 +461,48 @@ wss.on("connection", (ws) => {
             }
           });
         }
+      } else if (msg.type === "edit_message") {
+        const { messageId, conversationId, content, participants } = msg;
+        if (participants && Array.isArray(participants)) {
+          participants.forEach((uid) => {
+            const userSockets = clients.get(uid);
+            if (userSockets) {
+              userSockets.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) {
+                  s.send(JSON.stringify({ type: "edit_message", messageId, conversationId, content }));
+                }
+              });
+            }
+          });
+        }
+      } else if (msg.type === "delete_message") {
+        const { messageId, conversationId, participants } = msg;
+        if (participants && Array.isArray(participants)) {
+          participants.forEach((uid) => {
+            const userSockets = clients.get(uid);
+            if (userSockets) {
+              userSockets.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) {
+                  s.send(JSON.stringify({ type: "delete_message", messageId, conversationId }));
+                }
+              });
+            }
+          });
+        }
+      } else if (msg.type === "react_message") {
+        const { messageId, conversationId, reactions, participants } = msg;
+        if (participants && Array.isArray(participants)) {
+          participants.forEach((uid) => {
+            const userSockets = clients.get(uid);
+            if (userSockets) {
+              userSockets.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) {
+                  s.send(JSON.stringify({ type: "react_message", messageId, conversationId, reactions }));
+                }
+              });
+            }
+          });
+        }
       }
     } catch (err) {
       console.error("[WS] Error handling message:", err.message);
@@ -473,6 +519,14 @@ wss.on("connection", (ws) => {
       console.log(`[WS] User ${myUserId} disconnected`);
     }
   });
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
 
 server.listen(PORT, "0.0.0.0", () => {
