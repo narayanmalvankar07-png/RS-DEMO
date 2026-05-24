@@ -144,7 +144,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     const nc = (orig.repost_count || 0) + 1;
     updatePostState(orig.id, { repost_count: nc, reposted: true });
     await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: orig.uid, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
+    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
     addNotif?.({ type: "action", msg: "You reposted a signal" });
   };
 
@@ -239,7 +239,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           const likedIds = new Set(likes.map(l => l.post_id));
           const p = (allPosts || []).filter(x => likedIds.has(x.id)).map(p => ({
             ...p,
-            liked: ls.has(p.id),
+            liked: (uid === me) ? true : ls.has(p.id),
             reposted: repSet.has(p.id),
             comments: cs.filter(c => c.post_id === p.id)
           }));

@@ -85,7 +85,7 @@ function QuoteRepostModal({ post, me, myProfile, profiles, onQuotePost, onSimple
         >
           <X size={15} />
         </button>
-        
+
         <button
           onClick={() => { onSimpleRepost(post); onClose(); }}
           className="rs-repost-card rs-repost-option-simple"

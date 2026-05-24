@@ -33,7 +33,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
       id: p.id, uid: p.uid, text: p.text, media: p.media || [],
       hashtags: p.hashtags || [], location: p.location,
       likes: p.like_count || 0, reposts: p.repost_count || 0,
-      liked: ls.has(p.id), reposted: repSet.has(p.id), comments: (ac || []).filter(c => c.post_id === p.id),
+      liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: (ac || []).filter(c => c.post_id === p.id),
       ts: new Date(p.created_at).getTime(), reposted_by: p.reposted_by,
       quote_text: p.quote_text, is_sponsored: p.is_sponsored,
     })));
@@ -71,7 +71,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, original_post_id: orig.id };
     setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
     await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: orig.uid, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
+    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
     addNotif({ type: "action", msg: "You reposted a signal" });
     if (orig.uid !== me) {
       try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (repost):", e); }
@@ -100,7 +100,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     if (!p) return;
     const nc = Math.max(0, (p.reposts || 0) - 1);
     setPosts(ps => ps.filter(x => !(x.original_post_id === origId && x.reposted_by === me && !x.quote_text))
-                     .map(x => x.id === origId ? { ...x, reposts: nc, reposted: false } : x));
+      .map(x => x.id === origId ? { ...x, reposts: nc, reposted: false } : x));
     await db.patch("rs_posts", `id=eq.${origId}`, { repost_count: nc });
     await db.del("rs_posts", `original_post_id=eq.${origId}&reposted_by=eq.${me}`);
   };
@@ -127,7 +127,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   };
 
   const getFiltered = () => {
-    let filtered = posts;
+    let filtered = posts.filter(p => !(p.reposted_by === me && !p.quote_text));
     if (activeTag) return filtered.filter(p => p.hashtags?.includes(activeTag) || p.text?.toLowerCase().includes(activeTag));
     if (tab === "Trending") return [...filtered].sort((a, b) => (b.likes + b.reposts * 2) - (a.likes + a.reposts * 2));
     if (tab === "Following") return filtered.filter(p => p.uid === me);

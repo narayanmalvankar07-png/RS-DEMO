@@ -83,14 +83,14 @@ export default function App() {
     try {
       const stored = localStorage.getItem("rs_theme_mode");
       if (stored !== null) return stored === "true";
-    } catch (e) {}
+    } catch (e) { }
     return true;
   });
 
   useEffect(() => {
     try {
       localStorage.setItem("rs_theme_mode", dk.toString());
-    } catch (e) {}
+    } catch (e) { }
   }, [dk]);
 
   const [view, setView] = useState("feed");

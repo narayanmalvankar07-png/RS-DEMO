@@ -123,6 +123,12 @@ const applyQuery = (data, q) => {
     result = result.filter(x => x.ref_code === refCodeMatch[1]);
   }
 
+  // Filter: reposted_by=eq.X
+  const repostedByMatch = q.match(/reposted_by=eq\.([^&]+)/);
+  if (repostedByMatch) {
+    result = result.filter(x => x.reposted_by === repostedByMatch[1]);
+  }
+
   // Sort
   if (q.includes("order=created_at.desc")) {
     result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -145,7 +151,7 @@ export const db = {
   get: async (t, q = "") => {
     if (CACHED_TABLES.includes(t)) {
       const local = getCache(t);
-      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.");
+      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.") || q.includes("reposted_by=eq.");
       const isFullCached = localStorage.getItem(`rs_cache_full_${t}`) === "true";
 
       if (isFiltered) {
@@ -161,8 +167,9 @@ export const db = {
             });
             merged = Array.from(mergedMap.values());
             setCache(t, merged);
+            return applyQuery(merged, q);
           }
-          return applyQuery(fresh, q);
+          return applyQuery(local, q);
         } catch {
           return applyQuery(local, q);
         }
@@ -302,14 +309,23 @@ export const db = {
         const local = getCache(t);
         let filtered = local;
         const idMatch = q.match(/id=eq\.([^&]+)/);
+        const origIdMatch = q.match(/original_post_id=eq\.([^&]+)&reposted_by=eq\.([^&]+)/);
         if (idMatch) {
           filtered = filtered.filter(x => x.id !== idMatch[1]);
+        } else if (origIdMatch) {
+          filtered = filtered.filter(x => !(x.original_post_id === origIdMatch[1] && x.reposted_by === origIdMatch[2]));
         }
         const postAndUidMatch = q.match(/post_id=eq\.([^&]+)&uid=eq\.([^&]+)/);
         if (postAndUidMatch) {
           const pId = postAndUidMatch[1];
           const uId = postAndUidMatch[2];
           filtered = filtered.filter(x => !(x.post_id === pId && x.uid === uId));
+        }
+        const origPostMatch = q.match(/original_post_id=eq\.([^&]+)&reposted_by=eq\.([^&]+)/);
+        if (origPostMatch) {
+          const oId = origPostMatch[1];
+          const rBy = origPostMatch[2];
+          filtered = filtered.filter(x => !(x.original_post_id === oId && x.reposted_by === rBy));
         }
         setCache(t, filtered);
       }
