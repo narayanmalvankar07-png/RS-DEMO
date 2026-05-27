@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, MessageCircle, Heart, Edit3, Check, X, Rocket, TrendingUp, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Sparkles, Building2, User, Camera, Github, Linkedin, Twitter, FileText } from "lucide-react";
 import { T, ROLES, WHO_OPTS, INT_OPTS } from "../config/constants.js";
+import { processAndUploadImage } from "../utils/uploadImage.js";
 
 const ROLE_ICON_MAP = {
   founder: Rocket, investor: TrendingUp, professional: Briefcase,
@@ -64,43 +65,14 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingAvatar(true);
-
     try {
-      const res = await fetch("/api/upload-attachment", {
-        method: "POST",
-        headers: {
-          "x-user-id": me,
-          "x-file-name": file.name,
-          "Content-Type": file.type || "application/octet-stream"
-        },
-        body: file
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          setEditAvatar(data.url);
-          setUploadingAvatar(false);
-          return;
-        }
-      }
-
-      console.warn("Server avatar upload failed, falling back to base64 reader");
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEditAvatar(ev.target.result);
-        setUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
-
+      // Compress to ~80KB and upload to Supabase Storage 'images' bucket
+      const url = await processAndUploadImage(file, { bucket: 'images', maxWidth: 400 });
+      setEditAvatar(url);
     } catch (err) {
-      console.error("Avatar upload failed, falling back to base64 reader:", err);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEditAvatar(ev.target.result);
-        setUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 

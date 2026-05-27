@@ -2,7 +2,8 @@
 import { useState, useRef } from "react";
 import { Image, Mic, MicOff, Smile, MapPin, Send, X, Video } from "lucide-react";
 import { T, EMOJIS } from '../../config/constants.js';
-import { extractTags, fileToB64 } from '../../utils/helpers.js';
+import { extractTags } from '../../utils/helpers.js';
+import { processAndUploadImage } from '../../utils/uploadImage.js';
 import Av from '../ui/Av.jsx';
 import Card from '../ui/Card.jsx';
 
@@ -27,8 +28,9 @@ function Composer({ me, onPost, dk, myProfile }) {
     const newItems = [];
     for (const f of files) {
       try {
-        const b64 = await fileToB64(f);
-        newItems.push({ type: f.type.startsWith("video") ? "video" : f.type.startsWith("audio") ? "audio" : "image", url: b64, name: f.name });
+        // Compress + upload to Storage (falls back to base64 if server offline)
+        const url = await processAndUploadImage(f, { bucket: 'images' });
+        newItems.push({ type: f.type.startsWith("video") ? "video" : f.type.startsWith("audio") ? "audio" : "image", url, name: f.name });
       } catch (e) { setMediaErr(e.message); }
     }
     setMedia(m => [...m, ...newItems].slice(0, 4));
@@ -48,9 +50,14 @@ function Composer({ me, onPost, dk, myProfile }) {
       mr.ondataavailable = e => chunks.push(e.data);
       mr.onstop = () => {
         const blob = new Blob(chunks, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onload = () => setMedia(m => [...m, { type: "audio", url: reader.result, name: "voice.webm" }]);
-        reader.readAsDataURL(blob);
+        // Upload audio to storage, fallback to base64
+        processAndUploadImage(blob, `voice_${Date.now()}.webm`, { bucket: 'audio' })
+          .then(url => setMedia(m => [...m, { type: "audio", url, name: "voice.webm" }]))
+          .catch(() => {
+            const reader = new FileReader();
+            reader.onload = () => setMedia(m => [...m, { type: "audio", url: reader.result, name: "voice.webm" }]);
+            reader.readAsDataURL(blob);
+          });
         stream.getTracks().forEach(t => t.stop());
       };
       mr.start();

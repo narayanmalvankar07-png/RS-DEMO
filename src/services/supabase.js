@@ -159,11 +159,26 @@ const applyQuery = (data, q) => {
   return result;
 };
 
+// ── Anti-Spam Cache / Rate Limiter for Free Tier ────────────────────
+const lastFetchTime = {};
+const TTL_MS = 10000; // 10 seconds
+
 // Supabase DB
 export const db = {
   get: async (t, q = "") => {
-    if (CACHED_TABLES.includes(t)) {
-      const local = getCache(t);
+    const fetchKey = `${t}_${q}`;
+    const now = Date.now();
+    const isCachedTable = CACHED_TABLES.includes(t);
+    const local = getCache(t);
+
+    // Free Tier Protection: Skip network if fetched very recently (10s)
+    if (isCachedTable && lastFetchTime[fetchKey] && (now - lastFetchTime[fetchKey] < TTL_MS)) {
+      console.log(`[Cache TTL hit] Skipping network for ${t}`);
+      return applyQuery(local, q);
+    }
+    lastFetchTime[fetchKey] = now;
+
+    if (isCachedTable) {
       const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.") || q.includes("reposted_by=eq.");
       const isFullCached = localStorage.getItem(`rs_cache_full_${t}`) === "true";
 
