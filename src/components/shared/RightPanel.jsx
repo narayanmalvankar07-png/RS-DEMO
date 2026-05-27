@@ -28,7 +28,7 @@ export default function RightPanel({ dk, myProfile, onProfile, bals, onWallet, p
     let active = true;
     const fetchTrending = async () => {
       try {
-        const posts = await db.get("rs_posts", "order=created_at.desc&limit=150");
+        const posts = await db.get("rs_posts", "order=created_at.desc&limit=80");
         if (!active) return;
         if (!posts || posts.length === 0) {
           setTrending(DEFAULT_TRENDING);
@@ -78,10 +78,8 @@ export default function RightPanel({ dk, myProfile, onProfile, bals, onWallet, p
     };
 
     fetchTrending();
-    const interval = setInterval(fetchTrending, 30000);
     return () => {
       active = false;
-      clearInterval(interval);
     };
   }, []);
 

@@ -10,11 +10,7 @@ export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll, onS
   const ttlMs = 30 * 24 * 60 * 60 * 1000;
   const visibleNotifs = notifs.filter(n => (n.ts || 0) >= Date.now() - ttlMs);
 
-  useEffect(() => {
-    if (!onPoll) return;
-    const t = setInterval(onPoll, 15000);
-    return () => clearInterval(t);
-  }, [onPoll]);
+
 
   const markAll = () => setNotifs(ns => ns.map(n => ({ ...n, read: true })));
   const unreadCount = visibleNotifs.filter(n => !n.read).length;
