@@ -17,25 +17,27 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   const activeTag = propActiveTag !== undefined ? propActiveTag : localActiveTag;
   const setActiveTag = propSetActiveTag !== undefined ? propSetActiveTag : setLocalActiveTag;
   const postRefs = useRef({});
+  const pendingLikes = useRef(new Set());
 
   const load = useCallback(async () => {
-    const [rp, ml, ac, myReposts] = await Promise.all([
+    const [rp, allLikes, ac] = await Promise.all([
       db.get("rs_posts", "order=created_at.desc&limit=80"),
-      db.get("rs_post_likes", `uid=eq.${me}`),
-      db.get("rs_comments", "order=created_at.asc"),
-      db.get("rs_posts", `reposted_by=eq.${me}`)
+      db.get("rs_post_likes"),
+      db.get("rs_comments", "order=created_at.desc&limit=500")
     ]);
-    const ls = new Set((ml || []).map(l => l.post_id));
-    const repSet = new Set((myReposts || []).filter(r => r.original_post_id).map(r => r.original_post_id));
+    const ml = (allLikes || []).filter(l => l.uid === me);
+    const myReposts = (rp || []).filter(p => p.reposted_by === me);
+    const ls = new Set(ml.map(l => l.post_id));
+    const repSet = new Set(myReposts.filter(r => r.original_post_id).map(r => r.original_post_id));
     let rows = rp || [];
     if (!rows.length) { await db.postMany("rs_posts", SEED_POSTS); rows = await db.get("rs_posts", "order=created_at.desc&limit=80") || []; }
     setPosts(rows.map(p => ({
       id: p.id, uid: p.uid, text: p.text, media: p.media || [],
       hashtags: p.hashtags || [], location: p.location,
       likes: p.like_count || 0, reposts: p.repost_count || 0,
-      liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: (ac || []).filter(c => c.post_id === p.id),
+      liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: (ac || []).filter(c => c.post_id === p.id).reverse(),
       ts: new Date(p.created_at).getTime(), reposted_by: p.reposted_by,
-      quote_text: p.quote_text, is_sponsored: p.is_sponsored,
+      quote_text: p.quote_text, is_sponsored: p.is_sponsored, original_post_id: p.original_post_id,
     })));
     setLoading(false);
   }, [me]);
@@ -49,21 +51,86 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   }, [focusPostId]);
 
   const addPost = async (text, media, location, hashtags) => {
+    const tempId = genId();
+    setPosts(ps => [{ id: tempId, uid: me, text, media, location, hashtags, likes: 0, reposts: 0, liked: false, comments: [], ts: Date.now() }, ...ps]);
     const saved = await db.post("rs_posts", { uid: me, text, media, location, hashtags, like_count: 0, repost_count: 0 });
-    if (saved) setPosts(ps => [{ id: saved.id, uid: me, text, media, location, hashtags, likes: 0, reposts: 0, liked: false, comments: [], ts: Date.now() }, ...ps]);
+    if (!saved) {
+      setPosts(ps => ps.filter(p => p.id !== tempId));
+      addNotif({ type: "error", msg: "Failed to post" });
+      throw new Error("Failed");
+    }
+    setPosts(ps => ps.map(p => p.id === tempId ? { ...p, id: saved.id } : p));
   };
 
   const toggleLike = async id => {
-    const p = posts.find(x => x.id === id); if (!p) return;
-    const nl = !p.liked, lc = nl ? p.likes + 1 : p.likes - 1;
-    setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: nl, likes: lc } : x));
-    if (nl) {
-      await db.post("rs_post_likes", { post_id: id, uid: me });
-      if (p.uid !== me) {
-        try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (like):", e); }
+    if (pendingLikes.current.has(id)) return;
+    pendingLikes.current.add(id);
+
+    try {
+      const p = posts.find(x => x.id === id); if (!p) return;
+      
+      // 1. Instant UI update for snappy feedback
+      const optimisticLiked = !p.liked;
+      const optimisticCount = optimisticLiked ? (p.likes + 1) : Math.max(0, p.likes - 1);
+      setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: optimisticLiked, likes: optimisticCount } : x));
+
+      // 2. Strict validate from backend (Cache-Busted via headers & fetch options)
+      let alreadyLiked = false;
+      try {
+        const url = `${SB_URL}/rest/v1/rs_post_likes?post_id=eq.${id}&uid=eq.${me}`;
+        const sess = JSON.parse(localStorage.getItem("rs_session") || "null");
+        const hdrs = { 
+          "apikey": SB_KEY, 
+          "Authorization": sess?.access_token ? `Bearer ${sess.access_token}` : "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        };
+        const res = await fetch(url, { headers: hdrs, cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          alreadyLiked = data && data.length > 0;
+        } else {
+          // If network returns an error (like 400), fallback to local cache
+          const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+          alreadyLiked = existing && existing.length > 0;
+        }
+      } catch (e) {
+        // Fallback to local check if network fails
+        const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        alreadyLiked = existing && existing.length > 0;
       }
-    } else await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-    await db.patch("rs_posts", `id=eq.${id}`, { like_count: lc });
+
+      // 3. True DB State Logic
+      const postData = await db.get("rs_posts", `id=eq.${id}&select=like_count`);
+      const currentDbCount = postData?.[0]?.like_count || 0;
+
+      if (alreadyLiked) {
+        // If exists -> remove, decrement, update UI
+        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        const newCount = Math.max(0, currentDbCount - 1);
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
+        setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: newCount } : x));
+      } else {
+        // If not exists -> create, increment, update UI
+        const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
+        
+        // ONLY increment if the insert was actually successful! (Prevents ++++ bug on 409 Conflict)
+        if (saved) {
+          const newCount = currentDbCount + 1;
+          await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
+          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: newCount } : x));
+          
+          if (p.uid !== me) {
+            try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
+          }
+        } else {
+          // If insert failed (e.g. 409 Conflict), revert optimistic UI
+          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: currentDbCount } : x));
+        }
+      }
+    } finally {
+      pendingLikes.current.delete(id);
+    }
   };
 
   const doRepost = async orig => {
@@ -71,7 +138,12 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, original_post_id: orig.id };
     setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
     await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
+    const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
+    if (!saved) {
+      setPosts(ps => ps.filter(x => x.id !== newPost.id).map(x => x.id === orig.id ? { ...x, reposts: Math.max(0, nc - 1), reposted: false } : x));
+      addNotif({ type: "error", msg: "Failed to repost" });
+      return;
+    }
     addNotif({ type: "action", msg: "You reposted a signal" });
     if (orig.uid !== me) {
       try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (repost):", e); }
@@ -83,7 +155,12 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, quote_text: quoteText, original_post_id: orig.id };
     setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
     await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
+    const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
+    if (!saved) {
+      setPosts(ps => ps.filter(x => x.id !== newPost.id).map(x => x.id === orig.id ? { ...x, reposts: Math.max(0, nc - 1), reposted: false } : x));
+      addNotif({ type: "error", msg: "Failed to quote repost" });
+      return;
+    }
     addNotif({ type: "action", msg: "You quote-reposted a signal" });
     if (orig.uid !== me) {
       try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: `${myProfile?.name || "Someone"} quote-reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (quote):", e); }
@@ -99,7 +176,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     }
     if (!p) return;
     const nc = Math.max(0, (p.reposts || 0) - 1);
-    setPosts(ps => ps.filter(x => !(x.original_post_id === origId && x.reposted_by === me && !x.quote_text))
+    setPosts(ps => ps.filter(x => !(x.original_post_id === origId && x.reposted_by === me))
       .map(x => x.id === origId ? { ...x, reposts: nc, reposted: false } : x));
     await db.patch("rs_posts", `id=eq.${origId}`, { repost_count: nc });
     await db.del("rs_posts", `original_post_id=eq.${origId}&reposted_by=eq.${me}`);

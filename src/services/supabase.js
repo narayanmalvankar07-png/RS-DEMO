@@ -34,7 +34,20 @@ const getCache = (key) => {
   try { return JSON.parse(localStorage.getItem(`rs_cache_${key}`) || "[]"); } catch { return []; }
 };
 const setCache = (key, data) => {
-  try { localStorage.setItem(`rs_cache_${key}`, JSON.stringify(data)); } catch { }
+  try {
+    let toSave = data;
+    if (Array.isArray(data) && data.length > 300) {
+      toSave = [...data].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 300);
+    }
+    localStorage.setItem(`rs_cache_${key}`, JSON.stringify(toSave));
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' && Array.isArray(data)) {
+      try {
+        const ultraTrim = [...data].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 50);
+        localStorage.setItem(`rs_cache_${key}`, JSON.stringify(ultraTrim));
+      } catch (e2) {}
+    }
+  }
 };
 
 const parseNotifications = (rows) => {
@@ -146,11 +159,26 @@ const applyQuery = (data, q) => {
   return result;
 };
 
+// ── Anti-Spam Cache / Rate Limiter for Free Tier ────────────────────
+const lastFetchTime = {};
+const TTL_MS = 10000; // 10 seconds
+
 // Supabase DB
 export const db = {
   get: async (t, q = "") => {
-    if (CACHED_TABLES.includes(t)) {
-      const local = getCache(t);
+    const fetchKey = `${t}_${q}`;
+    const now = Date.now();
+    const isCachedTable = CACHED_TABLES.includes(t);
+    const local = getCache(t);
+
+    // Free Tier Protection: Skip network if fetched very recently (10s)
+    if (isCachedTable && lastFetchTime[fetchKey] && (now - lastFetchTime[fetchKey] < TTL_MS)) {
+      console.log(`[Cache TTL hit] Skipping network for ${t}`);
+      return applyQuery(local, q);
+    }
+    lastFetchTime[fetchKey] = now;
+
+    if (isCachedTable) {
       const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.") || q.includes("reposted_by=eq.");
       const isFullCached = localStorage.getItem(`rs_cache_full_${t}`) === "true";
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, MessageCircle, Heart, Edit3, Check, X, Rocket, TrendingUp, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Sparkles, Building2, User, Camera, Github, Linkedin, Twitter, FileText } from "lucide-react";
 import { T, ROLES, WHO_OPTS, INT_OPTS } from "../config/constants.js";
+import { processAndUploadImage } from "../utils/uploadImage.js";
 
 const ROLE_ICON_MAP = {
   founder: Rocket, investor: TrendingUp, professional: Briefcase,
@@ -55,6 +56,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   };
 
   const fileInputRef = useRef(null);
+  const pendingLikes = useRef(new Set());
   const [editAvatar, setEditAvatar] = useState(profile.avatar || "");
   const [editSocials, setEditSocials] = useState(getSocialLinksObj(profile.social_links));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -63,43 +65,14 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingAvatar(true);
-
     try {
-      const res = await fetch("/api/upload-attachment", {
-        method: "POST",
-        headers: {
-          "x-user-id": me,
-          "x-file-name": file.name,
-          "Content-Type": file.type || "application/octet-stream"
-        },
-        body: file
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          setEditAvatar(data.url);
-          setUploadingAvatar(false);
-          return;
-        }
-      }
-
-      console.warn("Server avatar upload failed, falling back to base64 reader");
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEditAvatar(ev.target.result);
-        setUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
-
+      // Compress to ~80KB and upload to Supabase Storage 'images' bucket
+      const url = await processAndUploadImage(file, { bucket: 'images', maxWidth: 400 });
+      setEditAvatar(url);
     } catch (err) {
-      console.error("Avatar upload failed, falling back to base64 reader:", err);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEditAvatar(ev.target.result);
-        setUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -122,22 +95,77 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   };
 
   const handleLike = async (id, fallbackLiked) => {
-    const p = posts.find(x => x.id === id) || reposts.find(x => x.id === id) || likedPosts.find(x => x.id === id);
-    if (!p) return;
-    const currentLiked = p.liked !== undefined ? p.liked : fallbackLiked;
-    const nl = !currentLiked;
-    const lc = nl ? (p.like_count || 0) + 1 : Math.max(0, (p.like_count || 0) - 1);
+    if (pendingLikes.current.has(id)) return;
+    pendingLikes.current.add(id);
 
-    updatePostState(id, { like_count: lc, liked: nl });
-    if (nl) {
-      await db.post("rs_post_likes", { post_id: id, uid: me });
-      if (p.uid !== me) {
-        try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${profiles[me]?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
+    try {
+      const p = posts.find(x => x.id === id) || reposts.find(x => x.id === id) || likedPosts.find(x => x.id === id);
+      if (!p) return;
+
+      const currentLiked = p.liked !== undefined ? p.liked : fallbackLiked;
+
+      // 1. Instant UI update
+      const optimisticLiked = !currentLiked;
+      const optimisticCount = optimisticLiked ? (p.like_count || 0) + 1 : Math.max(0, (p.like_count || 0) - 1);
+      updatePostState(id, { like_count: optimisticCount, liked: optimisticLiked });
+
+      // 2. Strict validate from backend (Cache-Busted via headers & fetch options)
+      let alreadyLiked = false;
+      try {
+        const url = `${SB_URL}/rest/v1/rs_post_likes?post_id=eq.${id}&uid=eq.${me}`;
+        const sess = JSON.parse(localStorage.getItem("rs_session") || "null");
+        const hdrs = {
+          "apikey": SB_KEY,
+          "Authorization": sess?.access_token ? `Bearer ${sess.access_token}` : "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        };
+        const res = await fetch(url, { headers: hdrs, cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          alreadyLiked = data && data.length > 0;
+        } else {
+          // If network returns an error (like 400), fallback to local cache
+          const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+          alreadyLiked = existing && existing.length > 0;
+        }
+      } catch (e) {
+        // Fallback to local check if network fails
+        const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        alreadyLiked = existing && existing.length > 0;
       }
-    } else {
-      await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+
+      // 3. True DB State Logic
+      const postData = await db.get("rs_posts", `id=eq.${id}&select=like_count`);
+      const currentDbCount = postData?.[0]?.like_count || 0;
+
+      if (alreadyLiked) {
+        // If exists -> remove, decrement, update UI
+        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        const newCount = Math.max(0, currentDbCount - 1);
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
+        updatePostState(id, { like_count: newCount, liked: false });
+      } else {
+        // If not exists -> create, increment, update UI
+        const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
+
+        // ONLY increment if the insert was actually successful!
+        if (saved) {
+          const newCount = currentDbCount + 1;
+          await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
+          updatePostState(id, { like_count: newCount, liked: true });
+
+          if (p.uid !== me) {
+            try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${profiles[me]?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
+          }
+        } else {
+          // If insert failed (e.g. 409 Conflict), revert optimistic UI
+          updatePostState(id, { like_count: currentDbCount, liked: false });
+        }
+      }
+    } finally {
+      pendingLikes.current.delete(id);
     }
-    await db.patch("rs_posts", `id=eq.${id}`, { like_count: lc });
   };
 
   const handleRepost = async (orig) => {
@@ -165,12 +193,12 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     }
     if (!p) return;
     const nc = Math.max(0, (p.repost_count || 0) - 1);
-    
+
     // Filter out the repost item visually
-    setPosts(prev => prev.filter(x => !(x.original_post_id === origId && x.reposted_by === me && !x.quote_text)).map(x => x.id === origId ? { ...x, repost_count: nc, reposted: false } : x));
-    setReposts(prev => prev.filter(x => !(x.original_post_id === origId && x.reposted_by === me && !x.quote_text)).map(x => x.id === origId ? { ...x, repost_count: nc, reposted: false } : x));
-    setLikedPosts(prev => prev.filter(x => !(x.original_post_id === origId && x.reposted_by === me && !x.quote_text)).map(x => x.id === origId ? { ...x, repost_count: nc, reposted: false } : x));
-    
+    setPosts(prev => prev.filter(x => !(x.original_post_id === origId && x.reposted_by === me)).map(x => x.id === origId ? { ...x, repost_count: nc, reposted: false } : x));
+    setReposts(prev => prev.filter(x => !(x.original_post_id === origId && x.reposted_by === me)).map(x => x.id === origId ? { ...x, repost_count: nc, reposted: false } : x));
+    setLikedPosts(prev => prev.filter(x => !(x.original_post_id === origId && x.reposted_by === me)).map(x => x.id === origId ? { ...x, repost_count: nc, reposted: false } : x));
+
     await db.patch("rs_posts", `id=eq.${origId}`, { repost_count: nc });
     await db.del("rs_posts", `original_post_id=eq.${origId}&reposted_by=eq.${me}`);
   };

@@ -141,12 +141,10 @@ export default function App() {
         loadUnreadMsgCount();
       }
     });
-    const timer = setInterval(loadUnreadMsgCount, 8000);
     return () => {
       unsubscribe();
-      clearInterval(timer);
     };
-  }, [screen, me, loadUnreadMsgCount, view]);
+  }, [screen, me, loadUnreadMsgCount]);
   const [showN, setShowN] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [tokenPop, setTokenPop] = useState(null);
@@ -163,8 +161,7 @@ export default function App() {
 
   useEffect(() => {
     if (screen !== "app" || !me) return;
-    const timer = setInterval(() => loadNotifs(me), 15000);
-    return () => clearInterval(timer);
+    loadNotifs(me);
   }, [screen, me]);
   const urlRef = useRef(new URLSearchParams(window.location.search).get("ref") || "");
 
@@ -186,10 +183,6 @@ export default function App() {
   useEffect(() => {
     if (screen !== "app" || !me) return;
     loadProfiles();
-    const timer = setInterval(() => {
-      loadProfiles();
-    }, 20000);
-    return () => clearInterval(timer);
   }, [screen, me, loadProfiles]);
 
   const loadNotifs = async uid => {

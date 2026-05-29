@@ -4,6 +4,7 @@ import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, 
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import { ago } from "../utils/helpers.js";
+import { processAndUploadImage } from "../utils/uploadImage.js";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import Spin from "../components/ui/Spin.jsx";
@@ -331,15 +332,16 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
 
   const deleteTask = (id) => { db.del("rs_page_tasks", `id=eq.${id}`); const u = tasks.filter(t => t.id !== id); setTasks(u); ls.set(TASK_KEY, u); };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const entry = { id: `file_${Date.now()}`, name: file.name, size: file.size, type: file.type, uploaded_by: me, created_at: new Date().toISOString(), dataUrl: ev.target.result };
-      db.post("rs_page_files", { page_id: page.id, startup_id: startup.id, name: file.name, size: file.size, type: file.type, uploaded_by: me, data_url: ev.target.result });
+    try {
+      const url = await processAndUploadImage(file, { bucket: 'attachments' });
+      const entry = { id: `file_${Date.now()}`, name: file.name, size: file.size, type: file.type, uploaded_by: me, created_at: new Date().toISOString(), dataUrl: url };
+      db.post("rs_page_files", { page_id: page.id, startup_id: startup.id, name: file.name, size: file.size, type: file.type, uploaded_by: me, data_url: url });
       const u = [...files, entry]; setFiles(u); ls.set(FILE_KEY, u);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("File upload failed", err);
+    }
     e.target.value = "";
   };
   const deleteFile = (id) => { db.del("rs_page_files", `id=eq.${id}`); const u = files.filter(f => f.id !== id); setFiles(u); ls.set(FILE_KEY, u); };
@@ -933,43 +935,13 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingLogo(true);
-
     try {
-      const res = await fetch("/api/upload-attachment", {
-        method: "POST",
-        headers: {
-          "x-user-id": me,
-          "x-file-name": file.name,
-          "Content-Type": file.type || "application/octet-stream"
-        },
-        body: file
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          set("logo", data.url);
-          setUploadingLogo(false);
-          return;
-        }
-      }
-
-      console.warn("Server upload failed, falling back to base64 reader");
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        set("logo", ev.target.result);
-        setUploadingLogo(false);
-      };
-      reader.readAsDataURL(file);
-
+      const url = await processAndUploadImage(file, { bucket: 'images', maxWidth: 400 });
+      set("logo", url);
     } catch (err) {
-      console.error("Image upload failed, falling back to base64 reader:", err);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        set("logo", ev.target.result);
-        setUploadingLogo(false);
-      };
-      reader.readAsDataURL(file);
+      console.error("Image upload failed:", err);
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -1523,8 +1495,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const assignMemberPage = (userId, pageId) => {
     const alreadyHas = pageMembers.find(m => m.page_id === pageId && m.user_id === userId);
     let mems;
-    if (alreadyHas) { mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId)); }
-    else { mems = [...pageMembers, { page_id: pageId, user_id: userId }]; }
+    if (alreadyHas) { 
+      mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId)); 
+      db.del("rs_page_members", `page_id=eq.${pageId}&user_id=eq.${userId}`);
+    } else { 
+      mems = [...pageMembers, { page_id: pageId, user_id: userId }]; 
+      db.upsert("rs_page_members", { startup_id: startup.id, page_id: pageId, user_id: userId, created_by: me, created_at: new Date().toISOString() });
+    }
     setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
   };
 
