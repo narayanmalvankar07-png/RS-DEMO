@@ -119,7 +119,9 @@ CREATE TABLE IF NOT EXISTS rs_page_members (
   startup_id uuid references rs_startups(id) on delete cascade,
   page_id uuid references rs_startup_pages(id) on delete cascade,
   user_id uuid references auth.users(id),
-  created_at timestamp with time zone default now()
+  created_by uuid references auth.users(id),
+  created_at timestamp with time zone default now(),
+  unique(page_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS rs_page_member_roles (
@@ -147,22 +149,22 @@ CREATE TABLE IF NOT EXISTS rs_page_settings (
 -- ==============================================================================
 
 CREATE TABLE IF NOT EXISTS rs_page_messages (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key default gen_random_uuid()::text,
   startup_id uuid references rs_startups(id) on delete cascade,
   page_id uuid references rs_startup_pages(id) on delete cascade,
   user_id uuid references auth.users(id),
   content text not null,
-  reply_to_id uuid,
+  reply_to_id text,
   reply_to_content text,
   reply_to_user uuid references auth.users(id),
   created_at timestamp with time zone default now()
 );
 
 CREATE TABLE IF NOT EXISTS rs_page_tasks (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   page_id uuid references rs_startup_pages(id) on delete cascade,
   title text not null,
-  assignee_id uuid references auth.users(id),
+  assignee_id text,
   priority text default 'medium',
   status text default 'todo', -- todo, in_progress, done
   created_by uuid references auth.users(id),
@@ -170,7 +172,7 @@ CREATE TABLE IF NOT EXISTS rs_page_tasks (
 );
 
 CREATE TABLE IF NOT EXISTS rs_page_files (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key default gen_random_uuid()::text,
   startup_id uuid references rs_startups(id) on delete cascade,
   page_id uuid references rs_startup_pages(id) on delete cascade,
   name text not null,
@@ -182,7 +184,7 @@ CREATE TABLE IF NOT EXISTS rs_page_files (
 );
 
 CREATE TABLE IF NOT EXISTS rs_page_meetings (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key default gen_random_uuid()::text,
   startup_id uuid references rs_startups(id) on delete cascade,
   page_id uuid references rs_startup_pages(id) on delete cascade,
   title text not null,

@@ -1495,8 +1495,13 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
   const assignMemberPage = (userId, pageId) => {
     const alreadyHas = pageMembers.find(m => m.page_id === pageId && m.user_id === userId);
     let mems;
-    if (alreadyHas) { mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId)); }
-    else { mems = [...pageMembers, { page_id: pageId, user_id: userId }]; }
+    if (alreadyHas) { 
+      mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId)); 
+      db.del("rs_page_members", `page_id=eq.${pageId}&user_id=eq.${userId}`);
+    } else { 
+      mems = [...pageMembers, { page_id: pageId, user_id: userId }]; 
+      db.upsert("rs_page_members", { startup_id: startup.id, page_id: pageId, user_id: userId, created_by: me, created_at: new Date().toISOString() });
+    }
     setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
   };
 
