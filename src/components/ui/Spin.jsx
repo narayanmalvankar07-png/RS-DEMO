@@ -11,13 +11,18 @@ function Spin({ size = 42, dk = false, msg = "", inline = false }) {
 
   const rocketSize = Math.max(size, 85);
 
-  const [processedLogo, setProcessedLogo] = useState("/logo.png");
+  const logoSrc = dk ? "/logo.jpeg" : "/logo.png";
+  const [processedLogo, setProcessedLogo] = useState(logoSrc);
+
+  useEffect(() => {
+    setProcessedLogo(logoSrc);
+  }, [logoSrc]);
 
   useEffect(() => {
     if (inline) return;
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = "/logo.png";
+    img.src = logoSrc;
     img.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = img.width;
@@ -69,7 +74,7 @@ function Spin({ size = 42, dk = false, msg = "", inline = false }) {
         setProcessedLogo(canvas.toDataURL());
       }
     };
-  }, [inline]);
+  }, [inline, logoSrc]);
 
   // Tick timer driving phase transitions (100ms ticks, 120 ticks = 12s cycle)
   const [tick, setTick] = useState(0);

@@ -78,6 +78,13 @@ function NetworkView({ me, dk, onProfile, bals, profiles, addNotif }) {
     addNotif?.({ type: "info", msg: `Align request from ${profiles[req.requester_uid]?.name || "a member"} declined`, profile_id: req.requester_uid });
   };
 
+  const withdrawRequest = async uid => {
+    const targetName = profiles[uid]?.name || "a member";
+    setOutgoingRequests(prev => prev.filter(r => r.target_uid !== uid));
+    await db.del("rs_align_requests", `requester_uid=eq.${me}&target_uid=eq.${uid}&status=eq.pending`);
+    addNotif?.({ type: "info", msg: `⛓️ Align request to ${targetName} withdrawn` });
+  };
+
   const toggle = async uid => {
     const on = alignedSet.has(uid);
     if (on) {
@@ -167,7 +174,33 @@ function NetworkView({ me, dk, onProfile, bals, profiles, addNotif }) {
                   {incoming ? (
                     <button onClick={() => acceptRequest(incoming)} style={{ padding: "7px 18px", borderRadius: 10, border: "1.5px solid #16a34a", background: "#16a34a", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Accept</button>
                   ) : requested ? (
-                    <button disabled style={{ padding: "7px 18px", borderRadius: 10, border: `1.5px solid ${th.bdr}`, background: th.surf2, color: th.txt3, fontSize: 13, fontWeight: 700, cursor: "default", flexShrink: 0 }}>Requested</button>
+                    <button
+                      onClick={() => withdrawRequest(u.id)}
+                      style={{
+                        padding: "7px 18px",
+                        borderRadius: 10,
+                        border: `1px solid ${th.bdr}`,
+                        background: dk ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.03)",
+                        color: th.txt2,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = dk ? "rgba(239, 68, 68, 0.08)" : "rgba(239, 68, 68, 0.05)";
+                        e.currentTarget.style.color = "#ef4444";
+                        e.currentTarget.style.borderColor = dk ? "rgba(239, 68, 68, 0.25)" : "rgba(239, 68, 68, 0.2)";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = dk ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.03)";
+                        e.currentTarget.style.color = th.txt2;
+                        e.currentTarget.style.borderColor = th.bdr;
+                      }}
+                    >
+                      Requested
+                    </button>
                   ) : (
                     <button onClick={() => toggle(u.id)} style={{ padding: "7px 18px", borderRadius: 10, border: `1.5px solid ${on ? "#555" : "#111"}`, background: on ? "#fff" : "#111", color: on ? "#111" : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>{on ? "Aligned" : "Align"}</button>
                   )}

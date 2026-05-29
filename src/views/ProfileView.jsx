@@ -30,6 +30,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [editBio, setEditBio] = useState(profile.bio || "");
   const [editName, setEditName] = useState(profile.name || "");
   const [saving, setSaving] = useState(false);
+  const [alignCount, setAlignCount] = useState(0);
 
   const getSocialLinksObj = (raw) => {
     if (!raw) return { website: "", github: "", resume: "", linkedin: "", twitter: "" };
@@ -86,6 +87,8 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [tab, setTab] = useState("posts");
   const [reposts, setReposts] = useState([]);
   const [isAligned, setIsAligned] = useState(false);
+  const [hasOutgoingRequest, setHasOutgoingRequest] = useState(false);
+  const [incomingRequest, setIncomingRequest] = useState(null);
   const [checkingAlign, setCheckingAlign] = useState(false);
 
   const updatePostState = (id, updates) => {
@@ -226,8 +229,9 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       db.get("rs_posts", `order=created_at.desc&limit=150`),
       db.get("rs_comments", "order=created_at.asc"),
       db.get("rs_post_likes", `uid=eq.${me}`),
-      db.get("rs_posts", `reposted_by=eq.${me}`)
-    ]).then(([d, allComments, myLikes, myOwnReposts]) => {
+      db.get("rs_posts", `reposted_by=eq.${me}`),
+      db.get("rs_alignments", `follower_uid=eq.${uid}`)
+    ]).then(([d, allComments, myLikes, myOwnReposts, alignments]) => {
       const ls = new Set((myLikes || []).map(l => l.post_id));
       const cs = allComments || [];
       const repSet = new Set((myOwnReposts || []).filter(r => r.original_post_id).map(r => r.original_post_id));
@@ -241,6 +245,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       const myReposts = myFeed.filter(p => p.reposted_by === uid);
       setPosts(myOriginals.slice(0, 30));
       setReposts(myReposts.slice(0, 30));
+      setAlignCount(alignments ? alignments.length : 0);
       setLoadingPosts(false);
     });
   }, [uid, me]);
@@ -281,8 +286,14 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   useEffect(() => {
     if (isOwnProfile) return;
     setCheckingAlign(true);
-    db.get("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`).then(d => {
-      setIsAligned(d && d.length > 0);
+    Promise.all([
+      db.get("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`),
+      db.get("rs_align_requests", `requester_uid=eq.${me}&target_uid=eq.${uid}&status=eq.pending`),
+      db.get("rs_align_requests", `requester_uid=eq.${uid}&target_uid=eq.${me}&status=eq.pending`)
+    ]).then(([aligns, outgoing, incoming]) => {
+      setIsAligned(aligns && aligns.length > 0);
+      setHasOutgoingRequest(outgoing && outgoing.length > 0);
+      setIncomingRequest(incoming && incoming.length > 0 ? incoming[0] : null);
       setCheckingAlign(false);
     });
   }, [uid, me, isOwnProfile]);
@@ -305,53 +316,116 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       setEditing(false);
     }
   };
-  const toggleAlign = async () => {
-    if (checkingAlign) return;
+
+  const handleSendRequest = async () => {
+    if (checkingAlign || isAligned || hasOutgoingRequest) return;
     setCheckingAlign(true);
     const targetName = profile.name || "a member";
     const myName = profiles[me]?.name || "a member";
+    
+    setHasOutgoingRequest(true);
+    try {
+      await db.upsert("rs_align_requests", { requester_uid: me, target_uid: uid, status: "pending" });
+      try {
+        await db.post("rs_notifications", {
+          uid: uid,
+          type: "align_request",
+          msg: `📌 ${myName} sent you an align request`,
+          profile_id: me,
+          requester_uid: me,
+          target_uid: uid,
+          read: false
+        });
+      } catch (notifErr) {
+        console.error("Notification post failed:", notifErr);
+      }
+      addNotif?.({ type: "follow", msg: `📌 Align request sent to ${targetName}`, profile_id: uid });
+    } catch (err) {
+      console.error("Failed to send request:", err);
+      setHasOutgoingRequest(false);
+    } finally {
+      setCheckingAlign(false);
+    }
+  };
 
-    if (isAligned) {
-      // Unfollow / Misalign
+  const handleAcceptRequest = async () => {
+    if (!incomingRequest || checkingAlign) return;
+    setCheckingAlign(true);
+    const requesterName = profile.name || "a member";
+    const myName = profiles[me]?.name || "a member";
+    
+    setIncomingRequest(null);
+    setIsAligned(true);
+    setAlignCount(prev => prev + 1);
+    try {
+      await Promise.all([
+        db.upsert("rs_alignments", { follower_uid: me, following_uid: uid }),
+        db.upsert("rs_alignments", { follower_uid: uid, following_uid: me }),
+        db.patch("rs_align_requests", `id=eq.${incomingRequest.id}`, { status: "accepted" })
+      ]);
+      try {
+        await db.post("rs_notifications", {
+          uid: uid,
+          type: "align_accept",
+          msg: `✅ ${myName} accepted your align request`,
+          profile_id: uid,
+          requester_uid: uid,
+          target_uid: me,
+          read: false
+        });
+      } catch (notifErr) {
+        console.error("Notification post failed:", notifErr);
+      }
+      addNotif?.({ type: "success", msg: `You accepted ${requesterName}'s align request`, profile_id: uid });
+    } catch (err) {
+      console.error("Failed to accept request:", err);
       setIsAligned(false);
-      try {
-        await db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
-        addNotif?.({ type: "info", msg: `⛓️ You misaligned with ${targetName}` });
-      } catch (err) {
-        console.error("Failed to misalign:", err);
-        setIsAligned(true);
-      } finally {
-        setCheckingAlign(false);
-      }
-    } else {
-      // Follow / Align
+      setAlignCount(prev => Math.max(0, prev - 1));
+      setIncomingRequest(incomingRequest);
+    } finally {
+      setCheckingAlign(false);
+    }
+  };
+
+  const handleMisalign = async () => {
+    if (checkingAlign) return;
+    setCheckingAlign(true);
+    const targetName = profile.name || "a member";
+    
+    setIsAligned(false);
+    setAlignCount(prev => Math.max(0, prev - 1));
+    try {
+      await db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
+      addNotif?.({ type: "info", msg: `⛓️ You misaligned with ${targetName}` });
+    } catch (err) {
+      console.error("Failed to misalign:", err);
       setIsAligned(true);
-      try {
-        await db.upsert("rs_alignments", { follower_uid: me, following_uid: uid });
-        try {
-          await db.post("rs_notifications", {
-            uid: uid,
-            type: "align_accept",
-            msg: `✅ ${myName} aligned with you`,
-            read: false
-          });
-        } catch (notifErr) {
-          console.error("Notification post failed:", notifErr);
-        }
-        addNotif?.({ type: "success", msg: `🔗 You are now aligned with ${targetName}!` });
-      } catch (err) {
-        console.error("Failed to align:", err);
-        setIsAligned(false);
-      } finally {
-        setCheckingAlign(false);
-      }
+      setAlignCount(prev => prev + 1);
+    } finally {
+      setCheckingAlign(false);
+    }
+  };
+
+  const handleWithdrawRequest = async () => {
+    if (checkingAlign || !hasOutgoingRequest) return;
+    setCheckingAlign(true);
+    const targetName = profile.name || "a member";
+    
+    setHasOutgoingRequest(false);
+    try {
+      await db.del("rs_align_requests", `requester_uid=eq.${me}&target_uid=eq.${uid}&status=eq.pending`);
+      addNotif?.({ type: "info", msg: `⛓️ Align request to ${targetName} withdrawn` });
+    } catch (err) {
+      console.error("Failed to withdraw request:", err);
+      setHasOutgoingRequest(true);
+    } finally {
+      setCheckingAlign(false);
     }
   };
 
   const whoOpt = WHO_OPTS.find(w => w.id === profile.who);
   const interests = (profile.interests || []).map(id => INT_OPTS.find(x => x.id === id)).filter(Boolean);
   const postCount = posts.length;
-  const totalLikes = posts.reduce((s, p) => s + (p.like_count || 0), 0);
 
   return (
     <div>
@@ -537,7 +611,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginTop: 16 }}>
-          {[["Posts", postCount], ["Likes", totalLikes], ["SGN", balance]].map(([label, val]) => (
+          {[["Posts", postCount], ["Alignments", alignCount], ["SGN", balance]].map(([label, val]) => (
             <div key={label} style={{ textAlign: "center", background: th.surf2, borderRadius: 10, padding: "10px 8px", border: `1px solid ${th.bdr}` }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: th.txt }}>{val}</div>
               <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>{label}</div>
@@ -563,7 +637,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
               </button>
               {isAligned ? (
                 <button
-                  onClick={toggleAlign}
+                  onClick={handleMisalign}
                   disabled={checkingAlign}
                   style={{
                     display: "flex",
@@ -590,9 +664,61 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                 >
                   <X size={15} />Misalign
                 </button>
+              ) : incomingRequest ? (
+                <button
+                  onClick={handleAcceptRequest}
+                  disabled={checkingAlign}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: "#16a34a",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "10px 18px",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  Accept Request
+                </button>
+              ) : hasOutgoingRequest ? (
+                <button
+                  onClick={handleWithdrawRequest}
+                  disabled={checkingAlign}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: dk ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.03)",
+                    color: th.txt2,
+                    border: `1px solid ${th.bdr}`,
+                    borderRadius: 10,
+                    padding: "10px 18px",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    transition: "all 0.2s ease"
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = dk ? "rgba(239, 68, 68, 0.08)" : "rgba(239, 68, 68, 0.05)";
+                    e.currentTarget.style.color = "#ef4444";
+                    e.currentTarget.style.borderColor = dk ? "rgba(239, 68, 68, 0.25)" : "rgba(239, 68, 68, 0.2)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = dk ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.03)";
+                    e.currentTarget.style.color = th.txt2;
+                    e.currentTarget.style.borderColor = th.bdr;
+                  }}
+                >
+                  Requested
+                </button>
               ) : (
                 <button
-                  onClick={toggleAlign}
+                  onClick={handleSendRequest}
                   disabled={checkingAlign}
                   style={{
                     display: "flex",
