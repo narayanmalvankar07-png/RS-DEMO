@@ -50,7 +50,7 @@ export default function AuthScreen({ onAuth }) {
       <div className="rs-scale-in" style={{ width: "min(440px, 100%)" }}>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <img src="/logo.png" alt="Logo" style={{ width: 52, height: 52, borderRadius: 16, objectFit: "contain", margin: "0 auto 14px", display: "block" }} />
+          <img src="/logo.jpeg" alt="Logo" style={{ width: 52, height: 52, borderRadius: 16, objectFit: "contain", margin: "0 auto 14px", display: "block" }} />
           <div style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", letterSpacing: "-0.5px" }}>RightSignal</div>
           <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(180,200,255,0.45)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 3 }}>Signal Over Noise</div>
           <p style={{ color: "rgba(180,205,255,0.5)", fontSize: 14, marginTop: 8 }}>Where founders &amp; investors meet</p>
