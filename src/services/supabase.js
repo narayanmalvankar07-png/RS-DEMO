@@ -179,72 +179,15 @@ export const db = {
     lastFetchTime[fetchKey] = now;
 
     if (isCachedTable) {
-      const isFiltered = q.includes("id=eq.") || q.includes("uid=eq.") || q.includes("email=eq.") || q.includes("ref_code=eq.") || q.includes("reposted_by=eq.");
-      const isFullCached = localStorage.getItem(`rs_cache_full_${t}`) === "true";
-
-      if (isFiltered) {
-        try {
-          const r = await fetch(`${SB_URL}/rest/v1/${t}${q ? "?" + q : ""}`, { headers: authH() });
-          const fresh = r.ok ? await r.json() : [];
-          if (fresh?.length) {
-            let merged = [...local];
-            const mergedMap = new Map(local.map(item => [item.id || `${item.post_id}_${item.uid}`, item]));
-            fresh.forEach(item => {
-              const key = item.id || `${item.post_id}_${item.uid}`;
-              mergedMap.set(key, item);
-            });
-            merged = Array.from(mergedMap.values());
-            setCache(t, merged);
-            return applyQuery(merged, q);
-          }
-          return applyQuery(local, q);
-        } catch {
-          return applyQuery(local, q);
+      try {
+        const r = await fetch(`${SB_URL}/rest/v1/${t}${q ? "?" + q : ""}`, { headers: authH() });
+        const fresh = r.ok ? await r.json() : [];
+        if (fresh) {
+          setCache(t, fresh);
         }
-      }
-
-      if (isFullCached) {
-        const latest = local.reduce((max, item) => {
-          const ts = item.created_at || item.updated_at || "";
-          return ts > max ? ts : max;
-        }, "");
-
-        let deltaQuery = q;
-        if (latest) {
-          let cleanQ = q.replace(/order=[^&]+&?/, "").replace(/limit=\d+&?/, "").replace(/&&+/g, "&").replace(/^&|&$/g, "");
-          deltaQuery = (cleanQ ? cleanQ + "&" : "") + `created_at=gt.${encodeURIComponent(latest)}`;
-        }
-
-        try {
-          const r = await fetch(`${SB_URL}/rest/v1/${t}${deltaQuery ? "?" + deltaQuery : ""}`, { headers: authH() });
-          const fresh = r.ok ? await r.json() : [];
-
-          let merged = [...local];
-          if (fresh?.length) {
-            const mergedMap = new Map(local.map(item => [item.id || `${item.post_id}_${item.uid}`, item]));
-            fresh.forEach(item => {
-              const key = item.id || `${item.post_id}_${item.uid}`;
-              mergedMap.set(key, item);
-            });
-            merged = Array.from(mergedMap.values());
-            setCache(t, merged);
-          }
-          return applyQuery(merged, q);
-        } catch {
-          return applyQuery(local, q);
-        }
-      } else {
-        try {
-          const r = await fetch(`${SB_URL}/rest/v1/${t}${q ? "?" + q : ""}`, { headers: authH() });
-          const fresh = r.ok ? await r.json() : [];
-          if (fresh) {
-            setCache(t, fresh);
-            localStorage.setItem(`rs_cache_full_${t}`, "true");
-          }
-          return applyQuery(fresh, q);
-        } catch {
-          return applyQuery(local, q);
-        }
+        return applyQuery(fresh, q);
+      } catch {
+        return applyQuery(local, q);
       }
     }
 
