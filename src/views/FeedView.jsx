@@ -153,7 +153,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
 
       if (optimisticLiked) {
         if (!alreadyLiked) {
-          // If not exists -> create, increment, update UI
+          // If not exists -> create, increment, update UI.
           const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
           if (saved) {
             const newCount = currentDbCount + 1;
@@ -177,7 +177,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
                   return;
                 }
               }
-            } catch (e) {}
+            } catch (e) { }
             // If it really failed, revert optimistic UI
             setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: currentDbCount } : x));
           }
