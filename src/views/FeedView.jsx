@@ -68,7 +68,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
 
     try {
       const p = posts.find(x => x.id === id); if (!p) return;
-      
+
       // 1. Instant UI update for snappy feedback
       const optimisticLiked = !p.liked;
       const optimisticCount = optimisticLiked ? (p.likes + 1) : Math.max(0, p.likes - 1);
@@ -79,8 +79,8 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
       try {
         const url = `${SB_URL}/rest/v1/rs_post_likes?post_id=eq.${id}&uid=eq.${me}`;
         const sess = JSON.parse(localStorage.getItem("rs_session") || "null");
-        const hdrs = { 
-          "apikey": SB_KEY, 
+        const hdrs = {
+          "apikey": SB_KEY,
           "Authorization": sess?.access_token ? `Bearer ${sess.access_token}` : "",
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "Pragma": "no-cache"
@@ -113,13 +113,13 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
       } else {
         // If not exists -> create, increment, update UI
         const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
-        
+
         // ONLY increment if the insert was actually successful! (Prevents ++++ bug on 409 Conflict)
         if (saved) {
           const newCount = currentDbCount + 1;
           await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
           setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: newCount } : x));
-          
+
           if (p.uid !== me) {
             try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
           }
