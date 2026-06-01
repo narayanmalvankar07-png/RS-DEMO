@@ -4,6 +4,7 @@ import { Hash, X, Bookmark, Sparkles } from "lucide-react";
 import { T, SEED_POSTS, WHO_OPTS, INT_OPTS } from '../config/constants.js';
 import { genId } from '../utils/helpers.js';
 import { db } from '../services/supabase.js';
+import { sendWSMessage, subscribeWS } from '../services/websocket.js';
 import Spin from '../components/ui/Spin.jsx';
 import Composer from '../components/shared/Composer.jsx';
 import PostCard from '../components/shared/PostCard.jsx';
@@ -31,14 +32,21 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     const repSet = new Set(myReposts.filter(r => r.original_post_id).map(r => r.original_post_id));
     let rows = rp || [];
     if (!rows.length) { await db.postMany("rs_posts", SEED_POSTS); rows = await db.get("rs_posts", "order=created_at.desc&limit=80") || []; }
-    setPosts(rows.map(p => ({
-      id: p.id, uid: p.uid, text: p.text, media: p.media || [],
-      hashtags: p.hashtags || [], location: p.location,
-      likes: p.like_count || 0, reposts: p.repost_count || 0,
-      liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: (ac || []).filter(c => c.post_id === p.id).reverse(),
-      ts: new Date(p.created_at).getTime(), reposted_by: p.reposted_by,
-      quote_text: p.quote_text, is_sponsored: p.is_sponsored, original_post_id: p.original_post_id,
-    })));
+    setPosts(rows.map(p => {
+      let original_uid = null;
+      if (p.reposted_by && p.original_post_id) {
+        const orig = rows.find(r => r.id === p.original_post_id);
+        if (orig) original_uid = orig.uid;
+      }
+      return {
+        id: p.id, uid: p.uid, text: p.text, media: p.media || [],
+        hashtags: p.hashtags || [], location: p.location,
+        likes: p.like_count || 0, reposts: p.repost_count || 0,
+        liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: (ac || []).filter(c => c.post_id === p.id).reverse(),
+        ts: new Date(p.created_at).getTime(), reposted_by: p.reposted_by,
+        quote_text: p.quote_text, is_sponsored: p.is_sponsored, original_post_id: p.original_post_id, original_uid
+      }
+    }));
     setLoading(false);
   }, [me]);
 
@@ -50,6 +58,44 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     setActiveTag(null);
   }, [focusPostId]);
 
+  useEffect(() => {
+    const unsub = subscribeWS((msg) => {
+      if (msg.type === "feed_event") {
+        if (msg.action === "like") {
+          setPosts(ps => ps.map(p => p.id === msg.postId ? { ...p, likes: msg.likes } : p));
+        } else if (msg.action === "repost" || msg.action === "quote_repost") {
+          // If it's a repost/quote, we just reload the feed for simplicity,
+          // or we can increment the original post's count. Let's increment count:
+          if (msg.originalPostId) {
+            setPosts(ps => ps.map(p => p.id === msg.originalPostId ? { ...p, reposts: msg.reposts } : p));
+          }
+          // Also fetch the feed silently so the new post appears? Or just wait for refresh.
+          // Since it's a new post row, running load() safely brings it in.
+          // But to avoid flicker, we can just insert the basic post obj if provided:
+          if (msg.newPostObj) {
+            setPosts(ps => {
+              if (ps.find(x => x.id === msg.newPostObj.id)) return ps;
+              return [msg.newPostObj, ...ps];
+            });
+          }
+        } else if (msg.action === "undo_repost") {
+          if (msg.originalPostId) {
+            setPosts(ps => ps.map(p => p.id === msg.originalPostId ? { ...p, reposts: msg.reposts } : p)
+              .filter(p => p.id !== msg.deletedRepostId));
+          }
+        } else if (msg.action === "new_post") {
+          if (msg.newPostObj) {
+            setPosts(ps => {
+              if (ps.find(x => x.id === msg.newPostObj.id)) return ps;
+              return [msg.newPostObj, ...ps];
+            });
+          }
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const addPost = async (text, media, location, hashtags) => {
     const tempId = genId();
     setPosts(ps => [{ id: tempId, uid: me, text, media, location, hashtags, likes: 0, reposts: 0, liked: false, comments: [], ts: Date.now() }, ...ps]);
@@ -60,6 +106,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
       throw new Error("Failed");
     }
     setPosts(ps => ps.map(p => p.id === tempId ? { ...p, id: saved.id } : p));
+    sendWSMessage({ type: "feed_event", action: "new_post", newPostObj: saved });
   };
 
   const toggleLike = async id => {
@@ -104,27 +151,50 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
       const postData = await db.get("rs_posts", `id=eq.${id}&select=like_count`);
       const currentDbCount = postData?.[0]?.like_count || 0;
 
-      if (alreadyLiked) {
-        // If exists -> remove, decrement, update UI
-        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-        const newCount = Math.max(0, currentDbCount - 1);
-        await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
-        setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: newCount } : x));
-      } else {
-        // If not exists -> create, increment, update UI
-        const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
+      if (optimisticLiked) {
+        if (!alreadyLiked) {
+          // If not exists -> create, increment, update UI
+          const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
+          if (saved) {
+            const newCount = currentDbCount + 1;
+            await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
+            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: newCount } : x));
+            sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: newCount });
 
-        // ONLY increment if the insert was actually successful! (Prevents ++++ bug on 409 Conflict)
-        if (saved) {
-          const newCount = currentDbCount + 1;
-          await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
-          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: newCount } : x));
-
-          if (p.uid !== me) {
-            try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
+            if (p.uid !== me) {
+              try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
+            }
+          } else {
+            // If insert failed, it might be a 409 Conflict (row already exists).
+            // Let's strictly verify before we revert the UI.
+            try {
+              const verifyReq = await fetch(url, { headers: hdrs, cache: "no-store" });
+              if (verifyReq.ok) {
+                const verifyData = await verifyReq.json();
+                if (verifyData && verifyData.length > 0) {
+                  // It was a 409 Conflict, the like actually exists! Keep UI red.
+                  setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: currentDbCount } : x));
+                  return;
+                }
+              }
+            } catch (e) {}
+            // If it really failed, revert optimistic UI
+            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: currentDbCount } : x));
           }
         } else {
-          // If insert failed (e.g. 409 Conflict), revert optimistic UI
+          // Already liked on backend (cache out of sync), ensure UI is correct
+          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: currentDbCount } : x));
+        }
+      } else {
+        if (alreadyLiked) {
+          // If exists -> remove, decrement, update UI
+          await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+          const newCount = Math.max(0, currentDbCount - 1);
+          await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
+          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: newCount } : x));
+          sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: newCount });
+        } else {
+          // Already unliked on backend (cache out of sync), ensure UI is correct
           setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: currentDbCount } : x));
         }
       }
@@ -134,36 +204,44 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   };
 
   const doRepost = async orig => {
+    if (orig.reposted) return;
     const nc = (orig.reposts || 0) + 1;
-    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, original_post_id: orig.id };
+    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, original_post_id: orig.id, original_uid: orig.uid };
     setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
-    await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
-    if (!saved) {
+    try {
+      await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
+      const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
+      if (!saved) throw new Error("Failed to post");
+      addNotif({ type: "action", msg: "You reposted a signal" });
+      sendWSMessage({ type: "feed_event", action: "repost", originalPostId: orig.id, reposts: nc, newPostObj: { ...newPost, id: saved.id } });
+      if (orig.uid !== me) {
+        try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error:", e); }
+      }
+    } catch (err) {
+      console.error(err);
       setPosts(ps => ps.filter(x => x.id !== newPost.id).map(x => x.id === orig.id ? { ...x, reposts: Math.max(0, nc - 1), reposted: false } : x));
       addNotif({ type: "error", msg: "Failed to repost" });
-      return;
-    }
-    addNotif({ type: "action", msg: "You reposted a signal" });
-    if (orig.uid !== me) {
-      try { await db.post("rs_notifications", { uid: orig.uid, type: "repost", msg: `${myProfile?.name || "Someone"} reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (repost):", e); }
     }
   };
 
   const doQuoteRepost = async (orig, quoteText) => {
+    if (orig.reposted) return;
     const nc = (orig.reposts || 0) + 1;
-    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, quote_text: quoteText, original_post_id: orig.id };
+    const newPost = { ...orig, id: genId(), reposts: nc, liked: false, reposted: false, comments: [], ts: Date.now(), reposted_by: me, quote_text: quoteText, original_post_id: orig.id, original_uid: orig.uid };
     setPosts(ps => [newPost, ...ps.map(x => x.id === orig.id ? { ...x, reposts: nc, reposted: true } : x)]);
-    await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
-    if (!saved) {
+    try {
+      await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
+      const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
+      if (!saved) throw new Error("Failed to post");
+      addNotif({ type: "action", msg: "You quote-reposted a signal" });
+      sendWSMessage({ type: "feed_event", action: "quote_repost", originalPostId: orig.id, reposts: nc, newPostObj: { ...newPost, id: saved.id } });
+      if (orig.uid !== me) {
+        try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: `${myProfile?.name || "Someone"} quote-reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error:", e); }
+      }
+    } catch (err) {
+      console.error(err);
       setPosts(ps => ps.filter(x => x.id !== newPost.id).map(x => x.id === orig.id ? { ...x, reposts: Math.max(0, nc - 1), reposted: false } : x));
       addNotif({ type: "error", msg: "Failed to quote repost" });
-      return;
-    }
-    addNotif({ type: "action", msg: "You quote-reposted a signal" });
-    if (orig.uid !== me) {
-      try { await db.post("rs_notifications", { uid: orig.uid, type: "quote", msg: `${myProfile?.name || "Someone"} quote-reposted your post`, post_id: orig.id, profile_id: me, read: false }); } catch (e) { console.error("Notification error (quote):", e); }
     }
   };
 
@@ -179,7 +257,9 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     setPosts(ps => ps.filter(x => !(x.original_post_id === origId && x.reposted_by === me))
       .map(x => x.id === origId ? { ...x, reposts: nc, reposted: false } : x));
     await db.patch("rs_posts", `id=eq.${origId}`, { repost_count: nc });
+    const oldRepostId = p.reposted_by === me ? p.id : id;
     await db.del("rs_posts", `original_post_id=eq.${origId}&reposted_by=eq.${me}`);
+    sendWSMessage({ type: "feed_event", action: "undo_repost", originalPostId: origId, deletedRepostId: oldRepostId, reposts: nc });
   };
 
   const addComment = async (id, text) => {

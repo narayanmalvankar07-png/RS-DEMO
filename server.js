@@ -503,6 +503,17 @@ wss.on("connection", (ws) => {
             }
           });
         }
+      } else if (msg.type === "feed_event") {
+        // Broadcast to everyone else
+        clients.forEach((userSockets, uid) => {
+          if (uid !== myUserId) {
+            userSockets.forEach((s) => {
+              if (s.readyState === WebSocket.OPEN) {
+                s.send(JSON.stringify(msg));
+              }
+            });
+          }
+        });
       }
     } catch (err) {
       console.error("[WS] Error handling message:", err.message);

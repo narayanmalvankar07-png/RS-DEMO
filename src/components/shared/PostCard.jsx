@@ -27,12 +27,13 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
     if (forceShowComments) setShowCmt(true);
   }, [forceShowComments]);
 
-  const auth = profiles[post.uid] || { name: "RightSignal User", hue: "#6b7280" };
-  const bal = bals[post.uid] ?? 0;
+  const displayUid = (post.reposted_by && !post.quote_text && post.original_uid) ? post.original_uid : post.uid;
+  const auth = profiles[displayUid] || profiles[post.uid] || { name: "RightSignal User", hue: "#6b7280" };
+  const bal = bals[displayUid] ?? bals[post.uid] ?? 0;
   const mediaItems = post.media || [];
   const isBookmarked = bookmarks.includes(post.id);
   const isOwn = post.uid === me;
-  const canEdit = Date.now() - post.ts < 5 * 60 * 1000;
+  const canEdit = Date.now() - post.ts < 5 * 60 * 1000 && !post.reposted_by;
 
   useEffect(() => {
     if (!showMenu) return;
@@ -73,7 +74,7 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
 
   const menuItems = isOwn
     ? [
-      { icon: Pencil, label: "Edit post", action: handleEditClick, color: th.txt2 },
+      ...(canEdit ? [{ icon: Pencil, label: "Edit post", action: handleEditClick, color: th.txt2 }] : []),
       { icon: Trash2, label: "Delete post", action: handleDelete, color: "#ef4444" },
       { icon: Link, label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
     ]
@@ -111,10 +112,10 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
           </div>
         )}
         <div style={{ display: "flex", gap: 10 }}>
-          <div onClick={() => onProfile(post.uid)} style={{ cursor: "pointer" }}><Av profile={auth} bal={bal} /></div>
+          <div onClick={() => onProfile(displayUid)} style={{ cursor: "pointer" }}><Av profile={auth} bal={bal} /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-              <span onClick={() => onProfile(post.uid)} style={{ fontWeight: 700, fontSize: 14, color: th.txt, cursor: "pointer" }}>{auth.name}</span>
+              <span onClick={() => onProfile(displayUid)} style={{ fontWeight: 700, fontSize: 14, color: th.txt, cursor: "pointer" }}>{auth.name}</span>
               {auth.verified && <span style={{ color: "#3b82f6", fontSize: 11 }}>✓</span>}
               {auth.system_role && auth.system_role !== "user" && (
                 <span style={{ color: th.txt3, fontSize: 10, background: dk ? "rgba(59,130,246,.12)" : "#eff6ff", padding: "1px 6px", borderRadius: 99, fontWeight: 600 }}>{ROLES[auth.system_role] || auth.system_role}</span>

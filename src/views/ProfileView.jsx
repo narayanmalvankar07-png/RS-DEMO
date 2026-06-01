@@ -172,19 +172,35 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   };
 
   const handleRepost = async (orig) => {
+    if (orig.reposted) return;
     const nc = (orig.repost_count || 0) + 1;
     updatePostState(orig.id, { repost_count: nc, reposted: true });
-    await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
-    addNotif?.({ type: "action", msg: "You reposted a signal" });
+    try {
+      await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
+      const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, original_post_id: orig.id });
+      if (!saved) throw new Error("Failed to post");
+      addNotif?.({ type: "action", msg: "You reposted a signal" });
+    } catch (err) {
+      console.error(err);
+      updatePostState(orig.id, { repost_count: Math.max(0, nc - 1), reposted: false });
+      addNotif?.({ type: "error", msg: "Failed to repost" });
+    }
   };
 
   const handleQuoteRepost = async (orig, quoteText) => {
+    if (orig.reposted) return;
     const nc = (orig.repost_count || 0) + 1;
     updatePostState(orig.id, { repost_count: nc, reposted: true });
-    await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
-    await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
-    addNotif?.({ type: "action", msg: "You quote-reposted a signal" });
+    try {
+      await db.patch("rs_posts", `id=eq.${orig.id}`, { repost_count: nc });
+      const saved = await db.post("rs_posts", { uid: me, text: orig.text, media: orig.media, hashtags: orig.hashtags, location: orig.location, like_count: 0, repost_count: 0, reposted_by: me, quote_text: quoteText, original_post_id: orig.id });
+      if (!saved) throw new Error("Failed to post");
+      addNotif?.({ type: "action", msg: "You quote-reposted a signal" });
+    } catch (err) {
+      console.error(err);
+      updatePostState(orig.id, { repost_count: Math.max(0, nc - 1), reposted: false });
+      addNotif?.({ type: "error", msg: "Failed to quote repost" });
+    }
   };
 
   const handleUndoRepost = async (id) => {
@@ -235,12 +251,20 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       const ls = new Set((myLikes || []).map(l => l.post_id));
       const cs = allComments || [];
       const repSet = new Set((myOwnReposts || []).filter(r => r.original_post_id).map(r => r.original_post_id));
-      const myFeed = (d || []).map(p => ({
+      const myFeed = (d || []).map(p => {
+        let original_uid = null;
+        if (p.reposted_by && p.original_post_id) {
+           const orig = (d || []).find(r => r.id === p.original_post_id);
+           if (orig) original_uid = orig.uid;
+        }
+        return {
         ...p,
+        original_uid,
         liked: ls.has(p.id),
         reposted: repSet.has(p.id),
         comments: cs.filter(c => c.post_id === p.id)
-      }));
+        };
+      });
       const myOriginals = myFeed.filter(p => p.uid === uid && p.reposted_by !== uid);
       const myReposts = myFeed.filter(p => p.reposted_by === uid);
       setPosts(myOriginals.slice(0, 30));
@@ -270,12 +294,20 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           const cs = allComments || [];
           const repSet = new Set((myOwnReposts || []).filter(r => r.original_post_id).map(r => r.original_post_id));
           const likedIds = new Set(likes.map(l => l.post_id));
-          const p = (allPosts || []).filter(x => likedIds.has(x.id)).map(p => ({
+          const p = (allPosts || []).filter(x => likedIds.has(x.id)).map(p => {
+            let original_uid = null;
+            if (p.reposted_by && p.original_post_id) {
+              const orig = (allPosts || []).find(r => r.id === p.original_post_id);
+              if (orig) original_uid = orig.uid;
+            }
+            return {
             ...p,
+            original_uid,
             liked: (uid === me) ? true : ls.has(p.id),
             reposted: repSet.has(p.id),
             comments: cs.filter(c => c.post_id === p.id)
-          }));
+            };
+          });
           setLikedPosts(p);
           setLoadingLikes(false);
         });
