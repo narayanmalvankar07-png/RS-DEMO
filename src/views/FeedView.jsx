@@ -87,7 +87,16 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
           if (msg.newPostObj) {
             setPosts(ps => {
               if (ps.find(x => x.id === msg.newPostObj.id)) return ps;
-              return [msg.newPostObj, ...ps];
+              const p = msg.newPostObj;
+              const formatted = {
+                id: p.id, uid: p.uid, text: p.text, media: p.media || [],
+                hashtags: p.hashtags || [], location: p.location,
+                likes: p.like_count || 0, reposts: p.repost_count || 0,
+                liked: false, reposted: false, comments: [],
+                ts: new Date(p.created_at || Date.now()).getTime(), reposted_by: p.reposted_by,
+                quote_text: p.quote_text, is_sponsored: p.is_sponsored, original_post_id: p.original_post_id
+              };
+              return [formatted, ...ps];
             });
           }
         }
