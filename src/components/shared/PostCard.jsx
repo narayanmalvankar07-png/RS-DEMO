@@ -1,6 +1,7 @@
 // src/components/shared/PostCard.jsx
 import { useState, useRef, useEffect } from "react";
 import { Heart, MessageCircle, Repeat2, Share2, Bookmark, ChevronLeft, ChevronRight, Mic, Send, MoreHorizontal, Pencil, Trash2, Check, X, Link, Flag } from "lucide-react";
+import { toast } from "sonner";
 import { T, ROLES } from '../../config/constants.js';
 import { ago, fmt } from '../../utils/helpers.js';
 import Av from '../ui/Av.jsx';
@@ -21,6 +22,7 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
   const [editText, setEditText] = useState(post.text || "");
   const [editError, setEditError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -59,9 +61,15 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
   };
 
   const handleDelete = () => {
-    if (window.confirm("Delete this post? This cannot be undone.")) {
-      onDelete?.(post.id); setShowMenu(false);
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
     }
+    onDelete?.(post.id); setShowMenu(false); setConfirmDelete(false);
+  };
+
+  const cancelDelete = () => {
+    setConfirmDelete(false);
   };
 
   const copyLink = async () => {
@@ -79,7 +87,7 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
       { icon: Link, label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
     ]
     : [
-      { icon: Flag, label: "Report post", action: () => { alert("Post reported. Thank you."); setShowMenu(false); }, color: "#f59e0b" },
+      { icon: Flag, label: "Report post", action: () => { toast.success("Post reported. Thank you."); setShowMenu(false); }, color: "#f59e0b" },
       { icon: Link, label: copied ? "Copied!" : "Copy link", action: copyLink, color: th.txt2 },
     ];
 
@@ -129,14 +137,28 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
                 </button>
                 {showMenu && (
                   <div style={{ position: "absolute", top: 24, right: 0, zIndex: 100, background: dk ? "rgba(10,14,30,0.97)" : "rgba(255,255,255,0.97)", backdropFilter: "blur(20px)", border: `1px solid ${dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)"}`, borderRadius: 14, boxShadow: dk ? "0 16px 48px rgba(0,0,0,.7)" : "0 12px 36px rgba(0,0,0,.14)", minWidth: 170, overflow: "hidden", animation: "scaleIn 0.2s cubic-bezier(0.22,1,0.36,1) both", transformOrigin: "top right" }}>
-                    {menuItems.map((item, i) => (
-                      <button key={i} onClick={item.action} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", color: item.color, fontSize: 13, fontWeight: 500, textAlign: "left", transition: "background 0.15s" }}
-                        onMouseEnter={e => e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        <item.icon size={14} />
-                        {item.label}
-                      </button>
-                    ))}
+                    {confirmDelete ? (
+                      <div style={{ padding: "10px 14px" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#ef4444", marginBottom: 8 }}>Delete this post? This cannot be undone.</div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={handleDelete} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "7px 12px", border: "none", borderRadius: 8, background: "#ef4444", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            <Trash2 size={13} /> Delete
+                          </button>
+                          <button onClick={cancelDelete} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "7px 12px", border: `1px solid ${th.bdr}`, borderRadius: 8, background: "transparent", color: th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      menuItems.map((item, i) => (
+                        <button key={i} onClick={item.action} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", color: item.color, fontSize: 13, fontWeight: 500, textAlign: "left", transition: "background 0.15s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <item.icon size={14} />
+                          {item.label}
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>

@@ -27,6 +27,12 @@ export const sbAuth = {
     sessionStorage.setItem("rs_oauth_pending", "1");
     window.location.href = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&scopes=email%20profile`;
   },
+  refreshSession: (refreshToken) =>
+    fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }).then(r => r.ok ? r.json() : null),
 };
 
 // ── Local Caching & Delta Syncing Engine ───────────────────────────

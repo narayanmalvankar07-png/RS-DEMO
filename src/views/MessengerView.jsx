@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { Send, Search, Edit, X, MessageSquareOff, Users, Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Send, Search, Edit, X, MessageSquareOff, Users, Plus, MoreVertical, Trash2, ChevronLeft } from "lucide-react";
 import { T } from "../config/constants.js";
 import Av from "../components/ui/Av.jsx";
 import Card from "../components/ui/Card.jsx";
 import Conversation from "../components/shared/Conversation.tsx";
 
-export default function MessengerView({ dk, profiles, me, initUid, onProfile }) {
+export default function MessengerView({ dk, profiles, me, initUid, onProfile, isMobile = false }) {
   const th = T(dk);
 
   const [conversations, setConversations] = useState([]);
@@ -251,11 +251,16 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
     boxSizing: "border-box",
   };
 
+  // Mobile: stacked panels — show list or chat, not both
+  const showList = !isMobile || !activeId;
+  const showChat = !isMobile || !!activeId;
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 12, height: "100%", width: "100%", overflow: "hidden", padding: "12px 16px" }}>
+    <div style={{ display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "300px 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 0 : 12, height: "100%", width: "100%", overflow: "hidden", padding: isMobile ? "8px 8px" : "12px 16px" }}>
 
       {/* ── Left panel: conversation list ─── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0 }}>
+      {showList && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0, flex: isMobile ? 1 : undefined }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: th.txt }}>Messages</h2>
           <button
@@ -333,9 +338,11 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
           )}
         </Card>
       </div>
+      )}
 
       {/* ── Right panel: active chat ───────── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", height: "100%", minHeight: 0 }}>
+      {showChat && (
+      <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 8 : 12, overflow: "hidden", height: "100%", minHeight: 0, flex: isMobile ? 1 : undefined }}>
         {!activeConv ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: th.txt3, gap: 12, minHeight: 0 }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: dk ? "rgba(255,255,255,0.05)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -348,6 +355,11 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
           <>
             {/* Chat header */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "12px 16px", flexShrink: 0, position: "relative" }}>
+              {isMobile && (
+                <button onClick={() => setActiveId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center", flexShrink: 0 }}>
+                  <ChevronLeft size={22} />
+                </button>
+              )}
               {activeConv.is_group
                 ? <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Users size={20} color="#fff" /></div>
                 : <button onClick={() => onProfile?.(getConvTarget(activeConv))} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
@@ -393,6 +405,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile }) 
           </>
         )}
       </div>
+      )}
 
       {/* ── New message modal ──────────────── */}
       {showNewMsg && (

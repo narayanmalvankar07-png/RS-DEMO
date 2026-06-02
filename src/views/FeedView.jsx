@@ -1,7 +1,7 @@
 // src/views/FeedView.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Hash, X, Bookmark, Sparkles } from "lucide-react";
-import { T, SEED_POSTS, WHO_OPTS, INT_OPTS } from '../config/constants.js';
+import { T, SEED_POSTS, WHO_OPTS, INT_OPTS, SB_URL, SB_KEY } from '../config/constants.js';
 import { genId } from '../utils/helpers.js';
 import { db } from '../services/supabase.js';
 import { sendWSMessage, subscribeWS } from '../services/websocket.js';
@@ -18,7 +18,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   const activeTag = propActiveTag !== undefined ? propActiveTag : localActiveTag;
   const setActiveTag = propSetActiveTag !== undefined ? propSetActiveTag : setLocalActiveTag;
   const postRefs = useRef({});
-  const pendingLikes = useRef(new Set());
+  const likeQueue = useRef({});
 
   const load = useCallback(async () => {
     const [rp, allLikes, ac] = await Promise.all([
@@ -27,11 +27,32 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
       db.get("rs_comments", "order=created_at.desc&limit=500")
     ]);
     const ml = (allLikes || []).filter(l => l.uid === me);
-    const myReposts = (rp || []).filter(p => p.reposted_by === me);
     const ls = new Set(ml.map(l => l.post_id));
-    const repSet = new Set(myReposts.filter(r => r.original_post_id).map(r => r.original_post_id));
     let rows = rp || [];
     if (!rows.length) { await db.postMany("rs_posts", SEED_POSTS); rows = await db.get("rs_posts", "order=created_at.desc&limit=80") || []; }
+
+    let extraComments = [];
+    if (focusPostId && !rows.some(p => p.id === focusPostId)) {
+      try {
+        const [fetchedPost, fetchedComments] = await Promise.all([
+          db.get("rs_posts", `id=eq.${focusPostId}`),
+          db.get("rs_comments", `post_id=eq.${focusPostId}&order=created_at.desc`)
+        ]);
+        if (fetchedPost && fetchedPost.length > 0) {
+          rows = [...fetchedPost, ...rows];
+        }
+        if (fetchedComments && fetchedComments.length > 0) {
+          extraComments = fetchedComments;
+        }
+      } catch (e) {
+        console.error("Error fetching focused post/comments:", e);
+      }
+    }
+
+    const myReposts = rows.filter(p => p.reposted_by === me);
+    const repSet = new Set(myReposts.filter(r => r.original_post_id).map(r => r.original_post_id));
+    const allComments = (ac || []).concat(extraComments);
+
     setPosts(rows.map(p => {
       let original_uid = null;
       if (p.reposted_by && p.original_post_id) {
@@ -42,13 +63,13 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
         id: p.id, uid: p.uid, text: p.text, media: p.media || [],
         hashtags: p.hashtags || [], location: p.location,
         likes: p.like_count || 0, reposts: p.repost_count || 0,
-        liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: (ac || []).filter(c => c.post_id === p.id).reverse(),
+        liked: ls.has(p.id), reposted: repSet.has(p.id) || p.reposted_by === me, comments: allComments.filter(c => c.post_id === p.id).reverse(),
         ts: new Date(p.created_at).getTime(), reposted_by: p.reposted_by,
         quote_text: p.quote_text, is_sponsored: p.is_sponsored, original_post_id: p.original_post_id, original_uid
       }
     }));
     setLoading(false);
-  }, [me]);
+  }, [me, focusPostId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -118,99 +139,95 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     sendWSMessage({ type: "feed_event", action: "new_post", newPostObj: saved });
   };
 
-  const toggleLike = async id => {
-    if (pendingLikes.current.has(id)) return;
-    pendingLikes.current.add(id);
+  const triggerLikeSync = async id => {
+    const q = likeQueue.current[id];
+    if (!q || q.running) return;
 
+    q.running = true;
     try {
-      const p = posts.find(x => x.id === id); if (!p) return;
-
-      // 1. Instant UI update for snappy feedback
-      const optimisticLiked = !p.liked;
-      const optimisticCount = optimisticLiked ? (p.likes + 1) : Math.max(0, p.likes - 1);
-      setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: optimisticLiked, likes: optimisticCount } : x));
-
-      // 2. Strict validate from backend (Cache-Busted via headers & fetch options)
-      let alreadyLiked = false;
-      try {
-        const url = `${SB_URL}/rest/v1/rs_post_likes?post_id=eq.${id}&uid=eq.${me}`;
-        const sess = JSON.parse(localStorage.getItem("rs_session") || "null");
-        const hdrs = {
-          "apikey": SB_KEY,
-          "Authorization": sess?.access_token ? `Bearer ${sess.access_token}` : "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache"
-        };
-        const res = await fetch(url, { headers: hdrs, cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          alreadyLiked = data && data.length > 0;
-        } else {
-          // If network returns an error (like 400), fallback to local cache
-          const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-          alreadyLiked = existing && existing.length > 0;
-        }
-      } catch (e) {
-        // Fallback to local check if network fails
+      while (true) {
+        const target = q.targetLiked;
+        
+        // Fetch current DB liked state
         const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-        alreadyLiked = existing && existing.length > 0;
-      }
+        const isCurrentlyLiked = existing && existing.length > 0;
 
-      // 3. True DB State Logic
-      const postData = await db.get("rs_posts", `id=eq.${id}&select=like_count`);
-      const currentDbCount = postData?.[0]?.like_count || 0;
+        if (target !== isCurrentlyLiked) {
+          if (target) {
+            // Add Like
+            await db.post("rs_post_likes", { post_id: id, uid: me });
+            const postData = await db.get("rs_posts", `id=eq.${id}`);
+            const freshCount = (postData?.[0]?.like_count || 0) + 1;
+            await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: freshCount } : x));
+            sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: freshCount });
 
-      if (optimisticLiked) {
-        if (!alreadyLiked) {
-          // If not exists -> create, increment, update UI.
-          const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
-          if (saved) {
-            const newCount = currentDbCount + 1;
-            await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
-            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: newCount } : x));
-            sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: newCount });
-
-            if (p.uid !== me) {
-              try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${myProfile?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
+            // Post notification if the post is not ours
+            const postAuthor = postData?.[0]?.uid;
+            if (postAuthor && postAuthor !== me) {
+              try {
+                await db.post("rs_notifications", {
+                  uid: postAuthor,
+                  type: "like",
+                  msg: `${myProfile?.name || "Someone"} liked your post`,
+                  post_id: id,
+                  profile_id: me,
+                  read: false
+                });
+              } catch {}
             }
           } else {
-            // If insert failed, it might be a 409 Conflict (row already exists).
-            // Let's strictly verify before we revert the UI.
-            try {
-              const verifyReq = await fetch(url, { headers: hdrs, cache: "no-store" });
-              if (verifyReq.ok) {
-                const verifyData = await verifyReq.json();
-                if (verifyData && verifyData.length > 0) {
-                  // It was a 409 Conflict, the like actually exists! Keep UI red.
-                  setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: currentDbCount } : x));
-                  return;
-                }
-              }
-            } catch (e) { }
-            // If it really failed, revert optimistic UI
-            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: currentDbCount } : x));
+            // Remove Like
+            await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+            const postData = await db.get("rs_posts", `id=eq.${id}`);
+            const freshCount = Math.max(0, (postData?.[0]?.like_count || 0) - 1);
+            await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: freshCount } : x));
+            sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: freshCount });
           }
-        } else {
-          // Already liked on backend (cache out of sync), ensure UI is correct
-          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: currentDbCount } : x));
         }
-      } else {
-        if (alreadyLiked) {
-          // If exists -> remove, decrement, update UI
-          await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-          const newCount = Math.max(0, currentDbCount - 1);
-          await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
-          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: newCount } : x));
-          sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: newCount });
-        } else {
-          // Already unliked on backend (cache out of sync), ensure UI is correct
-          setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: currentDbCount } : x));
+
+        // Loop again if the target changed while we were running
+        if (q.targetLiked === target) {
+          break;
         }
       }
+    } catch (e) {
+      console.error("Like sync error:", e);
     } finally {
-      pendingLikes.current.delete(id);
+      q.running = false;
+      if (likeQueue.current[id] && likeQueue.current[id].targetLiked !== undefined) {
+        const latestTarget = likeQueue.current[id].targetLiked;
+        if (latestTarget !== q.targetLiked) {
+          triggerLikeSync(id);
+        }
+      }
     }
   };
+
+  const toggleLike = useCallback(async id => {
+    let currentPost;
+    setPosts(ps => {
+      const idx = ps.findIndex(x => x.id === id);
+      if (idx === -1) return ps;
+      currentPost = ps[idx];
+      const newLiked = !currentPost.liked;
+      const newLikes = newLiked ? (currentPost.likes + 1) : Math.max(0, currentPost.likes - 1);
+      
+      const updated = [...ps];
+      updated[idx] = { ...currentPost, liked: newLiked, likes: newLikes };
+      
+      if (!likeQueue.current[id]) {
+        likeQueue.current[id] = { targetLiked: newLiked, running: false };
+      } else {
+        likeQueue.current[id].targetLiked = newLiked;
+      }
+      
+      return updated;
+    });
+
+    triggerLikeSync(id);
+  }, []);
 
   const doRepost = async orig => {
     if (orig.reposted) return;

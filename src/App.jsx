@@ -13,6 +13,7 @@ import { connectWebSocket, disconnectWebSocket, subscribeWS } from "./services/w
 import GlobalCSS from "./components/ui/GlobalCSS";
 import TokenPop from "./components/ui/TokenPop";
 import Av from "./components/ui/Av";
+import RightSignalLogo from "./components/ui/RightSignalLogo";
 
 // Shared Components
 import SearchBar from "./components/shared/SearchBar";
@@ -407,7 +408,22 @@ export default function App() {
     let cancelled = false;
     const trySession = async (sess) => {
       if (!sess?.access_token) return false;
+      // If token is expired, try refreshing before giving up
       if (sess.expires_at && sess.expires_at < Math.floor(Date.now() / 1000)) {
+        if (sess.refresh_token) {
+          try {
+            const refreshed = await sbAuth.refreshSession(sess.refresh_token);
+            if (refreshed?.access_token) {
+              const newSess = {
+                access_token: refreshed.access_token,
+                refresh_token: refreshed.refresh_token || sess.refresh_token,
+                expires_at: refreshed.expires_at || Math.floor(Date.now() / 1000) + (refreshed.expires_in || 3600),
+              };
+              localStorage.setItem("rs_session", JSON.stringify(newSess));
+              return trySession(newSess);
+            }
+          } catch { }
+        }
         localStorage.removeItem("rs_session");
         sessionStorage.removeItem("rs_oauth_return");
         return false;
@@ -416,6 +432,13 @@ export default function App() {
         const u = await sbAuth.getUser(sess.access_token);
         if (!cancelled && u && u.id) {
           await handleAuth(sess, u, false, "");
+          // Check for ?post= query param for deep-linking
+          const postParam = new URLSearchParams(window.location.search).get("post");
+          if (postParam) {
+            setNotifFocus({ postId: postParam, commentId: null });
+            setView("feed");
+            window.history.replaceState({}, "", window.location.pathname);
+          }
           return true;
         }
       } catch { }
@@ -458,10 +481,45 @@ export default function App() {
           await trySession(sess);
         }
       }
+
+      // If no session found, check for post deep-link and redirect after auth
+      if (!cancelled) {
+        const postParam = new URLSearchParams(window.location.search).get("post");
+        if (postParam) {
+          sessionStorage.setItem("rs_pending_post", postParam);
+        }
+      }
     })();
 
     return () => { cancelled = true; };
   }, []);
+
+  // Proactive token refresh — renew 5 minutes before expiry, check every 45 minutes
+  useEffect(() => {
+    if (screen !== "app" && screen !== "admin") return;
+    const refreshInterval = setInterval(async () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem("rs_session") || "null");
+        if (!stored?.refresh_token) return;
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = (stored.expires_at || 0) - now;
+        // Refresh if token expires within 5 minutes
+        if (expiresIn < 300) {
+          const refreshed = await sbAuth.refreshSession(stored.refresh_token);
+          if (refreshed?.access_token) {
+            const newSess = {
+              access_token: refreshed.access_token,
+              refresh_token: refreshed.refresh_token || stored.refresh_token,
+              expires_at: refreshed.expires_at || now + (refreshed.expires_in || 3600),
+            };
+            localStorage.setItem("rs_session", JSON.stringify(newSess));
+            setSession(newSess);
+          }
+        }
+      } catch { }
+    }, 45 * 60 * 1000); // Every 45 minutes
+    return () => clearInterval(refreshInterval);
+  }, [screen]);
 
   if (screen === "loading") return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#040a14,#0c1929)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
@@ -490,7 +548,7 @@ export default function App() {
     switch (view) {
       case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} />;
       case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} onProfileUpdate={handleProfileUpdate} addNotif={addNotif} />;
-      case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} />;
+      case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} isMobile={isMobile} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
       case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
@@ -539,14 +597,15 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                   <button onClick={() => setSidebarOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center" }}><Menu size={20} /></button>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ color: "#fff", fontWeight: 900, fontSize: 14 }}>R</span>
-                    </div>
+                    <RightSignalLogo size={26} showText={false} dk={dk} />
                     <span style={{ fontSize: 13, fontWeight: 800, color: th.txt, letterSpacing: "-0.3px" }}>RIGHTSIGNAL</span>
                   </div>
                 </div>
               ) : (
-                <SearchBar dk={dk} profiles={profiles} onProfile={openProfile} onTag={handleTag} />
+                <>
+                  <RightSignalLogo size={28} showText={false} dk={dk} />
+                  <SearchBar dk={dk} profiles={profiles} onProfile={openProfile} onTag={handleTag} />
+                </>
               )}
 
               {/* Right controls */}

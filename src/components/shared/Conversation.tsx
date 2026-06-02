@@ -383,7 +383,7 @@ export default function Conversation({
         if (lastIdRef.current) {
           setMessages(prev => prev.filter(m => m.id !== lastIdRef.current));
         }
-        alert(data.message);
+        toast.error(data.message);
       }
     });
 
@@ -460,7 +460,7 @@ export default function Conversation({
         });
       } catch (err) {
         console.error('Attachment upload failed:', err);
-        alert('Could not upload the selected file.');
+        toast.error('Could not upload the selected file.');
       } finally {
         setUploadingAttachment(false);
         if (imageInputRef.current) imageInputRef.current.value = '';
@@ -611,7 +611,7 @@ export default function Conversation({
       recordTimerRef.current = window.setInterval(() => setRecordSecs(s => s + 1), 1000);
     } catch (err) {
       console.error('Microphone access denied', err);
-      alert('Microphone access is required to record audio.');
+      toast.warning('Microphone access is required to record audio.');
     }
   };
 
