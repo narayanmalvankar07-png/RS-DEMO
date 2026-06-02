@@ -432,7 +432,10 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setIsAligned(false);
     setAlignCount(prev => Math.max(0, prev - 1));
     try {
-      await db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
+      await Promise.all([
+        db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`),
+        db.del("rs_alignments", `follower_uid=eq.${uid}&following_uid=eq.${me}`),
+      ]);
       addNotif?.({ type: "info", msg: `⛓️ You misaligned with ${targetName}` });
     } catch (err) {
       console.error("Failed to misalign:", err);

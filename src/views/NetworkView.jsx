@@ -89,7 +89,10 @@ function NetworkView({ me, dk, onProfile, bals, profiles, addNotif }) {
     const on = alignedSet.has(uid);
     if (on) {
       setAligned(a => a.filter(x => x !== uid));
-      await db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
+      await Promise.all([
+        db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`),
+        db.del("rs_alignments", `follower_uid=eq.${uid}&following_uid=eq.${me}`),
+      ]);
       return;
     }
     await sendRequest(uid);
