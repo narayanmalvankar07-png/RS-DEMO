@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://rightsignal.in/sitemap.xml
+Sitemap: https://rightsignal.social/sitemap.xml

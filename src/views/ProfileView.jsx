@@ -57,7 +57,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   };
 
   const fileInputRef = useRef(null);
-  const likeQueue = useRef({});
+  const likeManager = useRef({ states: {} });
   const [editAvatar, setEditAvatar] = useState(profile.avatar || "");
   const [editSocials, setEditSocials] = useState(getSocialLinksObj(profile.social_links));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -97,62 +97,56 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setLikedPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
-  const triggerLikeSync = async (id, postUid) => {
-    const q = likeQueue.current[id];
-    if (!q || q.running) return;
+  const syncLikeState = async (id, postUid) => {
+    const state = likeManager.current.states[id];
+    if (!state || state.syncing) return;
 
-    q.running = true;
+    if (state.currentLiked === state.initialLiked) {
+      // User ended up in the same state, no sync needed
+      return;
+    }
+
+    state.syncing = true;
+    const targetLiked = state.currentLiked;
+
     try {
-      while (true) {
-        const target = q.targetLiked;
-        
-        const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-        const isCurrentlyLiked = existing && existing.length > 0;
+      if (targetLiked) {
+        // Add Like
+        await db.post("rs_post_likes", { post_id: id, uid: me });
+        const postData = await db.get("rs_posts", `id=eq.${id}`);
+        const freshCount = (postData?.[0]?.like_count || 0) + 1;
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+        updatePostState(id, { like_count: freshCount, liked: true });
 
-        if (target !== isCurrentlyLiked) {
-          if (target) {
-            // Like
-            await db.post("rs_post_likes", { post_id: id, uid: me });
-            const postData = await db.get("rs_posts", `id=eq.${id}`);
-            const freshCount = (postData?.[0]?.like_count || 0) + 1;
-            await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
-            updatePostState(id, { like_count: freshCount, liked: true });
-
-            if (postUid && postUid !== me) {
-              try {
-                await db.post("rs_notifications", {
-                  uid: postUid,
-                  type: "like",
-                  msg: `${profiles[me]?.name || "Someone"} liked your post`,
-                  post_id: id,
-                  profile_id: me,
-                  read: false
-                });
-              } catch {}
-            }
-          } else {
-            // Unlike
-            await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-            const postData = await db.get("rs_posts", `id=eq.${id}`);
-            const freshCount = Math.max(0, (postData?.[0]?.like_count || 0) - 1);
-            await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
-            updatePostState(id, { like_count: freshCount, liked: false });
-          }
+        if (postUid && postUid !== me) {
+          try {
+            await db.post("rs_notifications", {
+              uid: postUid,
+              type: "like",
+              msg: `${profiles[me]?.name || "Someone"} liked your post`,
+              post_id: id,
+              profile_id: me,
+              read: false
+            });
+          } catch {}
         }
-
-        if (q.targetLiked === target) {
-          break;
-        }
+      } else {
+        // Remove Like
+        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        const postData = await db.get("rs_posts", `id=eq.${id}`);
+        const freshCount = Math.max(0, (postData?.[0]?.like_count || 0) - 1);
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+        updatePostState(id, { like_count: freshCount, liked: false });
       }
+
+      state.initialLiked = targetLiked;
     } catch (e) {
       console.error("Profile like sync error:", e);
     } finally {
-      q.running = false;
-      if (likeQueue.current[id] && likeQueue.current[id].targetLiked !== undefined) {
-        const latestTarget = likeQueue.current[id].targetLiked;
-        if (latestTarget !== q.targetLiked) {
-          triggerLikeSync(id, postUid);
-        }
+      state.syncing = false;
+      // If state changed while syncing, trigger sync again
+      if (state.currentLiked !== state.initialLiked) {
+        syncLikeState(id, postUid);
       }
     }
   };
@@ -167,13 +161,25 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
 
     updatePostState(id, { like_count: newLikes, liked: newLiked });
 
-    if (!likeQueue.current[id]) {
-      likeQueue.current[id] = { targetLiked: newLiked, running: false };
+    if (!likeManager.current.states[id]) {
+      likeManager.current.states[id] = {
+        initialLiked: currentLiked,
+        currentLiked: newLiked,
+        timer: null,
+        syncing: false
+      };
     } else {
-      likeQueue.current[id].targetLiked = newLiked;
+      likeManager.current.states[id].currentLiked = newLiked;
     }
 
-    triggerLikeSync(id, p.uid);
+    const state = likeManager.current.states[id];
+    if (state.timer) {
+      clearTimeout(state.timer);
+    }
+
+    state.timer = setTimeout(() => {
+      syncLikeState(id, p.uid);
+    }, 600);
   }, [posts, reposts, likedPosts]);
 
   const handleRepost = async (orig) => {

@@ -877,8 +877,8 @@ export default function Conversation({
                         style={{
                           position: 'absolute',
                           top: 24,
-                          left: fromMe ? 0 : 'auto',
-                          right: fromMe ? 'auto' : 0,
+                          left: fromMe ? 'auto' : 0,
+                          right: fromMe ? 0 : 'auto',
                           minWidth: 200,
                           background: th.surf,
                           border: `1px solid ${th.bdr}`,
@@ -1017,8 +1017,8 @@ export default function Conversation({
                         style={{
                           position: 'absolute',
                           top: 24,
-                          left: fromMe ? 0 : 'auto',
-                          right: fromMe ? 'auto' : 0,
+                          left: fromMe ? 'auto' : 0,
+                          right: fromMe ? 0 : 'auto',
                           width: 260,
                           height: 200,
                           background: th.surf,
@@ -1074,7 +1074,7 @@ export default function Conversation({
                       </div>
                     )}
                     {editingMessageId === msg.id && (
-                      <div style={{ marginTop: 8, padding: 10, borderRadius: 12, background: th.surf, border: `1px solid ${th.bdr}`, minWidth: 240 }}>
+                      <div style={{ marginTop: 8, padding: 10, borderRadius: 12, background: th.surf, border: `1px solid ${th.bdr}`, minWidth: 240, maxWidth: '100%', boxSizing: 'border-box' }}>
                         <textarea
                           value={editDraft}
                           onChange={(e) => setEditDraft(e.target.value)}
@@ -1166,7 +1166,7 @@ export default function Conversation({
                         <div style={{ marginBottom: (parsed.audio || parsed.attachment) ? 8 : 0 }}>{bubbleText}</div>
                       ) : null}
                       {parsed.audio ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220, maxWidth: '100%', boxSizing: 'border-box' }}>
                           {audioSrc ? (
                             <audio controls preload="none" src={audioSrc} style={{ width: '100%', maxWidth: '300px', height: 38 }} />
                           ) : (
@@ -1177,7 +1177,7 @@ export default function Conversation({
                         </div>
                       ) : parsed.attachment ? (
                         attachmentKind === 'image' && attachmentSrc ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220, maxWidth: '100%', boxSizing: 'border-box' }}>
                             <a href={attachmentSrc} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
                               <img
                                 src={attachmentSrc}
@@ -1195,7 +1195,7 @@ export default function Conversation({
                             style={{ textDecoration: 'none', color: 'inherit', display: 'flex' }}
                             onClick={e => { if (!attachmentSrc) e.preventDefault(); }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220, padding: '10px 12px', borderRadius: 10, background: fromMe ? 'rgba(255,255,255,0.15)' : (dk ? 'rgba(255,255,255,0.05)' : '#f1f5f9') }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 220, maxWidth: '100%', padding: '10px 12px', borderRadius: 10, background: fromMe ? 'rgba(255,255,255,0.15)' : (dk ? 'rgba(255,255,255,0.05)' : '#f1f5f9'), boxSizing: 'border-box' }}>
                               <div style={{ width: 34, height: 34, borderRadius: 10, background: fromMe ? 'rgba(255,255,255,0.18)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <FileText size={16} color={fromMe ? '#fff' : '#64748b'} />
                               </div>

@@ -18,7 +18,7 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
   const activeTag = propActiveTag !== undefined ? propActiveTag : localActiveTag;
   const setActiveTag = propSetActiveTag !== undefined ? propSetActiveTag : setLocalActiveTag;
   const postRefs = useRef({});
-  const likeQueue = useRef({});
+  const likeManager = useRef({ states: {} });
 
   const load = useCallback(async () => {
     const [rp, allLikes, ac] = await Promise.all([
@@ -139,94 +139,98 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     sendWSMessage({ type: "feed_event", action: "new_post", newPostObj: saved });
   };
 
-  const triggerLikeSync = async id => {
-    const q = likeQueue.current[id];
-    if (!q || q.running) return;
+  const syncLikeState = async (id) => {
+    const state = likeManager.current.states[id];
+    if (!state || state.syncing) return;
 
-    q.running = true;
+    if (state.currentLiked === state.initialLiked) {
+      // User ended up in the same state, no sync needed
+      return;
+    }
+
+    state.syncing = true;
+    const targetLiked = state.currentLiked;
+
     try {
-      while (true) {
-        const target = q.targetLiked;
+      if (targetLiked) {
+        // Add Like
+        await db.post("rs_post_likes", { post_id: id, uid: me });
+        const postData = await db.get("rs_posts", `id=eq.${id}`);
+        const freshCount = (postData?.[0]?.like_count || 0) + 1;
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
         
-        // Fetch current DB liked state
-        const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-        const isCurrentlyLiked = existing && existing.length > 0;
+        setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: freshCount } : x));
+        sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: freshCount });
 
-        if (target !== isCurrentlyLiked) {
-          if (target) {
-            // Add Like
-            await db.post("rs_post_likes", { post_id: id, uid: me });
-            const postData = await db.get("rs_posts", `id=eq.${id}`);
-            const freshCount = (postData?.[0]?.like_count || 0) + 1;
-            await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
-            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: true, likes: freshCount } : x));
-            sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: freshCount });
-
-            // Post notification if the post is not ours
-            const postAuthor = postData?.[0]?.uid;
-            if (postAuthor && postAuthor !== me) {
-              try {
-                await db.post("rs_notifications", {
-                  uid: postAuthor,
-                  type: "like",
-                  msg: `${myProfile?.name || "Someone"} liked your post`,
-                  post_id: id,
-                  profile_id: me,
-                  read: false
-                });
-              } catch {}
-            }
-          } else {
-            // Remove Like
-            await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-            const postData = await db.get("rs_posts", `id=eq.${id}`);
-            const freshCount = Math.max(0, (postData?.[0]?.like_count || 0) - 1);
-            await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
-            setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: freshCount } : x));
-            sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: freshCount });
-          }
+        // Post notification if the post is not ours
+        const postAuthor = postData?.[0]?.uid;
+        if (postAuthor && postAuthor !== me) {
+          try {
+            await db.post("rs_notifications", {
+              uid: postAuthor,
+              type: "like",
+              msg: `${myProfile?.name || "Someone"} liked your post`,
+              post_id: id,
+              profile_id: me,
+              read: false
+            });
+          } catch {}
         }
-
-        // Loop again if the target changed while we were running
-        if (q.targetLiked === target) {
-          break;
-        }
+      } else {
+        // Remove Like
+        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        const postData = await db.get("rs_posts", `id=eq.${id}`);
+        const freshCount = Math.max(0, (postData?.[0]?.like_count || 0) - 1);
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+        
+        setPosts(ps => ps.map(x => x.id === id ? { ...x, liked: false, likes: freshCount } : x));
+        sendWSMessage({ type: "feed_event", action: "like", postId: id, likes: freshCount });
       }
+
+      state.initialLiked = targetLiked;
     } catch (e) {
       console.error("Like sync error:", e);
     } finally {
-      q.running = false;
-      if (likeQueue.current[id] && likeQueue.current[id].targetLiked !== undefined) {
-        const latestTarget = likeQueue.current[id].targetLiked;
-        if (latestTarget !== q.targetLiked) {
-          triggerLikeSync(id);
-        }
+      state.syncing = false;
+      // If state changed while syncing, trigger sync again
+      if (state.currentLiked !== state.initialLiked) {
+        syncLikeState(id);
       }
     }
   };
 
-  const toggleLike = useCallback(async id => {
-    let currentPost;
+  const toggleLike = useCallback(id => {
     setPosts(ps => {
       const idx = ps.findIndex(x => x.id === id);
       if (idx === -1) return ps;
-      currentPost = ps[idx];
-      const newLiked = !currentPost.liked;
-      const newLikes = newLiked ? (currentPost.likes + 1) : Math.max(0, currentPost.likes - 1);
-      
-      const updated = [...ps];
-      updated[idx] = { ...currentPost, liked: newLiked, likes: newLikes };
-      
-      if (!likeQueue.current[id]) {
-        likeQueue.current[id] = { targetLiked: newLiked, running: false };
+      const p = ps[idx];
+      const newLiked = !p.liked;
+      const newLikes = newLiked ? (p.likes + 1) : Math.max(0, p.likes - 1);
+
+      if (!likeManager.current.states[id]) {
+        likeManager.current.states[id] = {
+          initialLiked: p.liked,
+          currentLiked: newLiked,
+          timer: null,
+          syncing: false
+        };
       } else {
-        likeQueue.current[id].targetLiked = newLiked;
+        likeManager.current.states[id].currentLiked = newLiked;
       }
-      
+
+      const state = likeManager.current.states[id];
+      if (state.timer) {
+        clearTimeout(state.timer);
+      }
+
+      state.timer = setTimeout(() => {
+        syncLikeState(id);
+      }, 600);
+
+      const updated = [...ps];
+      updated[idx] = { ...p, liked: newLiked, likes: newLikes };
       return updated;
     });
-
-    triggerLikeSync(id);
   }, []);
 
   const doRepost = async orig => {

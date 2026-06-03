@@ -358,7 +358,7 @@ app.post("/api/upload-attachment", async (req, res) => {
 });
 
 // ── Start server with WebSocket integration ─────────────────────────
-const PORT = process.env.PORT || process.env.API_PORT || 5000;
+const PORT = process.env.API_PORT || 10000;
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 

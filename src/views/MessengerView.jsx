@@ -5,7 +5,7 @@ import Av from "../components/ui/Av.jsx";
 import Card from "../components/ui/Card.jsx";
 import Conversation from "../components/shared/Conversation.tsx";
 
-export default function MessengerView({ dk, profiles, me, initUid, onProfile, isMobile = false }) {
+export default function MessengerView({ dk, profiles, me, initUid, onProfile, isMobile = false, onActiveChatChange }) {
   const th = T(dk);
 
   const [conversations, setConversations] = useState([]);
@@ -16,6 +16,13 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
   const [newMsgSearch, setNewMsgSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    onActiveChatChange?.(!!activeId);
+    return () => {
+      onActiveChatChange?.(false);
+    };
+  }, [activeId, onActiveChatChange]);
 
   const getMessagePreview = (rawValue) => {
     if (typeof rawValue !== "string") return "No messages yet";
@@ -256,7 +263,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
   const showChat = !isMobile || !!activeId;
 
   return (
-    <div style={{ display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "300px 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 0 : 12, height: "100%", width: "100%", overflow: "hidden", padding: isMobile ? "8px 8px" : "12px 16px" }}>
+    <div style={{ display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "300px 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 0 : 12, height: "100%", width: "100%", overflow: "hidden", padding: isMobile ? "8px 8px 82px" : "12px 16px" }}>
 
       {/* ── Left panel: conversation list ─── */}
       {showList && (
@@ -356,8 +363,25 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
             {/* Chat header */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "12px 16px", flexShrink: 0, position: "relative" }}>
               {isMobile && (
-                <button onClick={() => setActiveId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center", flexShrink: 0 }}>
-                  <ChevronLeft size={22} />
+                <button
+                  onClick={() => setActiveId(null)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: th.txt2,
+                    padding: "4px 8px 4px 4px",
+                    borderRadius: 8,
+                    flexShrink: 0,
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}
+                >
+                  <ChevronLeft size={20} />
+                  <span>Chats</span>
                 </button>
               )}
               {activeConv.is_group
