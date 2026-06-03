@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowLeft, MessageCircle, Heart, Edit3, Check, X, Rocket, TrendingUp, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Sparkles, Building2, User, Camera, Github, Linkedin, Twitter, FileText } from "lucide-react";
-import { T, ROLES, WHO_OPTS, INT_OPTS } from "../config/constants.js";
+import { T, ROLES, WHO_OPTS, INT_OPTS, SB_URL, SB_KEY } from "../config/constants.js";
 import { processAndUploadImage } from "../utils/uploadImage.js";
 
 const ROLE_ICON_MAP = {
@@ -57,7 +57,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   };
 
   const fileInputRef = useRef(null);
-  const pendingLikes = useRef(new Set());
+  const likeManager = useRef({ states: {} });
   const [editAvatar, setEditAvatar] = useState(profile.avatar || "");
   const [editSocials, setEditSocials] = useState(getSocialLinksObj(profile.social_links));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -97,79 +97,90 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setLikedPosts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
-  const handleLike = async (id, fallbackLiked) => {
-    if (pendingLikes.current.has(id)) return;
-    pendingLikes.current.add(id);
+  const syncLikeState = async (id, postUid) => {
+    const state = likeManager.current.states[id];
+    if (!state || state.syncing) return;
+
+    if (state.currentLiked === state.initialLiked) {
+      // User ended up in the same state, no sync needed
+      return;
+    }
+
+    state.syncing = true;
+    const targetLiked = state.currentLiked;
 
     try {
-      const p = posts.find(x => x.id === id) || reposts.find(x => x.id === id) || likedPosts.find(x => x.id === id);
-      if (!p) return;
+      if (targetLiked) {
+        // Add Like
+        await db.post("rs_post_likes", { post_id: id, uid: me });
+        const postData = await db.get("rs_posts", `id=eq.${id}`);
+        const freshCount = (postData?.[0]?.like_count || 0) + 1;
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+        updatePostState(id, { like_count: freshCount, liked: true });
 
-      const currentLiked = p.liked !== undefined ? p.liked : fallbackLiked;
-
-      // 1. Instant UI update
-      const optimisticLiked = !currentLiked;
-      const optimisticCount = optimisticLiked ? (p.like_count || 0) + 1 : Math.max(0, (p.like_count || 0) - 1);
-      updatePostState(id, { like_count: optimisticCount, liked: optimisticLiked });
-
-      // 2. Strict validate from backend (Cache-Busted via headers & fetch options)
-      let alreadyLiked = false;
-      try {
-        const url = `${SB_URL}/rest/v1/rs_post_likes?post_id=eq.${id}&uid=eq.${me}`;
-        const sess = JSON.parse(localStorage.getItem("rs_session") || "null");
-        const hdrs = {
-          "apikey": SB_KEY,
-          "Authorization": sess?.access_token ? `Bearer ${sess.access_token}` : "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache"
-        };
-        const res = await fetch(url, { headers: hdrs, cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          alreadyLiked = data && data.length > 0;
-        } else {
-          // If network returns an error (like 400), fallback to local cache
-          const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-          alreadyLiked = existing && existing.length > 0;
+        if (postUid && postUid !== me) {
+          try {
+            await db.post("rs_notifications", {
+              uid: postUid,
+              type: "like",
+              msg: `${profiles[me]?.name || "Someone"} liked your post`,
+              post_id: id,
+              profile_id: me,
+              read: false
+            });
+          } catch {}
         }
-      } catch (e) {
-        // Fallback to local check if network fails
-        const existing = await db.get("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-        alreadyLiked = existing && existing.length > 0;
-      }
-
-      // 3. True DB State Logic
-      const postData = await db.get("rs_posts", `id=eq.${id}&select=like_count`);
-      const currentDbCount = postData?.[0]?.like_count || 0;
-
-      if (alreadyLiked) {
-        // If exists -> remove, decrement, update UI
-        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
-        const newCount = Math.max(0, currentDbCount - 1);
-        await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
-        updatePostState(id, { like_count: newCount, liked: false });
       } else {
-        // If not exists -> create, increment, update UI
-        const saved = await db.post("rs_post_likes", { post_id: id, uid: me });
-
-        // ONLY increment if the insert was actually successful!
-        if (saved) {
-          const newCount = currentDbCount + 1;
-          await db.patch("rs_posts", `id=eq.${id}`, { like_count: newCount });
-          updatePostState(id, { like_count: newCount, liked: true });
-
-          if (p.uid !== me) {
-            try { await db.post("rs_notifications", { uid: p.uid, type: "like", msg: `${profiles[me]?.name || "Someone"} liked your post`, post_id: id, profile_id: me, read: false }); } catch (e) { }
-          }
-        } else {
-          // If insert failed (e.g. 409 Conflict), revert optimistic UI
-          updatePostState(id, { like_count: currentDbCount, liked: false });
-        }
+        // Remove Like
+        await db.del("rs_post_likes", `post_id=eq.${id}&uid=eq.${me}`);
+        const postData = await db.get("rs_posts", `id=eq.${id}`);
+        const freshCount = Math.max(0, (postData?.[0]?.like_count || 0) - 1);
+        await db.patch("rs_posts", `id=eq.${id}`, { like_count: freshCount });
+        updatePostState(id, { like_count: freshCount, liked: false });
       }
+
+      state.initialLiked = targetLiked;
+    } catch (e) {
+      console.error("Profile like sync error:", e);
     } finally {
-      pendingLikes.current.delete(id);
+      state.syncing = false;
+      // If state changed while syncing, trigger sync again
+      if (state.currentLiked !== state.initialLiked) {
+        syncLikeState(id, postUid);
+      }
     }
   };
+
+  const handleLike = useCallback(async (id, fallbackLiked) => {
+    const p = posts.find(x => x.id === id) || reposts.find(x => x.id === id) || likedPosts.find(x => x.id === id);
+    if (!p) return;
+
+    const currentLiked = p.liked !== undefined ? p.liked : fallbackLiked;
+    const newLiked = !currentLiked;
+    const newLikes = newLiked ? (p.like_count || 0) + 1 : Math.max(0, (p.like_count || 0) - 1);
+
+    updatePostState(id, { like_count: newLikes, liked: newLiked });
+
+    if (!likeManager.current.states[id]) {
+      likeManager.current.states[id] = {
+        initialLiked: currentLiked,
+        currentLiked: newLiked,
+        timer: null,
+        syncing: false
+      };
+    } else {
+      likeManager.current.states[id].currentLiked = newLiked;
+    }
+
+    const state = likeManager.current.states[id];
+    if (state.timer) {
+      clearTimeout(state.timer);
+    }
+
+    state.timer = setTimeout(() => {
+      syncLikeState(id, p.uid);
+    }, 600);
+  }, [posts, reposts, likedPosts]);
 
   const handleRepost = async (orig) => {
     if (orig.reposted) return;
@@ -427,7 +438,10 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setIsAligned(false);
     setAlignCount(prev => Math.max(0, prev - 1));
     try {
-      await db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`);
+      await Promise.all([
+        db.del("rs_alignments", `follower_uid=eq.${me}&following_uid=eq.${uid}`),
+        db.del("rs_alignments", `follower_uid=eq.${uid}&following_uid=eq.${me}`),
+      ]);
       addNotif?.({ type: "info", msg: `⛓️ You misaligned with ${targetName}` });
     } catch (err) {
       console.error("Failed to misalign:", err);

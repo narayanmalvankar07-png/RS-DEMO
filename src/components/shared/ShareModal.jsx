@@ -6,16 +6,17 @@ import { T } from '../../config/constants.js';
 
 function ShareModal({ post, onClose, dk }) {
   const th = T(dk);
+  const postUrl = `${window.location.origin}?post=${post.id}`;
   const text = encodeURIComponent(`${(post.text || "").slice(0, 100)} — RightSignal`);
-  const url = encodeURIComponent(window.location.href);
+  const url = encodeURIComponent(postUrl);
   const [copied, setCopied] = useState(false);
 
   const shareWhatsApp = () => window.open(`https://wa.me/?text=${text}%20${url}`, "_blank");
   const shareTelegram = () => window.open(`https://t.me/share/url?url=${url}&text=${text}`, "_blank");
-  const copyLink = () => { navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const copyLink = () => { navigator.clipboard.writeText(postUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const nativeShare = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: "RightSignal Post", text: post.text || "", url: window.location.href }); } catch {}
+      try { await navigator.share({ title: "RightSignal Post", text: post.text || "", url: postUrl }); } catch {}
     }
   };
 

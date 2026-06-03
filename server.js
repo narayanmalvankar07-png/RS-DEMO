@@ -358,20 +358,41 @@ app.post("/api/upload-attachment", async (req, res) => {
 });
 
 // ── Start server with WebSocket integration ─────────────────────────
-const PORT = process.env.PORT || process.env.API_PORT || 5000;
+const PORT = process.env.API_PORT || 10000;
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const clients = new Map();
 const lastSentTimes = new Map();
 const messageQueue = [];
+const retryCounts = new Map();
+const deadLetterQueue = [];
+
+function handleFailedMessages(batch) {
+  const retryLimit = 5;
+  batch.forEach(m => {
+    const currentRetries = retryCounts.get(m.id) || 0;
+    if (currentRetries < retryLimit) {
+      retryCounts.set(m.id, currentRetries + 1);
+      messageQueue.push(m); // Put back in queue to retry
+    } else {
+      console.error(`[WS] Message ${m.id} exceeded maximum retry limit (${retryLimit}). Moving to Dead-Letter Queue (DLQ). content="${m.content?.slice(0, 100)}"`);
+      deadLetterQueue.push({
+        message: m,
+        failed_at: new Date().toISOString(),
+        retry_count: currentRetries
+      });
+      retryCounts.delete(m.id);
+    }
+  });
+}
 
 // Background loop to batch-write messages to Supabase every 3 seconds
 setInterval(async () => {
   if (messageQueue.length === 0) return;
 
-  const batch = [...messageQueue];
-  messageQueue.length = 0; // Clear queue immediately to prevent race conditions
+  // Cap batch size to 100 to prevent massive bulk insert spikes
+  const batch = messageQueue.splice(0, 100);
 
   console.log(`[WS] Flushing batch of ${batch.length} messages to Supabase...`);
   try {
@@ -387,14 +408,15 @@ setInterval(async () => {
 
     if (error) {
       console.error("[WS] Batch insert error:", error.message);
-      // Put back in queue to retry
-      messageQueue.push(...batch);
+      handleFailedMessages(batch);
     } else {
       console.log(`[WS] Successfully flushed ${batch.length} messages to Supabase.`);
+      // Clear retry tracking for successful messages
+      batch.forEach(m => retryCounts.delete(m.id));
     }
   } catch (err) {
     console.error("[WS] Exception during batch insert:", err.message);
-    messageQueue.push(...batch);
+    handleFailedMessages(batch);
   }
 }, 3000);
 

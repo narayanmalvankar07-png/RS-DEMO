@@ -13,6 +13,7 @@ import { connectWebSocket, disconnectWebSocket, subscribeWS } from "./services/w
 import GlobalCSS from "./components/ui/GlobalCSS";
 import TokenPop from "./components/ui/TokenPop";
 import Av from "./components/ui/Av";
+import RightSignalLogo from "./components/ui/RightSignalLogo";
 
 // Shared Components
 import SearchBar from "./components/shared/SearchBar";
@@ -51,6 +52,7 @@ import NotificationsView from "./views/NotificationsView";
           access_token: token,
           refresh_token: refresh,
           expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+          expires_in: expiresIn,
         };
         sessionStorage.setItem("rs_oauth_return", JSON.stringify(sess));
         localStorage.setItem("rs_session", JSON.stringify(sess));
@@ -151,6 +153,7 @@ export default function App() {
   const [bookmarks, setBookmarks] = useState([]);
   const [activeTag, setActiveTag] = useState(null);
   const [notifFocus, setNotifFocus] = useState(null);
+  const [activeChat, setActiveChat] = useState(false);
 
   const NOTIF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const isRecentNotif = n => (n?.ts || 0) >= Date.now() - NOTIF_TTL_MS;
@@ -222,7 +225,11 @@ export default function App() {
     setMe(authUser.id);
     connectWebSocket(authUser.id);
     if (sess?.access_token) {
-      const toStore = { ...sess, expires_at: sess.expires_at || Math.floor(Date.now() / 1000) + 3600 };
+      const toStore = {
+        ...sess,
+        expires_at: sess.expires_at || Math.floor(Date.now() / 1000) + (sess.expires_in || 3600),
+        expires_in: sess.expires_in || 3600,
+      };
       localStorage.setItem("rs_session", JSON.stringify(toStore));
     }
     seedIfNeeded();
@@ -315,8 +322,8 @@ export default function App() {
     setBookmarks(bs => bs.includes(postId) ? bs.filter(b => b !== postId) : [...bs, postId]);
   };
 
-  const navTo = v => { setView(v); setShowN(false); setSidebarOpen(false); };
-  const openProfile = id => { setProfUid(id); setView("profile"); setShowN(false); setSidebarOpen(false); };
+  const navTo = v => { setView(v); setShowN(false); setSidebarOpen(false); if (v !== "messages") setActiveChat(false); };
+  const openProfile = id => { setProfUid(id); setView("profile"); setShowN(false); setSidebarOpen(false); setActiveChat(false); };
   const sidebarNav = v => { if (v === "profile") openProfile(me); else navTo(v); };
   const handleNotificationClick = async n => {
     try {
@@ -407,7 +414,23 @@ export default function App() {
     let cancelled = false;
     const trySession = async (sess) => {
       if (!sess?.access_token) return false;
+      // If token is expired, try refreshing before giving up
       if (sess.expires_at && sess.expires_at < Math.floor(Date.now() / 1000)) {
+        if (sess.refresh_token) {
+          try {
+            const refreshed = await sbAuth.refreshSession(sess.refresh_token);
+            if (refreshed?.access_token) {
+              const newSess = {
+                access_token: refreshed.access_token,
+                refresh_token: refreshed.refresh_token || sess.refresh_token,
+                expires_at: refreshed.expires_at || Math.floor(Date.now() / 1000) + (refreshed.expires_in || 3600),
+                expires_in: refreshed.expires_in || 3600,
+              };
+              localStorage.setItem("rs_session", JSON.stringify(newSess));
+              return trySession(newSess);
+            }
+          } catch { }
+        }
         localStorage.removeItem("rs_session");
         sessionStorage.removeItem("rs_oauth_return");
         return false;
@@ -416,9 +439,31 @@ export default function App() {
         const u = await sbAuth.getUser(sess.access_token);
         if (!cancelled && u && u.id) {
           await handleAuth(sess, u, false, "");
+          // Check for ?post= query param for deep-linking
+          const postParam = new URLSearchParams(window.location.search).get("post");
+          if (postParam) {
+            setNotifFocus({ postId: postParam, commentId: null });
+            setView("feed");
+            window.history.replaceState({}, "", window.location.pathname);
+          }
           return true;
         }
       } catch { }
+      if (sess.refresh_token) {
+        try {
+          const refreshed = await sbAuth.refreshSession(sess.refresh_token);
+          if (refreshed?.access_token) {
+            const newSess = {
+              access_token: refreshed.access_token,
+              refresh_token: refreshed.refresh_token || sess.refresh_token,
+              expires_at: refreshed.expires_at || Math.floor(Date.now() / 1000) + (refreshed.expires_in || 3600),
+              expires_in: refreshed.expires_in || 3600,
+            };
+            localStorage.setItem("rs_session", JSON.stringify(newSess));
+            return trySession(newSess);
+          }
+        } catch { }
+      }
       localStorage.removeItem("rs_session");
       sessionStorage.removeItem("rs_oauth_return");
       return false;
@@ -448,20 +493,58 @@ export default function App() {
         const params = new URLSearchParams(hash.slice(1));
         const token = params.get("access_token");
         if (token) {
+          const expiresIn = parseInt(params.get("expires_in") || "3600", 10);
           const sess = {
             access_token: token,
             refresh_token: params.get("refresh_token") || "",
-            expires_at: Math.floor(Date.now() / 1000) + parseInt(params.get("expires_in") || "3600", 10),
+            expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+            expires_in: expiresIn,
           };
           localStorage.setItem("rs_session", JSON.stringify(sess));
           window.history.replaceState({}, "", window.location.pathname);
           await trySession(sess);
         }
       }
+
+      // If no session found, check for post deep-link and redirect after auth
+      if (!cancelled) {
+        const postParam = new URLSearchParams(window.location.search).get("post");
+        if (postParam) {
+          sessionStorage.setItem("rs_pending_post", postParam);
+        }
+      }
     })();
 
     return () => { cancelled = true; };
   }, []);
+
+  // Proactive token refresh — check every 30 seconds and refresh if less than 20% (max 5 minutes) of lifetime is left
+  useEffect(() => {
+    if (screen !== "app" && screen !== "admin") return;
+    const refreshInterval = setInterval(async () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem("rs_session") || "null");
+        if (!stored?.refresh_token) return;
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = (stored.expires_at || 0) - now;
+        const threshold = Math.min(300, (stored.expires_in || 3600) * 0.2);
+        if (expiresIn < threshold) {
+          const refreshed = await sbAuth.refreshSession(stored.refresh_token);
+          if (refreshed?.access_token) {
+            const newSess = {
+              access_token: refreshed.access_token,
+              refresh_token: refreshed.refresh_token || stored.refresh_token,
+              expires_at: refreshed.expires_at || now + (refreshed.expires_in || 3600),
+              expires_in: refreshed.expires_in || 3600,
+            };
+            localStorage.setItem("rs_session", JSON.stringify(newSess));
+            setSession(newSess);
+          }
+        }
+      } catch { }
+    }, 45 * 60 * 1000); // Every 45 minutes
+    return () => clearInterval(refreshInterval);
+  }, [screen]);
 
   if (screen === "loading") return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#040a14,#0c1929)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
@@ -490,7 +573,7 @@ export default function App() {
     switch (view) {
       case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} />;
       case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} onProfileUpdate={handleProfileUpdate} addNotif={addNotif} />;
-      case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} />;
+      case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} isMobile={isMobile} onActiveChatChange={setActiveChat} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
       case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
@@ -524,64 +607,67 @@ export default function App() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Floating Topbar */}
-        <div className="rs-float-top" style={{ background: th.top, backdropFilter: th.blur, WebkitBackdropFilter: th.blur, border: `1px solid ${th.bdr}`, borderRadius: isMobile ? 18 : 20, margin: isMobile ? "10px 10px 0" : "12px 12px 0", padding: isMobile ? "8px 12px" : "9px 16px", display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexShrink: 0, zIndex: 50, boxShadow: dk ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)" : "0 8px 24px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
+        {!(isMobile && view === "messages" && activeChat) && (
+          <div className="rs-float-top" style={{ background: th.top, backdropFilter: th.blur, WebkitBackdropFilter: th.blur, border: `1px solid ${th.bdr}`, borderRadius: isMobile ? 18 : 20, margin: isMobile ? "10px 10px 0" : "12px 12px 0", padding: isMobile ? "8px 12px" : "9px 16px", display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexShrink: 0, zIndex: 50, boxShadow: dk ? "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)" : "0 8px 24px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
 
-          {/* Mobile inline search mode */}
-          {isMobile && mobileSearchOpen ? (
-            <>
-              <button onClick={() => setMobileSearchOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center", flexShrink: 0 }}><X size={18} /></button>
-              <div className="rs-search-expand" style={{ flex: 1 }}><SearchBar dk={dk} profiles={profiles} onProfile={p => { openProfile(p); setMobileSearchOpen(false); }} onTag={t => { handleTag(t); setMobileSearchOpen(false); }} autoFocus /></div>
-            </>
-          ) : (
-            <>
-              {/* Left — logo (mobile) or search (desktop) */}
-              {isMobile ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
-                  <button onClick={() => setSidebarOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center" }}><Menu size={20} /></button>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ color: "#fff", fontWeight: 900, fontSize: 14 }}>R</span>
+            {/* Mobile inline search mode */}
+            {isMobile && mobileSearchOpen ? (
+              <>
+                <button onClick={() => setMobileSearchOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center", flexShrink: 0 }}><X size={18} /></button>
+                <div className="rs-search-expand" style={{ flex: 1 }}><SearchBar dk={dk} profiles={profiles} onProfile={p => { openProfile(p); setMobileSearchOpen(false); }} onTag={t => { handleTag(t); setMobileSearchOpen(false); }} autoFocus /></div>
+              </>
+            ) : (
+              <>
+                {/* Left — logo (mobile) or search (desktop) */}
+                {isMobile ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+                    <button onClick={() => setSidebarOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: 4, display: "flex", alignItems: "center" }}><Menu size={20} /></button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <RightSignalLogo size={26} showText={false} dk={dk} />
+                      <span style={{ fontSize: 13, fontWeight: 800, color: th.txt, letterSpacing: "-0.3px" }}>RIGHTSIGNAL</span>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: th.txt, letterSpacing: "-0.3px" }}>RIGHTSIGNAL</span>
                   </div>
-                </div>
-              ) : (
-                <SearchBar dk={dk} profiles={profiles} onProfile={openProfile} onTag={handleTag} />
-              )}
+                ) : (
+                  <>
+                    <RightSignalLogo size={28} showText={false} dk={dk} />
+                    <SearchBar dk={dk} profiles={profiles} onProfile={openProfile} onTag={handleTag} />
+                  </>
+                )}
 
-              {/* Right controls */}
-              <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 5 : 8, marginLeft: "auto", position: "relative", flexShrink: 0 }}>
-                {isMobile && (
-                  <button onClick={() => setMobileSearchOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: "6px 5px", display: "flex", alignItems: "center" }}><Search size={18} /></button>
-                )}
-                <button onClick={() => navTo("wallet")} style={{ display: "flex", alignItems: "center", gap: 4, background: "linear-gradient(135deg,#78350f,#d97706)", border: "none", borderRadius: 10, padding: isMobile ? "5px 9px" : "5px 12px", cursor: "pointer", boxShadow: "0 0 12px rgba(245,158,11,.3)" }}>
-                  <span style={{ fontSize: 12, color: "#fff" }}>◈</span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{bals[me] ?? 0}</span>
-                </button>
-                {!isMobile && (
-                  <button onClick={() => setDk(x => !x)} style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(59,130,246,.15)" : th.inp, border: `1px solid ${dk ? "#3b82f640" : th.inpB}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: dk ? "#3b82f6" : th.txt2 }}>
-                    {dk ? <Sun size={14} /> : <Moon size={14} />}
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{dk ? "Light" : "Dark"}</span>
+                {/* Right controls */}
+                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 5 : 8, marginLeft: "auto", position: "relative", flexShrink: 0 }}>
+                  {isMobile && (
+                    <button onClick={() => setMobileSearchOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: "6px 5px", display: "flex", alignItems: "center" }}><Search size={18} /></button>
+                  )}
+                  <button onClick={() => navTo("wallet")} style={{ display: "flex", alignItems: "center", gap: 4, background: "linear-gradient(135deg,#78350f,#d97706)", border: "none", borderRadius: 10, padding: isMobile ? "5px 9px" : "5px 12px", cursor: "pointer", boxShadow: "0 0 12px rgba(245,158,11,.3)" }}>
+                    <span style={{ fontSize: 12, color: "#fff" }}>◈</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{bals[me] ?? 0}</span>
                   </button>
-                )}
-                {isMobile && (
-                  <button onClick={() => setDk(x => !x)} className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 7px", cursor: "pointer", color: th.txt2, display: "flex", alignItems: "center" }}>
-                    {dk ? <Sun size={14} /> : <Moon size={14} />}
+                  {!isMobile && (
+                    <button onClick={() => setDk(x => !x)} style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(59,130,246,.15)" : th.inp, border: `1px solid ${dk ? "#3b82f640" : th.inpB}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: dk ? "#3b82f6" : th.txt2 }}>
+                      {dk ? <Sun size={14} /> : <Moon size={14} />}
+                      <span style={{ fontSize: 12, fontWeight: 600 }}>{dk ? "Light" : "Dark"}</span>
+                    </button>
+                  )}
+                  {isMobile && (
+                    <button onClick={() => setDk(x => !x)} className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 7px", cursor: "pointer", color: th.txt2, display: "flex", alignItems: "center" }}>
+                      {dk ? <Sun size={14} /> : <Moon size={14} />}
+                    </button>
+                  )}
+                  <button onClick={() => setShowN(x => !x)} className="rs-icon-btn" style={{ position: "relative", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: th.txt2, padding: 6 }}>
+                    <Bell size={18} />
+                    {unread > 0 && <span style={{ position: "absolute", top: 0, right: 0, width: 15, height: 15, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 6px #ef4444", animation: "notifPop 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>{unread}</span>}
                   </button>
-                )}
-                <button onClick={() => setShowN(x => !x)} className="rs-icon-btn" style={{ position: "relative", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: th.txt2, padding: 6 }}>
-                  <Bell size={18} />
-                  {unread > 0 && <span style={{ position: "absolute", top: 0, right: 0, width: 15, height: 15, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 6px #ef4444", animation: "notifPop 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>{unread}</span>}
-                </button>
-                {showN && <NotifPanel notifs={visibleNotifs} setNotifs={setNotifs} onClose={() => setShowN(false)} dk={dk} onPoll={() => loadNotifs(me)} onSelect={handleNotificationClick} />}
-                <div onClick={() => openProfile(me)} style={{ cursor: "pointer" }}><Av profile={myProfile || {}} size={30} bal={bals[me] ?? 0} /></div>
-                {!isMobile && (
-                  <button onClick={handleSignOut} title="Sign out" className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: th.txt3, display: "flex", alignItems: "center" }}><LogOut size={14} /></button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                  {showN && <NotifPanel notifs={visibleNotifs} setNotifs={setNotifs} onClose={() => setShowN(false)} dk={dk} onPoll={() => loadNotifs(me)} onSelect={handleNotificationClick} />}
+                  <div onClick={() => openProfile(me)} style={{ cursor: "pointer" }}><Av profile={myProfile || {}} size={30} bal={bals[me] ?? 0} /></div>
+                  {!isMobile && (
+                    <button onClick={handleSignOut} title="Sign out" className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: th.txt3, display: "flex", alignItems: "center" }}><LogOut size={14} /></button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Content area */}
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>

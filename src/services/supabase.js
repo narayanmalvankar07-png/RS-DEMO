@@ -27,6 +27,12 @@ export const sbAuth = {
     sessionStorage.setItem("rs_oauth_pending", "1");
     window.location.href = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&scopes=email%20profile`;
   },
+  refreshSession: (refreshToken) =>
+    fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }).then(r => r.ok ? r.json() : null),
 };
 
 // ── Local Caching & Delta Syncing Engine ───────────────────────────
@@ -108,38 +114,47 @@ const normalizeInsertBody = (table, body) => {
 
 const CACHED_TABLES = ["rs_posts", "rs_comments", "rs_post_likes", "rs_user_profiles"];
 
+const parseQueryParams = (q) => {
+  const result = {};
+  if (!q) return result;
+  const parts = q.split("&");
+  for (const part of parts) {
+    const eqIdx = part.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = part.slice(0, eqIdx);
+    const valExpr = part.slice(eqIdx + 1);
+    if (valExpr.startsWith("eq.")) {
+      result[key] = valExpr.slice(3);
+    } else {
+      result[key] = valExpr;
+    }
+  }
+  return result;
+};
+
 const applyQuery = (data, q) => {
   let result = [...data];
   if (!q) return result;
 
-  // Filter: id=eq.X
-  const idMatch = q.match(/id=eq\.([^&]+)/);
-  if (idMatch) {
-    result = result.filter(x => x.id === idMatch[1]);
-  }
+  const filters = parseQueryParams(q);
 
-  // Filter: uid=eq.X
-  const uidMatch = q.match(/uid=eq\.([^&]+)/);
-  if (uidMatch) {
-    result = result.filter(x => x.uid === uidMatch[1]);
+  if (filters.id !== undefined) {
+    result = result.filter(x => String(x.id) === filters.id);
   }
-
-  // Filter: email=eq.X
-  const emailMatch = q.match(/email=eq\.([^&]+)/);
-  if (emailMatch) {
-    result = result.filter(x => x.email === emailMatch[1]);
+  if (filters.uid !== undefined) {
+    result = result.filter(x => String(x.uid) === filters.uid);
   }
-
-  // Filter: ref_code=eq.X
-  const refCodeMatch = q.match(/ref_code=eq\.([^&]+)/);
-  if (refCodeMatch) {
-    result = result.filter(x => x.ref_code === refCodeMatch[1]);
+  if (filters.email !== undefined) {
+    result = result.filter(x => String(x.email) === filters.email);
   }
-
-  // Filter: reposted_by=eq.X
-  const repostedByMatch = q.match(/reposted_by=eq\.([^&]+)/);
-  if (repostedByMatch) {
-    result = result.filter(x => x.reposted_by === repostedByMatch[1]);
+  if (filters.ref_code !== undefined) {
+    result = result.filter(x => String(x.ref_code) === filters.ref_code);
+  }
+  if (filters.reposted_by !== undefined) {
+    result = result.filter(x => String(x.reposted_by) === filters.reposted_by);
+  }
+  if (filters.post_id !== undefined) {
+    result = result.filter(x => String(x.post_id) === filters.post_id);
   }
 
   // Sort
@@ -183,7 +198,28 @@ export const db = {
         const r = await fetch(`${SB_URL}/rest/v1/${t}${q ? "?" + q : ""}`, { headers: authH() });
         const fresh = r.ok ? await r.json() : [];
         if (fresh) {
-          setCache(t, fresh);
+          const filters = parseQueryParams(q);
+          const SYSTEM_PARAMS = ["order", "limit", "select"];
+          const filterKeys = Object.keys(filters).filter(k => !SYSTEM_PARAMS.includes(k));
+          if (filterKeys.length === 0) {
+            setCache(t, fresh);
+          } else {
+            const local = getCache(t);
+            // Remove existing items that match the filters of the query
+            let updated = local.filter(item => {
+              for (const key of filterKeys) {
+                const val = filters[key];
+                if (item[key] !== undefined && String(item[key]) === val) {
+                  continue;
+                }
+                return true; // Keep
+              }
+              return false; // Remove
+            });
+            // Append fresh items
+            updated = [...updated, ...fresh];
+            setCache(t, updated);
+          }
         }
         return applyQuery(fresh, q);
       } catch {
@@ -250,9 +286,9 @@ export const db = {
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
         const local = getCache(t);
-        const idMatch = q.match(/id=eq\.([^&]+)/);
-        if (idMatch) {
-          const targetId = idMatch[1];
+        const filters = parseQueryParams(q);
+        if (filters.id !== undefined) {
+          const targetId = filters.id;
           const updated = local.map(item => {
             if (item.id === targetId) {
               return { ...item, ...body, updated_at: new Date().toISOString() };
@@ -278,25 +314,15 @@ export const db = {
       // Update Cache
       if (CACHED_TABLES.includes(t)) {
         const local = getCache(t);
+        const filters = parseQueryParams(q);
         let filtered = local;
-        const idMatch = q.match(/id=eq\.([^&]+)/);
-        const origIdMatch = q.match(/original_post_id=eq\.([^&]+)&reposted_by=eq\.([^&]+)/);
-        if (idMatch) {
-          filtered = filtered.filter(x => x.id !== idMatch[1]);
-        } else if (origIdMatch) {
-          filtered = filtered.filter(x => !(x.original_post_id === origIdMatch[1] && x.reposted_by === origIdMatch[2]));
+        if (filters.id !== undefined) {
+          filtered = filtered.filter(x => x.id !== filters.id);
+        } else if (filters.original_post_id !== undefined && filters.reposted_by !== undefined) {
+          filtered = filtered.filter(x => !(x.original_post_id === filters.original_post_id && x.reposted_by === filters.reposted_by));
         }
-        const postAndUidMatch = q.match(/post_id=eq\.([^&]+)&uid=eq\.([^&]+)/);
-        if (postAndUidMatch) {
-          const pId = postAndUidMatch[1];
-          const uId = postAndUidMatch[2];
-          filtered = filtered.filter(x => !(x.post_id === pId && x.uid === uId));
-        }
-        const origPostMatch = q.match(/original_post_id=eq\.([^&]+)&reposted_by=eq\.([^&]+)/);
-        if (origPostMatch) {
-          const oId = origPostMatch[1];
-          const rBy = origPostMatch[2];
-          filtered = filtered.filter(x => !(x.original_post_id === oId && x.reposted_by === rBy));
+        if (filters.post_id !== undefined && filters.uid !== undefined) {
+          filtered = filtered.filter(x => !(x.post_id === filters.post_id && x.uid === filters.uid));
         }
         setCache(t, filtered);
       }
