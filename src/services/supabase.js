@@ -23,7 +23,10 @@ export const sbAuth = {
   getUser: token =>
     fetch(`${SB_URL}/auth/v1/user`, { headers: { ...H, Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
   googleOAuth: () => {
-    const redirectTo = window.location.origin;
+    let redirectTo = window.location.origin;
+    if (!window.location.hostname.includes("rightsignal.social")) {
+      redirectTo = `https://rightsignal.social/?origin=${encodeURIComponent(window.location.origin)}`;
+    }
     sessionStorage.setItem("rs_oauth_pending", "1");
     window.location.href = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&scopes=email%20profile`;
   },
