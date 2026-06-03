@@ -41,7 +41,30 @@ import NotificationsView from "./views/NotificationsView";
 // ─── OAUTH TOKEN DETECTION (runs before React) ────────────────────
 (function detectOAuthReturn() {
   try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const originParam = urlParams.get("origin");
     const hash = window.location.hash;
+
+    // Handle token forwarding for dev/local environments
+    if (originParam && hash && hash.includes("access_token")) {
+      let isValid = false;
+      try {
+        const parsedUrl = new URL(originParam);
+        if (
+          parsedUrl.hostname === "localhost" ||
+          parsedUrl.hostname === "127.0.0.1" ||
+          parsedUrl.hostname.endsWith(".vercel.app")
+        ) {
+          isValid = true;
+        }
+      } catch (e) {}
+
+      if (isValid) {
+        window.location.href = `${originParam}/${hash}`;
+        return;
+      }
+    }
+
     if (hash && hash.includes("access_token")) {
       const params = new URLSearchParams(hash.slice(1));
       const token = params.get("access_token");
