@@ -14,3 +14,5 @@ export default function RightSignalLogo({ size = 32, showText = true, dk = false
     </div>
   );
 }
+
+

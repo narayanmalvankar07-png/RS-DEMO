@@ -651,10 +651,7 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <RightSignalLogo size={28} showText={false} dk={dk} />
-                    <SearchBar dk={dk} profiles={profiles} onProfile={openProfile} onTag={handleTag} />
-                  </>
+                  <SearchBar dk={dk} profiles={profiles} onProfile={openProfile} onTag={handleTag} />
                 )}
 
                 {/* Right controls */}
