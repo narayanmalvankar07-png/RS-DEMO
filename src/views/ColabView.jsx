@@ -1056,7 +1056,7 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
 }
 
 // ─── Join via Code Modal ────────────────────────────────────────────
-function JoinCodeModal({ me, onClose, onJoined, dk }) {
+function JoinCodeModal({ me, onClose, onJoined, dk, isMobile = false }) {
   const th = T(dk);
   const [code, setCode] = useState("");
   const [startup, setStartup] = useState(null);
@@ -1114,7 +1114,7 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
         ) : (
           <>
             <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 14px" }}>Joining <strong style={{ color: th.txt }}>{startup.name}</strong></p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 14 }}>
               {JOIN_ROLES.map(r => {
                 const sel = roles.includes(r.id);
                 return <button key={r.id} onClick={() => setRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px", cursor: "pointer", textAlign: "left" }}>
@@ -1137,7 +1137,7 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
 }
 
 // ─── Visitor / Member Detail View ──────────────────────────────────
-function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif }) {
+function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif, isMobile = false }) {
   const th = T(dk);
   const [profiles, setProfiles] = useState(initialProfiles);
 
@@ -1367,7 +1367,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
             <div style={{ fontSize: 14, fontWeight: 700, color: th.txt }}>Select your role(s)</div>
             <button onClick={() => setShowJoinForm(false)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={16} /></button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
             {JOIN_ROLES.map(r => {
               const sel = joinRoles.includes(r.id);
               return <button key={r.id} onClick={() => setJoinRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px 8px", cursor: "pointer", textAlign: "center" }}>
@@ -1481,7 +1481,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
 }
 
 // ─── Founder Dashboard ─────────────────────────────────────────────
-function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
+function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile = false }) {
   const th = T(dk);
   const [startup, setStartup] = useState(initialStartup);
   const [profiles, setProfiles] = useState(initialProfiles);
@@ -1882,7 +1882,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
         <>
           {tab === "overview" && (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
                 {[{ l: "Members", v: members.length, c: "#3b82f6", e: "👥" }, { l: "Pages", v: pages.length, c: "#8b5cf6", e: "📄" }, { l: "Pending", v: totalPending, c: "#f59e0b", e: "📬" }].map(s => (
                   <div key={s.l} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px" }}>
                     <div style={{ fontSize: 22, marginBottom: 4 }}>{s.e}</div>
@@ -1912,7 +1912,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 const totalJoin = requests.filter(r => profiles[r.user_id]).length;
                 const pendingPage = pageReqs.filter(r => r.status === "pending").length;
                 return (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 18 }}>
                     <div style={{ background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👥</div>
                       <div>
@@ -2301,14 +2301,14 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
 }
 
 // ─── StartupDetail dispatcher ──────────────────────────────────────
-function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
+function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile }) {
   const isFounder = startup.created_by === me || (startup.founders || []).includes(me);
-  if (isFounder) return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} />;
-  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} />;
+  if (isFounder) return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} isMobile={isMobile} />;
+  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} isMobile={isMobile} />;
 }
 
 // ─── Main ColabView ────────────────────────────────────────────────
-export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif }) {
+export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif, isMobile = false }) {
   const th = T(dk);
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2364,7 +2364,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif 
   return (
     <div>
       {showCreate && <CreateStartupModal me={me} dk={dk} onClose={() => setShowCreate(false)} onSave={s => { if (s) setStartups(prev => { const ex = prev.find(x => x.id === s.id); return ex ? prev.map(x => x.id === s.id ? s : x) : [s, ...prev]; }); addNotif?.({ type: "success", msg: "Startup launched! 🚀" }); }} />}
-      {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => addNotif?.({ type: "success", msg: `Request sent to ${s.name}!` })} />}
+      {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => addNotif?.({ type: "success", msg: `Request sent to ${s.name}!` })} isMobile={isMobile} />}
 
       <div style={{ background: dk ? "linear-gradient(135deg,#1e3a8a22,#5b21b622)" : "linear-gradient(135deg,#dbeafe,#ede9fe)", border: `1px solid ${dk ? "#3b82f630" : "#bfdbfe"}`, borderRadius: 18, padding: "16px 18px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>

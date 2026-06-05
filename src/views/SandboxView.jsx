@@ -12,7 +12,7 @@ const STATUS_COLORS = {
   upcoming: "#8b5cf6",
 };
 
-export default function SandboxView({ me, dk, myProfile, addNotif }) {
+export default function SandboxView({ me, dk, myProfile, addNotif, isMobile = false }) {
   const th = T(dk);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +191,7 @@ export default function SandboxView({ me, dk, myProfile, addNotif }) {
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 99, background: `${statusColor}18`, color: statusColor, flexShrink: 0, marginLeft: 10 }}>{ST_LABEL[entry.status] || entry.status}</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 12 }}>
                   <div style={{ background: th.surf2, borderRadius: 10, padding: "10px 12px", border: `1px solid ${th.bdr}` }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: th.txt3, marginBottom: 4 }}>PROBLEM</div>
                     <div style={{ fontSize: 13, color: th.txt, lineHeight: 1.5 }}>{entry.problem}</div>

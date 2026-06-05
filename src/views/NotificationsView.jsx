@@ -291,7 +291,7 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
                 </div>
 
                 {n.post && (n.post.media?.length > 0 || n.post.text) && (
-                  <div style={{
+                  <div className="rs-notif-preview" style={{
                     width: 130,
                     height: 56,
                     borderRadius: 12,

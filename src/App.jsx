@@ -592,18 +592,18 @@ export default function App() {
   const unread = visibleNotifs.filter(n => !n.read).length;
 
   const renderMain = () => {
-    const common = { me, dk, bals, profiles, addNotif };
+    const common = { me, dk, bals, profiles, addNotif, isMobile };
     switch (view) {
-      case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} />;
-      case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} onProfileUpdate={handleProfileUpdate} addNotif={addNotif} />;
+      case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} isMobile={isMobile} />;
+      case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} onProfileUpdate={handleProfileUpdate} addNotif={addNotif} isMobile={isMobile} />;
       case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} isMobile={isMobile} onActiveChatChange={setActiveChat} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
       case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
-      case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
+      case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} isMobile={isMobile} />;
       case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
-      case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} />;
+      case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} />;
       case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }
@@ -677,7 +677,7 @@ export default function App() {
                       {dk ? <Sun size={14} /> : <Moon size={14} />}
                     </button>
                   )}
-                  <button onClick={() => setShowN(x => !x)} className="rs-icon-btn" style={{ position: "relative", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: th.txt2, padding: 6 }}>
+                  <button onClick={() => isMobile ? navTo("notifications") : setShowN(x => !x)} className="rs-icon-btn" style={{ position: "relative", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: th.txt2, padding: 6 }}>
                     <Bell size={18} />
                     {unread > 0 && <span style={{ position: "absolute", top: 0, right: 0, width: 15, height: 15, borderRadius: "50%", background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 6px #ef4444", animation: "notifPop 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>{unread}</span>}
                   </button>

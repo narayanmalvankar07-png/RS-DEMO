@@ -41,6 +41,7 @@ export default function BottomNav({ view, setView, dk, bals, me, unreadNotifs = 
           <button
             key={link.id}
             onClick={() => setView(link.id)}
+            className="rs-bottom-nav-btn"
             style={{
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
               justifyContent: "center", padding: "12px 4px 10px", border: "none",

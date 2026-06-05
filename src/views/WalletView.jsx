@@ -29,7 +29,7 @@ function CopyButton({ text, dk }) {
   );
 }
 
-export default function WalletView({ me, bals, setBals, dk, myProfile, onProfileUpdate, addNotif }) {
+export default function WalletView({ me, bals, setBals, dk, myProfile, onProfileUpdate, addNotif, isMobile = false }) {
   const th = T(dk);
   const balance = bals[me] ?? 0;
   const [txns, setTxns] = useState([]);
@@ -206,7 +206,7 @@ export default function WalletView({ me, bals, setBals, dk, myProfile, onProfile
           <span style={{ fontSize: 44, fontWeight: 900, color: "#fff", lineHeight: 1 }}>◈ {balance}</span>
           <span style={{ fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,.8)" }}>SGN</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10 }}>
           {[["Balance", balance], ["Redeemed", redeemed], ["Total Earned", earned]].map(([label, val]) => (
             <div key={label} style={{ background: "rgba(0,0,0,.2)", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{val}</div>
@@ -295,7 +295,7 @@ export default function WalletView({ me, bals, setBals, dk, myProfile, onProfile
           </span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 18 }}>
           <div style={{ background: dk ? "linear-gradient(135deg,#1a1200,#120d00)" : "linear-gradient(135deg,#fffbeb,#fef3c7)", border: "1px solid #f59e0b30", borderRadius: 14, padding: "16px 14px", textAlign: "center" }}>
             <div style={{ fontSize: 28, fontWeight: 900, color: "#f59e0b", marginBottom: 4 }}>+2 SGN</div>
             <div style={{ fontSize: 12, color: th.txt3 }}>You earn per referral</div>

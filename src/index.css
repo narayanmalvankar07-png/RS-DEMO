@@ -388,4 +388,26 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* ── Mobile Responsive Helpers ── */
+  @media (max-width: 580px) {
+    .rs-notif-preview {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .rs-bottom-nav-btn span {
+      font-size: 8px !important;
+    }
+  }
+
+  @media (max-width: 350px) {
+    .rs-bottom-nav-btn {
+      padding: 16px 4px !important;
+    }
+    .rs-bottom-nav-btn span {
+      display: none !important;
+    }
+  }
 }

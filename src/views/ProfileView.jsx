@@ -16,7 +16,7 @@ import Card from "../components/ui/Card.jsx";
 import Spin from "../components/ui/Spin.jsx";
 import PostCard from "../components/shared/PostCard.jsx";
 
-export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif, onProfileUpdate }) {
+export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif, onProfileUpdate, isMobile = false }) {
   const th = T(dk);
   const profile = profiles[uid] || { name: "Unknown", handle: "unknown", bio: "No profile available." };
   const balance = bals[uid] ?? 0;
@@ -483,7 +483,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
         {whoOpt && (
           <div style={{ height: 6, borderRadius: 99, background: `linear-gradient(90deg,${whoOpt.c},${whoOpt.c}44)`, marginBottom: 20, marginTop: -4 }} />
         )}
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 16, alignItems: isMobile ? "center" : "flex-start", flexDirection: isMobile ? "column" : "row", textAlign: isMobile ? "center" : "left" }}>
           {editing ? (
             <div style={{ position: "relative", cursor: "pointer" }} onClick={() => fileInputRef.current?.click()}>
               <Av profile={{ ...profile, avatar: editAvatar }} size={80} bal={balance} />
@@ -525,14 +525,14 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           ) : (
             <Av profile={profile} size={80} bal={balance} />
           )}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, width: isMobile ? "100%" : "auto" }}>
             {editing ? (
               <input value={editName} onChange={e => setEditName(e.target.value)} style={{ fontSize: 22, fontWeight: 800, color: th.txt, background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 8, padding: "4px 10px", outline: "none", width: "100%", boxSizing: "border-box", marginBottom: 6 }} />
             ) : (
               <div style={{ fontSize: 22, fontWeight: 800, color: th.txt }}>{profile.name}</div>
             )}
             <div style={{ fontSize: 13, color: th.txt3, marginBottom: 4 }}>@{profile.handle || profile.email || uid.slice(0, 8)}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start" }}>
               {whoOpt && (() => { const RI = ROLE_ICON_MAP[whoOpt.id] || User; return <span style={{ fontSize: 11, background: `${whoOpt.c}18`, color: whoOpt.c, padding: "3px 10px", borderRadius: 99, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><RI size={10} />{whoOpt.label}</span>; })()}
               {profile.system_role && profile.system_role !== "user" && <span style={{ fontSize: 11, background: dk ? "rgba(59,130,246,.12)" : "#eff6ff", color: "#3b82f6", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>{role}</span>}
               {profile.verified && <span style={{ color: "#3b82f6", fontSize: 13, fontWeight: 700 }}>✓ Verified</span>}
