@@ -310,7 +310,7 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
                     marginLeft: 12,
                   }}>
                     {n.post.media?.length > 0 ? (
-                      <img src={n.post.media[0]} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                      <img src={typeof n.post.media[0] === 'string' ? n.post.media[0] : n.post.media[0]?.url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
                     ) : null}
                     <div style={{
                       flex: 1,
