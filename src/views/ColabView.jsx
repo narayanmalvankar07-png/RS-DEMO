@@ -1609,6 +1609,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
     // Fetch missing profiles here!
     const neededUids = new Set();
     allReqs.forEach(r => r.user_id && neededUids.add(r.user_id));
+    merged.forEach(r => r.user_id && neededUids.add(r.user_id));
     (mbs || []).forEach(m => m.user_id && neededUids.add(m.user_id));
     (upds || []).forEach(u => u.created_by && neededUids.add(u.created_by));
     (pgMembers || []).forEach(m => m.user_id && neededUids.add(m.user_id));
@@ -1940,7 +1941,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                     <span style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>🔐 Page Access Requests</span>
                     <div style={{ flex: 1, height: 1, background: th.bdr }} />
                   </div>
-                  {pageReqs.filter(r => profiles[r.user_id]).map(req => {
+                  {pageReqs.map(req => {
                     const prof = profiles[req.user_id] || { name: "Member" };
                     // Try exact ID match first, then name-based fallback for local_pg_ mismatches
                     const pg = pages.find(p => p.id === req.page_id)
@@ -1997,7 +1998,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                       </div>
                     );
                   })}
-                  {pageReqs.filter(r => profiles[r.user_id]).length === 0 && (
+                  {pageReqs.length === 0 && (
                     <div style={{ textAlign: "center", padding: "16px 0", color: th.txt3, fontSize: 13 }}>No page requests from known users.</div>
                   )}
                   <div style={{ marginBottom: 18 }} />
@@ -2011,16 +2012,16 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 <div style={{ flex: 1, height: 1, background: th.bdr }} />
               </div>
 
-              {requests.filter(r => profiles[r.user_id]).length === 0 ? (
+              {requests.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "20px 0 8px", color: th.txt3, fontSize: 13 }}>📬 No join requests yet.</div>
-              ) : requests.filter(r => profiles[r.user_id]).map(req => {
+              ) : requests.map(req => {
                 const prof = profiles[req.user_id] || { name: "Applicant" };
                 const statusColor = req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b";
                 const statusBg = req.status === "approved" ? "#10b98112" : req.status === "rejected" ? "#ef444412" : "#f59e0b12";
                 return (
                   <div key={req.id} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "16px", marginBottom: 10, animation: "fadeUp 0.2s ease both" }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
+                       <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
                         <Av profile={prof} size={46} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
