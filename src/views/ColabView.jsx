@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
-import { ago } from "../utils/helpers.js";
+import { ago, strColor } from "../utils/helpers.js";
 import { processAndUploadImage } from "../utils/uploadImage.js";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
@@ -1137,8 +1137,14 @@ function JoinCodeModal({ me, onClose, onJoined, dk }) {
 }
 
 // ─── Visitor / Member Detail View ──────────────────────────────────
-function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
+function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif }) {
   const th = T(dk);
+  const [profiles, setProfiles] = useState(initialProfiles);
+
+  useEffect(() => {
+    setProfiles(prev => ({ ...prev, ...initialProfiles }));
+  }, [initialProfiles]);
+
   const [tab, setTab] = useState("overview");
   const [pages, setPages] = useState([]);
   const [members, setMembers] = useState([]);
@@ -1196,9 +1202,34 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
       setUpdates(upds || []);
       setDbPageAccess(myAccess || []);
       setDbPageRequests(myPageReqs || []);
+
+      // Fetch missing profiles here!
+      const neededUids = new Set();
+      (reqs || []).forEach(r => r.user_id && neededUids.add(r.user_id));
+      (mbs || []).forEach(m => m.user_id && neededUids.add(m.user_id));
+      (upds || []).forEach(u => u.created_by && neededUids.add(u.created_by));
+      (myAccess || []).forEach(a => a.user_id && neededUids.add(a.user_id));
+      (myPageReqs || []).forEach(r => r.user_id && neededUids.add(r.user_id));
+      (pgMembers || []).forEach(m => m.user_id && neededUids.add(m.user_id));
+      resolvedPages.forEach(p => p.created_by && neededUids.add(p.created_by));
+      if (startup.created_by) neededUids.add(startup.created_by);
+      (startup.founders || []).forEach(uid => uid && neededUids.add(uid));
+
+      const missingUids = [...neededUids].filter(uid => !initialProfiles[uid]);
+      if (missingUids.length > 0) {
+        const fetched = await db.get("rs_user_profiles", `id=in.(${missingUids.join(",")})`);
+        if (fetched && fetched.length > 0) {
+          const newProfiles = {};
+          fetched.forEach(r => {
+            newProfiles[r.id] = { ...r, hue: strColor(r.name || "?") };
+          });
+          setProfiles(prev => ({ ...prev, ...newProfiles }));
+        }
+      }
+
       setLoading(false);
     })();
-  }, [startup.id, me]);
+  }, [startup.id, me, initialProfiles]);
 
   const submitJoin = async () => {
     if (!joinRoles.length) return;
@@ -1450,9 +1481,15 @@ function VisitorDetail({ startup, me, profiles, dk, onBack, addNotif }) {
 }
 
 // ─── Founder Dashboard ─────────────────────────────────────────────
-function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
+function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated }) {
   const th = T(dk);
   const [startup, setStartup] = useState(initialStartup);
+  const [profiles, setProfiles] = useState(initialProfiles);
+
+  useEffect(() => {
+    setProfiles(prev => ({ ...prev, ...initialProfiles }));
+  }, [initialProfiles]);
+
   const [tab, setTab] = useState("overview");
   const [requests, setRequests] = useState([]);
   const [pages, setPages] = useState([]);
@@ -1568,8 +1605,31 @@ function FounderDetail({ startup: initialStartup, me, profiles, bals, dk, onBack
     });
     setMemberRoles(rolesMap);
     setUpdates(upds || []);
+
+    // Fetch missing profiles here!
+    const neededUids = new Set();
+    allReqs.forEach(r => r.user_id && neededUids.add(r.user_id));
+    (mbs || []).forEach(m => m.user_id && neededUids.add(m.user_id));
+    (upds || []).forEach(u => u.created_by && neededUids.add(u.created_by));
+    (pgMembers || []).forEach(m => m.user_id && neededUids.add(m.user_id));
+    finalPages.forEach(p => p.created_by && neededUids.add(p.created_by));
+    if (startup.created_by) neededUids.add(startup.created_by);
+    (startup.founders || []).forEach(uid => uid && neededUids.add(uid));
+
+    const missingUids = [...neededUids].filter(uid => !initialProfiles[uid]);
+    if (missingUids.length > 0) {
+      const fetched = await db.get("rs_user_profiles", `id=in.(${missingUids.join(",")})`);
+      if (fetched && fetched.length > 0) {
+        const newProfiles = {};
+        fetched.forEach(r => {
+          newProfiles[r.id] = { ...r, hue: strColor(r.name || "?") };
+        });
+        setProfiles(prev => ({ ...prev, ...newProfiles }));
+      }
+    }
+
     setLoading(false);
-  }, [startup.id, me]);
+  }, [startup.id, me, initialProfiles]);
 
   useEffect(() => { load(); }, [load]);
 
