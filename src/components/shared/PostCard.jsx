@@ -19,6 +19,7 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
   const [showRepostMenu, setShowRepostMenu] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showAllComments, setShowAllComments] = useState(false);
   const [editText, setEditText] = useState(post.text || "");
   const [editError, setEditError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -225,7 +226,7 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
             )}
             {post.comments?.length > 0 && (
               <div style={{ background: th.surf2, borderRadius: 10, padding: 10, marginBottom: 8, border: `1px solid ${th.bdr}` }}>
-                {post.comments.slice(0, 3).map(c => {
+                {(showAllComments ? post.comments : post.comments.slice(0, 3)).map(c => {
                   const cp = profiles[c.uid] || { name: "User" };
                   const isFocused = highlightCommentId && c.id === highlightCommentId;
                   return (
@@ -238,7 +239,25 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
                     </div>
                   );
                 })}
-                {post.comments.length > 3 && <p style={{ fontSize: 11, color: th.txt3, margin: "4px 0 0" }}>+{post.comments.length - 3} more</p>}
+                {post.comments.length > 3 && (
+                  <button
+                    onClick={() => setShowAllComments(x => !x)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#3b82f6",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      padding: "4px 0 0",
+                      display: "block",
+                      outline: "none",
+                      textAlign: "left"
+                    }}
+                  >
+                    {showAllComments ? "Show less" : `+${post.comments.length - 3} more`}
+                  </button>
+                )}
               </div>
             )}
             <div style={{ display: "flex", gap: 2, flexWrap: "wrap", marginTop: 4 }}>

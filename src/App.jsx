@@ -21,6 +21,7 @@ import Sidebar from "./components/shared/Sidebar";
 import RightPanel from "./components/shared/RightPanel";
 import NotifPanel from "./components/shared/NotifPanel";
 import BottomNav from "./components/shared/BottomNav";
+import Spin from "./components/ui/Spin";
 
 // Views
 import AuthScreen from "./views/AuthScreen";
@@ -570,16 +571,9 @@ export default function App() {
   }, [screen]);
 
   if (screen === "loading") return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#040a14,#0c1929)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#040a14,#0c1929)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <GlobalCSS dk={true} />
-      <div style={{ position: "relative", width: 80, height: 80 }}>
-        <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2.5px solid transparent", borderTopColor: "#6366f1", borderRightColor: "#6366f150", animation: "spin 1.2s cubic-bezier(0.5,0,0.5,1) infinite" }} />
-        <div style={{ position: "absolute", inset: 10, borderRadius: "50%", border: "2px solid transparent", borderTopColor: "#8b5cf6", borderLeftColor: "#8b5cf655", animation: "spin 0.8s linear infinite reverse" }} />
-        <div style={{ position: "absolute", inset: 20, borderRadius: 14, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 32px rgba(99,102,241,.7)", animation: "pulse 2s ease-in-out infinite" }}>
-          <span style={{ color: "#fff", fontWeight: 900, fontSize: 20 }}>R</span>
-        </div>
-      </div>
-      <span style={{ color: "rgba(160,185,255,.65)", fontSize: 13, fontWeight: 500, letterSpacing: "0.5px", animation: "pulse 2s ease-in-out infinite" }}>Signing you in…</span>
+      <Spin dk={true} msg="Signing you in…" logo={true} />
     </div>
   );
 

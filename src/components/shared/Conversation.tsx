@@ -270,20 +270,33 @@ export default function Conversation({
 
     const parsed = parseMessageContent(msg.content);
     const currentReactions = parsed.reactions || {};
-    const userIds = currentReactions[emoji] ? [...currentReactions[emoji]] : [];
+    const nextReactions = { ...currentReactions };
+    let hadThisReaction = false;
 
-    const index = userIds.indexOf(me);
-    if (index > -1) {
-      userIds.splice(index, 1);
-    } else {
-      userIds.push(me);
+    // Remove current user (me) from all existing reactions first
+    for (const key of Object.keys(nextReactions)) {
+      const uids = [...(nextReactions[key] || [])];
+      const idx = uids.indexOf(me);
+      if (idx > -1) {
+        uids.splice(idx, 1);
+        if (key === emoji) {
+          hadThisReaction = true;
+        }
+        if (uids.length > 0) {
+          nextReactions[key] = uids;
+        } else {
+          delete nextReactions[key];
+        }
+      }
     }
 
-    const nextReactions = { ...currentReactions };
-    if (userIds.length > 0) {
-      nextReactions[emoji] = userIds;
-    } else {
-      delete nextReactions[emoji];
+    // If the user did not have this specific reaction, add it
+    if (!hadThisReaction) {
+      const uids = nextReactions[emoji] ? [...nextReactions[emoji]] : [];
+      if (!uids.includes(me)) {
+        uids.push(me);
+      }
+      nextReactions[emoji] = uids;
     }
 
     const content = buildReactedContent(msg.content, nextReactions);
@@ -1319,43 +1332,43 @@ export default function Conversation({
           >
             {/* Voice Note Preview (staged) */}
             {pendingAudioName && audioUrl && (
-              <div style={{ position: 'absolute', left: 64, right: 120, bottom: audioBottom, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, backdropFilter: th.blur, WebkitBackdropFilter: th.blur }}>
+              <div style={{ position: 'absolute', left: 8, right: 8, bottom: audioBottom, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, backdropFilter: th.blur, WebkitBackdropFilter: th.blur, zIndex: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', color: '#6366f1', flexShrink: 0 }}>
                   <Mic size={14} />
                 </div>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: th.txt, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 }}>Voice Note</span>
-                  <audio src={audioUrl} controls style={{ height: 28, flex: 1, maxWidth: 220 }} />
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: th.txt, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100, flexShrink: 0 }}>Voice Note</span>
+                  <audio src={audioUrl} controls style={{ height: 28, flex: 1, minWidth: 120 }} />
                 </div>
-                <button onClick={discardAudio} style={{ background: 'none', border: 'none', cursor: 'pointer', color: th.txt3, padding: 4, display: 'flex', alignItems: 'center' }}>✕</button>
+                <button onClick={discardAudio} style={{ background: 'none', border: 'none', cursor: 'pointer', color: th.txt3, padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}>✕</button>
               </div>
             )}
 
             {/* Reply preview (when replyingTo is set) */}
             {replyingTo && (
-              <div style={{ position: 'absolute', left: 64, right: 120, bottom: replyBottom, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontSize: 12, color: th.txt3, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyingTo.author ? `${replyingTo.author}: ` : ''}{replyingTo.content}</div>
-                <button onClick={() => setReplyingTo(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3 }}>✕</button>
+              <div style={{ position: 'absolute', left: 8, right: 8, bottom: replyBottom, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
+                <div style={{ fontSize: 12, color: th.txt3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyingTo.author ? `${replyingTo.author}: ` : ''}{replyingTo.content}</div>
+                <button onClick={() => setReplyingTo(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3, flexShrink: 0 }}>✕</button>
               </div>
             )}
 
             {pendingAttachment && !uploadingAttachment && (
-              <div style={{ position: 'absolute', left: 64, right: 120, bottom: attachBottom, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ position: 'absolute', left: 8, right: 8, bottom: attachBottom, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: pendingAttachment.kind === 'image' ? '#dbeafe' : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {pendingAttachment.kind === 'image' ? <Image size={15} color="#3b82f6" /> : <FileText size={15} color="#64748b" />}
                 </div>
-                <div style={{ minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: th.txt, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingAttachment.name}</div>
                   <div style={{ fontSize: 11, color: th.txt3 }}>{pendingAttachment.kind === 'pdf' ? 'PDF ready to send' : 'Image ready to send'}</div>
                 </div>
-                <button onClick={() => setPendingAttachment(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3 }}>✕</button>
+                <button onClick={() => setPendingAttachment(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: th.txt3, flexShrink: 0 }}>✕</button>
               </div>
             )}
 
             {uploadingAttachment && (
-              <div style={{ position: 'absolute', left: 64, right: 120, bottom: 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: th.txt3 }} />
-                <div style={{ fontSize: 12, color: th.txt3 }}>Uploading attachment…</div>
+              <div style={{ position: 'absolute', left: 8, right: 8, bottom: 60, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
+                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: th.txt3, flexShrink: 0 }} />
+                <div style={{ fontSize: 12, color: th.txt3, flex: 1 }}>Uploading attachment…</div>
               </div>
             )}
 
@@ -1374,33 +1387,33 @@ export default function Conversation({
                   <button onClick={() => pdfInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt }}><FileText size={16} /> PDF</button>
                 </div>
               )}
-
-              {/* Sticker picker panel */}
-              {showStickerPicker && (
-                <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 44, left: 0, width: 320, maxWidth: '90vw', background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, zIndex: 70 }}>
-                  {STICKERS.map(s => (
-                    <button key={s} onClick={() => selectSticker(s)} style={{ fontSize: 22, padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Recording UI (shows while recording) */}
-              {isRecording && (
-                <div style={{ position: 'absolute', bottom: 44, left: 0, width: 280, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 12, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', zIndex: 80, backdropFilter: th.blur, WebkitBackdropFilter: th.blur }} onClick={e => e.stopPropagation()}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 6, background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.6)', }} />
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>Recording…</div>
-                    <canvas ref={canvasRef} width={80} height={20} style={{ flex: 1, maxHeight: 20, minWidth: 60 }} />
-                    <div style={{ fontSize: 12, color: th.txt3 }}>{Math.floor(recordSecs / 60).toString().padStart(2, '0')}:{(recordSecs % 60).toString().padStart(2, '0')}</div>
-                    <button onClick={(e) => { e.stopPropagation(); stopRecording(); }} style={{ marginLeft: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt, fontSize: 13, fontWeight: 600 }}>
-                      Stop
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* Sticker picker panel (absolute positioned relative to composer) */}
+            {showStickerPicker && (
+              <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: 60, left: 8, width: 320, maxWidth: 'calc(100vw - 16px)', background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 10, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, zIndex: 70, backdropFilter: th.blur, WebkitBackdropFilter: th.blur }}>
+                {STICKERS.map(s => (
+                  <button key={s} onClick={() => selectSticker(s)} style={{ fontSize: 22, padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Recording UI (shows while recording, absolute positioned relative to composer) */}
+            {isRecording && (
+              <div style={{ position: 'absolute', bottom: 60, left: 8, right: 8, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: 12, boxShadow: '0 12px 36px rgba(2,6,23,0.12)', zIndex: 80, backdropFilter: th.blur, WebkitBackdropFilter: th.blur, display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: 6, background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.6)', flexShrink: 0 }} />
+                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt, flexShrink: 0 }}>Recording…</div>
+                  <canvas ref={canvasRef} width={80} height={20} style={{ flex: 1, maxHeight: 20, minWidth: 60 }} />
+                  <div style={{ fontSize: 12, color: th.txt3, flexShrink: 0 }}>{Math.floor(recordSecs / 60).toString().padStart(2, '0')}:{(recordSecs % 60).toString().padStart(2, '0')}</div>
+                  <button onClick={(e) => { e.stopPropagation(); stopRecording(); }} style={{ marginLeft: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: th.txt, fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                    Stop
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input
@@ -1449,70 +1462,71 @@ export default function Conversation({
               >
                 <Smile size={18} />
               </button>
+            </div>
 
-              {/* Composer Emoji Picker Panel */}
-              {showComposerEmojiPicker && (
-                <div
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    position: 'absolute',
-                    bottom: 48,
-                    right: 0,
-                    width: 320,
-                    height: 240,
-                    background: th.surf,
-                    border: `1px solid ${th.bdr}`,
-                    borderRadius: 16,
-                    padding: 12,
-                    boxShadow: '0 12px 36px rgba(2,6,23,0.15)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    zIndex: 90,
-                    backdropFilter: th.blur,
-                    WebkitBackdropFilter: th.blur,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: th.txt2 }}>Emojis</span>
+            {/* Composer Emoji Picker Panel (absolute positioned relative to composer) */}
+            {showComposerEmojiPicker && (
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  bottom: 60,
+                  right: 8,
+                  width: 320,
+                  height: 240,
+                  background: th.surf,
+                  border: `1px solid ${th.bdr}`,
+                  borderRadius: 16,
+                  padding: 12,
+                  boxShadow: '0 12px 36px rgba(2,6,23,0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  zIndex: 90,
+                  backdropFilter: th.blur,
+                  WebkitBackdropFilter: th.blur,
+                  maxWidth: 'calc(100vw - 16px)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: th.txt2 }}>Emojis</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowComposerEmojiPicker(false);
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: th.txt3, fontSize: 12 }}
+                  >
+                    Close
+                  </button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+                  {ALL_EMOJIS.map(emoji => (
                     <button
+                      key={emoji}
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowComposerEmojiPicker(false);
+                        setText(prev => prev + emoji);
                       }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: th.txt3, fontSize: 12 }}
+                      style={{
+                        fontSize: 20,
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 4,
+                        borderRadius: 8,
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      Close
+                      {emoji}
                     </button>
-                  </div>
-                  <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
-                    {ALL_EMOJIS.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setText(prev => prev + emoji);
-                        }}
-                        style={{
-                          fontSize: 20,
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: 4,
-                          borderRadius: 8,
-                          transition: 'background 0.1s',
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <button
               onClick={(e) => { e.stopPropagation(); isRecording ? stopRecording() : startRecording(); }}

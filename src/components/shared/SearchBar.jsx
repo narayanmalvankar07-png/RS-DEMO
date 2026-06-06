@@ -41,7 +41,7 @@ function SearchBar({ dk, profiles, onProfile, onTag }) {
         {q && <button onClick={() => { setQ(""); setOpen(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, display: "flex", padding: 0 }}><X size={12} /></button>}
       </div>
       {open && (results.users.length > 0 || results.tags.length > 0) && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, boxShadow: `0 10px 40px rgba(0,0,0,${dk ? .5 : .12})`, zIndex: 200, maxHeight: 320, overflowY: "auto", marginTop: 4 }}>
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: dk ? "rgba(13, 20, 38, 0.96)" : "rgba(255, 255, 255, 0.98)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: `1px solid ${th.bdr}`, borderRadius: 12, boxShadow: `0 10px 40px rgba(0,0,0,${dk ? .5 : .12})`, zIndex: 9999, maxHeight: 320, overflowY: "auto", marginTop: 4 }}>
           {results.users.length > 0 && (
             <>
               <div style={{ padding: "8px 12px 4px", fontSize: 11, fontWeight: 700, color: th.txt3, letterSpacing: 0.5 }}>PEOPLE</div>

@@ -9,6 +9,16 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
   const th = T(dk);
 
   const [conversations, setConversations] = useState([]);
+  const [width, setWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const isCompact = isMobile || width < 990;
+
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState(null);
   const [search, setSearch] = useState("");
@@ -258,16 +268,16 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
     boxSizing: "border-box",
   };
 
-  // Mobile: stacked panels — show list or chat, not both
-  const showList = !isMobile || !activeId;
-  const showChat = !isMobile || !!activeId;
+  // Mobile/Tablet: stacked panels — show list or chat, not both
+  const showList = !isCompact || !activeId;
+  const showChat = !isCompact || !!activeId;
 
   return (
-    <div style={{ display: isMobile ? "flex" : "grid", gridTemplateColumns: isMobile ? undefined : "300px 1fr", flexDirection: isMobile ? "column" : undefined, gap: isMobile ? 0 : 12, height: "100%", width: "100%", overflow: "hidden", padding: isMobile ? "8px 8px 82px" : "12px 16px" }}>
+    <div style={{ display: isCompact ? "flex" : "grid", gridTemplateColumns: isCompact ? undefined : "300px 1fr", flexDirection: isCompact ? "column" : undefined, gap: isCompact ? 0 : 12, height: "100%", width: "100%", overflow: "hidden", padding: isCompact ? (isMobile ? "8px 8px 82px" : "8px 8px 12px") : "12px 16px" }}>
 
       {/* ── Left panel: conversation list ─── */}
       {showList && (
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0, flex: isMobile ? 1 : undefined }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", minHeight: 0, flex: isCompact ? 1 : undefined }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: th.txt }}>Messages</h2>
           <button
@@ -349,7 +359,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
 
       {/* ── Right panel: active chat ───────── */}
       {showChat && (
-      <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 8 : 12, overflow: "hidden", height: "100%", minHeight: 0, flex: isMobile ? 1 : undefined }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: isCompact ? 8 : 12, overflow: "hidden", height: "100%", minHeight: 0, flex: isCompact ? 1 : undefined }}>
         {!activeConv ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: th.txt3, gap: 12, minHeight: 0 }}>
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: dk ? "rgba(255,255,255,0.05)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -362,7 +372,7 @@ export default function MessengerView({ dk, profiles, me, initUid, onProfile, is
           <>
             {/* Chat header */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "12px 16px", flexShrink: 0, position: "relative" }}>
-              {isMobile && (
+              {isCompact && (
                 <button
                   onClick={() => setActiveId(null)}
                   style={{

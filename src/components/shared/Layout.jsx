@@ -14,7 +14,6 @@ export function Sidebar({ view, setView, me, dk, bals, myProfile }) {
     { id: "colab", e: "🚀", l: "Colab" },
     { id: "events", e: "📅", l: "Events" },
     { id: "sandbox", e: "💡", l: "Sandbox" },
-    { id: "contribute", e: "📝", l: "Contribute" },
     { id: "wallet", e: "◈", l: "Wallet", badge: bal },
     ...(canManageAds(myProfile) ? [{ id: "ads", e: "📢", l: "Ads Manager" }] : []),
   ];

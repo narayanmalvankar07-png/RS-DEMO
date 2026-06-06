@@ -13,7 +13,6 @@ const NAV_LINKS = [
   { id: "colab", icon: Lightbulb, label: "Colab" },
   { id: "events", icon: Calendar, label: "Events" },
   { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
-  { id: "contribute", icon: FileText, label: "Contribute" },
   { id: "wallet", icon: Wallet, label: "Wallet", walletBadge: true },
 ];
 
