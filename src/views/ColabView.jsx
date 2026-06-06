@@ -209,7 +209,7 @@ function FeedbackSection({ startupId, me, profiles, dk }) {
 }
 
 // ─── Page Chat View (WhatsApp-style) ───────────────────────────────
-function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack, onAddPageMember = () => { } }) {
+function PageChatView({ page, startup, me, profiles, pageMembers = [], allMembers = [], isFounder = false, dk, onBack, onAddPageMember = () => { }, addNotif }) {
   const th = T(dk);
   const pt = PAGE_TYPES.find(p => p.id === page.type_id) || PAGE_TYPES[0];
   const pgMems = pageMembers.filter(m => m.page_id === page.id);
@@ -579,98 +579,7 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
       )}
 
       {/* ── MEETINGS ── */}
-      {pageTab === "meetings" && (
-        <div>
-          {/* Calendly available slots section */}
-          <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: "#00a2ff18", border: "1px solid #00a2ff30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📆</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>Available Slots (Calendly)</div>
-                  <div style={{ fontSize: 11, color: th.txt3 }}>{isPageAdmin ? "Configure your Calendly link to share available slots" : "Book a slot with the page admin"}</div>
-                </div>
-              </div>
-              {isPageAdmin && (
-                <button onClick={() => { setEditCalendly(v => !v); setCalendlyInput(calendlyUrl); }} style={{ background: editCalendly ? th.surf2 : "#00a2ff18", border: `1px solid ${editCalendly ? th.bdr : "#00a2ff40"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: editCalendly ? th.txt3 : "#00a2ff", fontSize: 11, fontWeight: 700 }}>
-                  {editCalendly ? "Cancel" : calendlyUrl ? "Edit Link" : "Set Up"}
-                </button>
-              )}
-            </div>
-            {isPageAdmin && editCalendly && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <input value={calendlyInput} onChange={e => setCalendlyInput(e.target.value)} placeholder="https://calendly.com/your-username/30min" style={{ ...inp, flex: 1 }} />
-                <button onClick={saveCalendlyUrl} disabled={!calendlyInput.trim()} style={{ flexShrink: 0, padding: "10px 14px", background: calendlyInput.trim() ? "#00a2ff" : th.surf2, border: "none", borderRadius: 10, cursor: calendlyInput.trim() ? "pointer" : "default", color: calendlyInput.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Save</button>
-                {calendlyUrl && <button onClick={() => { setCalendlyUrl(""); ls.set(CALENDLY_KEY, ""); setEditCalendly(false); }} style={{ flexShrink: 0, padding: "10px 12px", background: "#ef444410", border: "1px solid #ef444430", borderRadius: 10, cursor: "pointer", color: "#ef4444", fontSize: 13, fontWeight: 700 }}>Remove</button>}
-              </div>
-            )}
-            {calendlyUrl ? (
-              <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${th.bdr}` }}>
-                <iframe
-                  src={`${calendlyUrl.replace(/\/$/, "")}?embed_type=Inline&hide_event_type_details=0&hide_gdpr_banner=1&background_color=${dk ? "0a0f1e" : "ffffff"}&text_color=${dk ? "e8f0fe" : "0f172a"}&primary_color=6366f1`}
-                  width="100%"
-                  height="630"
-                  style={{ border: "none", display: "block" }}
-                  title="Calendly Scheduling"
-                />
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "20px 0", color: th.txt3, fontSize: 13 }}>
-                {isPageAdmin ? "Add your Calendly link above to let members book available slots." : "No available slots configured yet. Ask the page admin to set up Calendly."}
-              </div>
-            )}
-          </div>
-
-          {/* Manual meeting booking */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: th.txt2, display: "flex", alignItems: "center", gap: 6 }}><Calendar size={14} /> Scheduled Meetings ({meetings.length})</span>
-            {isPageAdmin && (
-              <button onClick={() => setShowMtgForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: showMtgForm ? th.surf2 : "#6366f1", border: `1px solid ${showMtgForm ? th.bdr : "#6366f1"}`, borderRadius: 10, padding: "7px 14px", color: showMtgForm ? th.txt2 : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                {showMtgForm ? <><X size={13} /> Cancel</> : <><PlusCircle size={13} /> Schedule</>}
-              </button>
-            )}
-          </div>
-          {isPageAdmin && showMtgForm && (
-            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-              <input value={mtgForm.title} onChange={e => setMtgForm(f => ({ ...f, title: e.target.value }))} placeholder="Meeting title *" style={inp} />
-              <div style={{ display: "flex", gap: 10 }}>
-                <input type="date" value={mtgForm.date} onChange={e => setMtgForm(f => ({ ...f, date: e.target.value }))} style={{ ...inp, flex: 1 }} />
-                <input type="time" value={mtgForm.time} onChange={e => setMtgForm(f => ({ ...f, time: e.target.value }))} style={{ ...inp, flex: 1 }} />
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {[{ id: "google_meet", label: "Google Meet", e: "📹" }, { id: "zoom", label: "Zoom", e: "📷" }].map(p => (
-                  <button key={p.id} onClick={() => setMtgForm(f => ({ ...f, platform: p.id }))} style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${mtgForm.platform === p.id ? "#6366f1" : th.bdr}`, background: mtgForm.platform === p.id ? "#6366f1" : th.surf2, color: mtgForm.platform === p.id ? "#fff" : th.txt2, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>{p.e} {p.label}</button>
-                ))}
-              </div>
-              <input value={mtgForm.link} onChange={e => setMtgForm(f => ({ ...f, link: e.target.value }))} placeholder="Meeting link (optional)" style={inp} />
-              <input value={mtgForm.with_note} onChange={e => setMtgForm(f => ({ ...f, with_note: e.target.value }))} placeholder="With whom? (e.g. John, Sarah)" style={inp} />
-              <textarea value={mtgForm.agenda} onChange={e => setMtgForm(f => ({ ...f, agenda: e.target.value }))} placeholder="Agenda (optional)" rows={2} style={{ ...inp, resize: "vertical" }} />
-              <button onClick={bookMeeting} disabled={!mtgForm.title.trim() || !mtgForm.date || !mtgForm.time} style={{ padding: "10px", background: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#6366f1" : th.surf2, border: "none", borderRadius: 10, cursor: "pointer", color: (mtgForm.title.trim() && mtgForm.date && mtgForm.time) ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13 }}>Schedule Meeting</button>
-            </div>
-          )}
-          {meetings.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 32, color: th.txt3, fontSize: 13 }}>No meetings scheduled yet.</div>
-          ) : meetings.map(mtg => {
-            const booker = profiles?.[mtg.created_by] || { name: "Unknown" };
-            return (
-              <div key={mtg.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#6366f118", border: "1px solid #6366f130", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>📅</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{mtg.title}</div>
-                  <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{mtg.meeting_date} · {mtg.meeting_time} · {mtg.platform === "zoom" ? "📷 Zoom" : "📹 Google Meet"}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 11, color: th.txt3 }}>Scheduled by</span>
-                    <div onClick={() => setViewingProf(mtg.created_by)} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}><Av profile={booker} size={16} /><span style={{ fontSize: 11, fontWeight: 600, color: th.txt2 }}>{booker.name}</span></div>
-                    {mtg.with_note && <><span style={{ fontSize: 11, color: th.txt3 }}>· with</span><span style={{ fontSize: 11, fontWeight: 600, color: "#6366f1" }}>{mtg.with_note}</span></>}
-                  </div>
-                  {mtg.link && <a href={mtg.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#6366f1", fontWeight: 600, display: "inline-block", marginTop: 4 }}>Join link →</a>}
-                  {mtg.agenda && <p style={{ fontSize: 12, color: th.txt2, margin: "4px 0 0", fontStyle: "italic" }}>{mtg.agenda}</p>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {pageTab === "meetings" && <ComingSoonMeetings dk={dk} addNotif={addNotif} />}
 
       {/* ── ACTIVITY ── */}
       {pageTab === "activity" && (
@@ -788,6 +697,188 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Coming Soon Meetings Section ──────────────────────────────────
+function ComingSoonMeetings({ dk, addNotif }) {
+  const th = T(dk);
+  const [subscribed, setSubscribed] = useState(() => {
+    try {
+      return localStorage.getItem("rs_notify_meetings") === "true";
+    } catch { return false; }
+  });
+
+  useEffect(() => {
+    const styleId = "meetings-coming-soon-keyframes";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        @keyframes float-mtg {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
+          100% { transform: translateY(0px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  const handleNotify = () => {
+    try {
+      localStorage.setItem("rs_notify_meetings", "true");
+    } catch {}
+    setSubscribed(true);
+    if (addNotif) {
+      addNotif({ type: "success", msg: "🚀 Subscribed to Meetings integration updates!" });
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
+      <div style={{
+        background: dk ? "rgba(99, 102, 241, 0.04)" : "rgba(99, 102, 241, 0.02)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`,
+        borderRadius: 24,
+        padding: "40px 32px",
+        width: "100%",
+        maxWidth: 460,
+        boxShadow: "0 10px 40px -10px rgba(99, 102, 241, 0.08)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        boxSizing: "border-box"
+      }}>
+        {/* Animated Floating Icon Container */}
+        <div style={{
+          position: "relative",
+          width: 76,
+          height: 76,
+          borderRadius: 22,
+          background: "linear-gradient(135deg, #6366f1, #a855f7)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 20,
+          boxShadow: "0 8px 20px rgba(99, 102, 241, 0.3)",
+          animation: "float-mtg 4s ease-in-out infinite"
+        }}>
+          <Calendar size={32} color="#fff" />
+          <div style={{
+            position: "absolute",
+            bottom: -6,
+            right: -6,
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            background: "#ec4899",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 10px rgba(236, 72, 153, 0.4)",
+            border: `2px solid ${th.surf}`
+          }}>
+            <Video size={14} color="#fff" />
+          </div>
+        </div>
+
+        {/* Coming Soon Badge */}
+        <span style={{
+          background: dk ? "rgba(245, 158, 11, 0.15)" : "rgba(245, 158, 11, 0.08)",
+          color: "#f59e0b",
+          border: "1px solid rgba(245, 158, 11, 0.3)",
+          fontSize: 10,
+          fontWeight: 800,
+          padding: "4px 12px",
+          borderRadius: 99,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          marginBottom: 16,
+          display: "inline-block"
+        }}>
+          Coming Soon
+        </span>
+
+        {/* Headline */}
+        <h3 style={{ margin: "0 0 10px", fontSize: 20, fontWeight: 800, color: th.txt }}>
+          Meetings Integration
+        </h3>
+
+        {/* Description */}
+        <p style={{ margin: "0 0 24px", fontSize: 13, color: th.txt2, lineHeight: 1.6, maxWidth: 420 }}>
+          We are currently integrating calendar scheduling with Google Meet, Zoom, and Calendly to help your team coordinate and sync seamlessly.
+        </p>
+
+        {/* Features Checklist */}
+        <div style={{
+          width: "100%",
+          background: th.surf2,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 16,
+          padding: 16,
+          textAlign: "left",
+          marginBottom: 24,
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12
+        }}>
+          {[
+            { title: "Calendly Embed", desc: "Integrate personal Calendly slots inside page views." },
+            { title: "1-Click Meeting Links", desc: "Instantly spin up Google Meet or Zoom invites." },
+            { title: "Team Calendars", desc: "Consolidated developer, designer & marketing schedules." }
+          ].map((feat, idx) => (
+            <div key={idx} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div style={{
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                background: "rgba(16, 185, 129, 0.12)",
+                border: "1px solid rgba(16, 185, 129, 0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#10b981",
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                marginTop: 1
+              }}>✓</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: th.txt }}>{feat.title}</div>
+                <div style={{ fontSize: 11, color: th.txt3, marginTop: 1 }}>{feat.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={handleNotify}
+          disabled={subscribed}
+          style={{
+            background: subscribed ? "rgba(16, 185, 129, 0.15)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            border: subscribed ? "1px solid rgba(16, 185, 129, 0.3)" : "none",
+            borderRadius: 12,
+            padding: "12px 24px",
+            color: subscribed ? "#10b981" : "#fff",
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: subscribed ? "default" : "pointer",
+            transition: "all 0.2s",
+            boxShadow: subscribed ? "none" : "0 4px 12px rgba(99, 102, 241, 0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6
+          }}
+        >
+          {subscribed ? "✓ Subscribed for Updates" : "Notify Me on Release"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1297,7 +1388,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
   const headerBg = dk ? "linear-gradient(135deg,rgba(30,58,138,0.25),rgba(91,33,182,0.2))" : "linear-gradient(135deg,#e0e7ff,#ede9fe)";
   const TABS = [{ id: "overview", label: "Overview" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} addNotif={addNotif} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
@@ -1825,7 +1916,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
 
   const inp = { background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
-  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const exists = pageMembers.find(m => m.page_id === pageId && m.user_id === userId); if (exists) return; const entry = { startup_id: startup.id, page_id: pageId, user_id: userId, created_by: me, created_at: new Date().toISOString() }; db.upsert("rs_page_members", entry); const mems = [...pageMembers, entry]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} />;
+  if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={true} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const exists = pageMembers.find(m => m.page_id === pageId && m.user_id === userId); if (exists) return; const entry = { startup_id: startup.id, page_id: pageId, user_id: userId, created_by: me, created_at: new Date().toISOString() }; db.upsert("rs_page_members", entry); const mems = [...pageMembers, entry]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} addNotif={addNotif} />;
 
   return (
     <div style={{ animation: "fadeUp 0.3s ease both" }}>
@@ -2258,7 +2349,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
             </div>
           )}
 
-          {tab === "meetings" && <MeetingsTab pages={pages} startup={startup} me={me} profiles={profiles} members={members} dk={dk} />}
+          {tab === "meetings" && <ComingSoonMeetings dk={dk} addNotif={addNotif} />}
 
           {tab === "updates" && (
             <div>

@@ -3,6 +3,7 @@ import { ExternalLink, TrendingUp, Rocket, Briefcase, Zap, Code2, Palette, Globe
 import { T, WHO_OPTS } from "../../config/constants.js";
 import Av from "../ui/Av.jsx";
 import { db } from "../../services/supabase.js";
+import { subscribeWS } from "../../services/websocket.js";
 
 const ROLE_ICON_MAP = {
   founder: Rocket, investor: TrendingUp, professional: Briefcase,
@@ -12,8 +13,8 @@ const ROLE_ICON_MAP = {
 };
 
 const DEFAULT_TRENDING = [
-  ["#startupsandbox", 361], ["#buildinpublic", 348], ["#startups", 227],
-  ["#rightsignal", 121], ["#founders", 121],
+  ["#startupsandbox", 0], ["#buildinpublic", 0], ["#startups", 0],
+  ["#rightsignal", 0], ["#founders", 0],
 ];
 
 export default function RightPanel({ dk, myProfile, onProfile, bals, onWallet, profiles, onTag }) {
@@ -22,64 +23,88 @@ export default function RightPanel({ dk, myProfile, onProfile, bals, onWallet, p
   const whoOpt = WHO_OPTS.find(w => w.id === myProfile?.who);
   const RoleIcon = whoOpt ? (ROLE_ICON_MAP[whoOpt.id] || User) : null;
 
+  const [postsList, setPostsList] = useState([]);
   const [trending, setTrending] = useState(DEFAULT_TRENDING);
+
+  const calculateTrending = (posts) => {
+    const freq = {};
+    posts.forEach(p => {
+      const postTags = new Set();
+      if (Array.isArray(p.hashtags)) {
+        p.hashtags.forEach(tag => {
+          if (tag) {
+            postTags.add(tag.startsWith('#') ? tag.toLowerCase() : `#${tag.toLowerCase()}`);
+          }
+        });
+      }
+      if (p.text) {
+        const matches = p.text.match(/#[a-zA-Z0-9_]+/g);
+        if (matches) {
+          matches.forEach(tag => {
+            postTags.add(tag.toLowerCase());
+          });
+        }
+      }
+      postTags.forEach(tag => {
+        freq[tag] = (freq[tag] || 0) + 1;
+      });
+    });
+
+    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+    const result = [...sorted];
+    if (result.length < 5) {
+      const existingTags = new Set(result.map(r => r[0]));
+      for (const [tag, count] of DEFAULT_TRENDING) {
+        if (!existingTags.has(tag)) {
+          result.push([tag, 0]);
+          existingTags.add(tag);
+        }
+        if (result.length >= 5) break;
+      }
+    }
+    result.sort((a, b) => b[1] - a[1]);
+    return result.slice(0, 5);
+  };
 
   useEffect(() => {
     let active = true;
+    let retryTimeout = null;
+
     const fetchTrending = async () => {
       try {
         const posts = await db.get("rs_posts", "order=created_at.desc&limit=80");
         if (!active) return;
-        if (!posts || posts.length === 0) {
-          setTrending(DEFAULT_TRENDING);
-          return;
-        }
+        setPostsList(posts || []);
+        setTrending(calculateTrending(posts || []));
 
-        const freq = {};
-        posts.forEach(p => {
-          const postTags = new Set();
-          if (Array.isArray(p.hashtags)) {
-            p.hashtags.forEach(tag => {
-              if (tag) {
-                postTags.add(tag.startsWith('#') ? tag.toLowerCase() : `#${tag.toLowerCase()}`);
-              }
-            });
-          }
-          if (p.text) {
-            const matches = p.text.match(/#[a-zA-Z0-9_]+/g);
-            if (matches) {
-              matches.forEach(tag => {
-                postTags.add(tag.toLowerCase());
-              });
-            }
-          }
-          postTags.forEach(tag => {
-            freq[tag] = (freq[tag] || 0) + 1;
-          });
-        });
-
-        const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-        const result = [...sorted];
-        if (result.length < 5) {
-          const existingTags = new Set(result.map(r => r[0]));
-          for (const [tag, count] of DEFAULT_TRENDING) {
-            if (!existingTags.has(tag)) {
-              result.push([tag, count]);
-              existingTags.add(tag);
-            }
-            if (result.length >= 5) break;
-          }
+        // If the database has no posts (which happens during first-load database seeding in App.jsx),
+        // retry fetching after a short delay to get the seeded posts.
+        if ((!posts || posts.length === 0) && !retryTimeout) {
+          retryTimeout = setTimeout(fetchTrending, 2500);
         }
-        setTrending(result.slice(0, 5));
       } catch (err) {
-        console.error("Error fetching trending:", err);
+        console.error("Error fetching trending on mount:", err);
         if (active) setTrending(DEFAULT_TRENDING);
       }
     };
 
     fetchTrending();
+
+    const unsub = subscribeWS((msg) => {
+      if (msg.type === "feed_event" && msg.action === "new_post" && msg.newPostObj) {
+        if (!active) return;
+        setPostsList(prev => {
+          const next = [msg.newPostObj, ...prev].slice(0, 80);
+          setTrending(calculateTrending(next));
+          return next;
+        });
+      }
+    });
+
     return () => {
       active = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+      unsub();
     };
   }, []);
 
