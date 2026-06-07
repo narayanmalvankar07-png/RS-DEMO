@@ -1153,10 +1153,6 @@ function JoinCodeModal({ me, onClose, onJoined, dk, isMobile = false }) {
   const [startup, setStartup] = useState(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
-  const [step, setStep] = useState("code");
-  const [roles, setRoles] = useState([]);
-  const [message, setMessage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const check = async () => {
     if (!code.trim()) return;
@@ -1167,60 +1163,31 @@ function JoinCodeModal({ me, onClose, onJoined, dk, isMobile = false }) {
     setChecking(false);
   };
 
-  const submit = async () => {
-    if (!roles.length) return;
-    setSubmitting(true);
-    await db.post("rs_page_access_requests", { startup_id: startup.id, user_id: me, selected_roles: roles, message: message.trim(), status: "pending" });
-    setSubmitting(false); onJoined(startup); onClose();
-  };
-
   return createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: dk ? "rgba(13,20,38,0.97)" : "rgba(255,255,255,0.97)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: `1px solid ${th.bdr}`, borderRadius: 20, padding: 24, width: "100%", maxWidth: 380, animation: "fadeUp 0.25s ease both" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: th.txt }}>{step === "code" ? "Join via Code" : "Select Your Role"}</h3>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: th.txt }}>Join via Code</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={18} /></button>
         </div>
-        {step === "code" ? (
-          <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              <input value={code} onChange={e => { setCode(e.target.value.toUpperCase()); setError(""); setStartup(null); }} onKeyDown={e => e.key === "Enter" && check()} placeholder="e.g. SKILL-A3B2" style={{ flex: 1, background: th.inp, border: `1px solid ${error ? "#ef4444" : startup ? "#10b981" : th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 14, outline: "none", color: th.txt, fontFamily: "monospace" }} />
-              <button onClick={check} disabled={checking || !code.trim()} style={{ background: "#3b82f6", border: "none", borderRadius: 10, padding: "0 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{checking ? "…" : "Check"}</button>
-            </div>
-            {error && <p style={{ fontSize: 13, color: "#ef4444", margin: "0 0 12px" }}>✕ {error}</p>}
-            {startup && (
-              <div style={{ background: th.surf2, borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid #10b98130" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <Logo src={startup.logo} size={42} radius={11} fontSize={22} />
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: th.txt }}>{startup.name}</div>
-                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>✓ Valid startup</div>
-                  </div>
-                </div>
-                <p style={{ fontSize: 13, color: th.txt2, margin: 0 }}>{startup.description?.slice(0, 100)}…</p>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input value={code} onChange={e => { setCode(e.target.value.toUpperCase()); setError(""); setStartup(null); }} onKeyDown={e => e.key === "Enter" && check()} placeholder="e.g. SKILL-A3B2" style={{ flex: 1, background: th.inp, border: `1px solid ${error ? "#ef4444" : startup ? "#10b981" : th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 14, outline: "none", color: th.txt, fontFamily: "monospace" }} />
+          <button onClick={check} disabled={checking || !code.trim()} style={{ background: "#3b82f6", border: "none", borderRadius: 10, padding: "0 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{checking ? "…" : "Check"}</button>
+        </div>
+        {error && <p style={{ fontSize: 13, color: "#ef4444", margin: "0 0 12px" }}>✕ {error}</p>}
+        {startup && (
+          <div style={{ background: th.surf2, borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid #10b98130" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <Logo src={startup.logo} size={42} radius={11} fontSize={22} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: th.txt }}>{startup.name}</div>
+                <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>✓ Valid startup</div>
               </div>
-            )}
-            {startup && <button onClick={() => setStep("roles")} style={{ width: "100%", padding: "11px", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Continue →</button>}
-          </>
-        ) : (
-          <>
-            <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 14px" }}>Joining <strong style={{ color: th.txt }}>{startup.name}</strong></p>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, marginBottom: 14 }}>
-              {JOIN_ROLES.map(r => {
-                const sel = roles.includes(r.id);
-                return <button key={r.id} onClick={() => setRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px", cursor: "pointer", textAlign: "left" }}>
-                  <div style={{ fontSize: 16, marginBottom: 2 }}>{r.e}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: sel ? r.c : th.txt2 }}>{r.label}</div>
-                </button>;
-              })}
             </div>
-            <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Why do you want to join? (optional)" rows={2} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 14 }} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setStep("code")} style={{ flex: 1, padding: "10px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 12, cursor: "pointer", color: th.txt2, fontWeight: 600 }}>← Back</button>
-              <button onClick={submit} disabled={!roles.length || submitting} style={{ flex: 2, padding: "10px", background: roles.length ? "linear-gradient(135deg,#3b82f6,#8b5cf6)" : th.surf2, border: "none", borderRadius: 12, cursor: roles.length ? "pointer" : "default", color: roles.length ? "#fff" : th.txt3, fontWeight: 700 }}>{submitting ? "Sending…" : "Send Request"}</button>
-            </div>
-          </>
+            <p style={{ fontSize: 13, color: th.txt2, margin: 0 }}>{startup.description?.slice(0, 100)}…</p>
+          </div>
         )}
+        {startup && <button onClick={() => { onJoined(startup); onClose(); }} style={{ width: "100%", padding: "11px", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Continue →</button>}
       </div>
     </div>,
     document.getElementById("portal-root")
@@ -1450,6 +1417,8 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
           </div>
         )}
       </div>
+
+
 
       {/* Join role form */}
       {showJoinForm && !myRequest && (
@@ -2096,6 +2065,8 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 </>
               )}
 
+
+
               {/* ── Startup join requests ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <div style={{ flex: 1, height: 1, background: th.bdr }} />
@@ -2455,7 +2426,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   return (
     <div>
       {showCreate && <CreateStartupModal me={me} dk={dk} onClose={() => setShowCreate(false)} onSave={s => { if (s) setStartups(prev => { const ex = prev.find(x => x.id === s.id); return ex ? prev.map(x => x.id === s.id ? s : x) : [s, ...prev]; }); addNotif?.({ type: "success", msg: "Startup launched! 🚀" }); }} />}
-      {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => addNotif?.({ type: "success", msg: `Request sent to ${s.name}!` })} isMobile={isMobile} />}
+      {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => { setSelected(s); }} isMobile={isMobile} />}
 
       <div style={{ background: dk ? "linear-gradient(135deg,#1e3a8a22,#5b21b622)" : "linear-gradient(135deg,#dbeafe,#ede9fe)", border: `1px solid ${dk ? "#3b82f630" : "#bfdbfe"}`, borderRadius: 18, padding: "16px 18px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>

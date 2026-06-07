@@ -23,12 +23,8 @@ export default function SandboxView({ me, dk, myProfile, addNotif, isMobile = fa
 
   useEffect(() => {
     (async () => {
-      let data = await db.get("rs_sandbox", "order=created_at.desc");
-      if (!data?.length) {
-        await db.postMany("rs_sandbox", SEED_SANDBOX);
-        data = await db.get("rs_sandbox", "order=created_at.desc") || [];
-      }
-      setEntries(data);
+      const data = await db.get("rs_sandbox", "order=created_at.desc");
+      setEntries((data || []).filter(e => e.uid !== "seed"));
       setLoading(false);
     })();
   }, []);
