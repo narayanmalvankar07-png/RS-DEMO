@@ -1667,9 +1667,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
             </div>
           </div>
           {!myRequest ? (
-            tab !== "pages" && (
-              <button onClick={() => setTab("pages")} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
-            )
+            <button onClick={() => setShowJoinForm(v => !v)} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
               <div onClick={() => setTab("pages")} style={{ cursor: "pointer", padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
@@ -2282,6 +2280,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 const pendingPage = pageReqs.filter(r => r.status === "pending").length;
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                    {/* RS DEV NOTE: Founder Join Requests summary card hidden per request; kept commented for easy restore.
                     <div style={{ background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👥</div>
                       <div>
@@ -2290,6 +2289,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                         <div style={{ fontSize: 11, fontWeight: 700, color: th.txt2 }}>Join Requests</div>
                       </div>
                     </div>
+                    */}
                     <div style={{ background: dk ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(16,185,129,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔐</div>
                       <div>
