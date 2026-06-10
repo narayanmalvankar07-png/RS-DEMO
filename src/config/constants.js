@@ -25,7 +25,7 @@ export const WHO_OPTS = [
   { id: "founder", label: "Founder", icon: "Rocket", c: "#f97316" },
   { id: "investor", label: "Investor", icon: "TrendingUp", c: "#10b981" },
   { id: "professional", label: "Professional", icon: "Briefcase", c: "#3b82f6" },
-  { id: "entrepreneur", label: "Entrepreneur", icon: "Zap", c: "#8b5cf6" },
+  { id: "venturecapitalist", label: "Venture Capitalist", icon: "Zap", c: "#8b5cf6" },
   { id: "developer", label: "Developer", icon: "Code2", c: "#06b6d4" },
   { id: "designer", label: "Designer", icon: "Palette", c: "#ec4899" },
   { id: "diplomat", label: "Diplomat", icon: "Globe", c: "#f59e0b" },

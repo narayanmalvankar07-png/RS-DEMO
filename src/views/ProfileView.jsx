@@ -5,7 +5,7 @@ import { processAndUploadImage } from "../utils/uploadImage.js";
 
 const ROLE_ICON_MAP = {
   founder: Rocket, investor: TrendingUp, professional: Briefcase,
-  entrepreneur: Zap, developer: Code2, designer: Palette,
+  venturecapitalist: Zap, developer: Code2, designer: Palette,
   diplomat: Globe, selfemployed: Brain, student: GraduationCap,
   researcher: Microscope, creator: Sparkles, executive: Building2,
 };
@@ -29,6 +29,9 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState(profile.bio || "");
   const [editName, setEditName] = useState(profile.name || "");
+  const [editLocation, setEditLocation] = useState(profile.location || "");
+  const [editPhone, setEditPhone] = useState(profile.phone || "");
+  const [detecting, setDetecting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [alignCount, setAlignCount] = useState(0);
 
@@ -248,7 +251,9 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setEditName(profile.name || "");
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
-  }, [uid, profile.bio, profile.name, profile.avatar, profile.social_links]);
+    setEditLocation(profile.location || "");
+    setEditPhone(profile.phone || "");
+  }, [uid, profile.bio, profile.name, profile.avatar, profile.social_links, profile.location, profile.phone]);
 
   useEffect(() => {
     setLoadingPosts(true);
@@ -348,7 +353,9 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
         name: editName,
         bio: editBio,
         avatar: editAvatar,
-        social_links: editSocials
+        social_links: editSocials,
+        location: editLocation || null,
+        phone: editPhone || null
       };
       await db.patch("rs_user_profiles", `id=eq.${uid}`, payload);
       onProfileUpdate?.(uid, payload);
@@ -532,6 +539,11 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
               <div style={{ fontSize: 22, fontWeight: 800, color: th.txt }}>{profile.name}</div>
             )}
             <div style={{ fontSize: 13, color: th.txt3, marginBottom: 4 }}>@{profile.handle || profile.email || uid.slice(0, 8)}</div>
+            {profile.location && (
+              <div style={{ fontSize: 12, color: th.txt2, display: "inline-flex", alignItems: "center", gap: 4, background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)", border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 8px", marginTop: 2 }}>
+                <span>📍</span> {profile.location}
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start" }}>
               {whoOpt && (() => { const RI = ROLE_ICON_MAP[whoOpt.id] || User; return <span style={{ fontSize: 11, background: `${whoOpt.c}18`, color: whoOpt.c, padding: "3px 10px", borderRadius: 99, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><RI size={10} />{whoOpt.label}</span>; })()}
               {profile.system_role && profile.system_role !== "user" && <span style={{ fontSize: 11, background: dk ? "rgba(59,130,246,.12)" : "#eff6ff", color: "#3b82f6", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>{role}</span>}
@@ -545,6 +557,66 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           {editing ? (
             <>
               <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={3} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "10px 12px", color: th.txt, outline: "none", fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+              
+              {(() => {
+                const inpStyle = {
+                  width: "100%",
+                  background: th.inp,
+                  border: `1px solid ${th.inpB}`,
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  fontSize: 13,
+                  outline: "none",
+                  boxSizing: "border-box",
+                  color: th.txt,
+                  fontFamily: "inherit"
+                };
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Location *</label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="e.g. London, UK" style={{ ...inpStyle, flex: 1 }} />
+                        <button
+                          type="button"
+                          disabled={detecting}
+                          onClick={() => {
+                            if (!navigator.geolocation) return;
+                            setDetecting(true);
+                            navigator.geolocation.getCurrentPosition(async (pos) => {
+                              const { latitude, longitude } = pos.coords;
+                              try {
+                                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  const city = data.address.city || data.address.town || data.address.village || data.address.suburb || "";
+                                  const country = data.address.country || "";
+                                  setEditLocation(city && country ? `${city}, ${country}` : data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                                } else {
+                                  setEditLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                                }
+                              } catch {
+                                setEditLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                              } finally {
+                                setDetecting(false);
+                              }
+                            }, () => {
+                              setDetecting(false);
+                            });
+                          }}
+                          style={{ background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "0 10px", color: th.txt2, cursor: detecting ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 600 }}
+                        >
+                          {detecting ? "⏳" : "📍 Detect"}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Phone (Private) *</label>
+                      <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="e.g. +1 555-0199" style={inpStyle} />
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div style={{ marginTop: 16, borderTop: `1px solid ${th.bdr}`, paddingTop: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: th.txt, marginBottom: 12 }}>Social & Web Links</div>
@@ -800,16 +872,19 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
               <Edit3 size={15} />Edit Profile
             </button>
           )}
-          {isOwnProfile && editing && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={saveProfile} disabled={saving} style={{ display: "flex", alignItems: "center", gap: 6, background: "#10b981", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
-                <Check size={15} />{saving ? "Saving…" : "Save"}
-              </button>
-              <button onClick={handleCancel} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, color: th.txt, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontSize: 13 }}>
-                <X size={15} />Cancel
-              </button>
-            </div>
-          )}
+          {isOwnProfile && editing && (() => {
+            const isProfileFormValid = editName.trim() && editLocation.trim() && editPhone.trim();
+            return (
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={saveProfile} disabled={saving || !isProfileFormValid} style={{ display: "flex", alignItems: "center", gap: 6, background: (saving || !isProfileFormValid) ? th.surf3 : "#10b981", color: (saving || !isProfileFormValid) ? th.txt3 : "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: (saving || !isProfileFormValid) ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: (saving || !isProfileFormValid) ? 0.6 : 1, transition: "all 0.2s" }}>
+                  <Check size={15} />{saving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={handleCancel} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, color: th.txt, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontSize: 13 }}>
+                  <X size={15} />Cancel
+                </button>
+              </div>
+            );
+          })()}
 
           {/* About items moved to the right */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginLeft: "auto" }}>

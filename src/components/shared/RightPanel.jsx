@@ -7,7 +7,7 @@ import { subscribeWS } from "../../services/websocket.js";
 
 const ROLE_ICON_MAP = {
   founder: Rocket, investor: TrendingUp, professional: Briefcase,
-  entrepreneur: Zap, developer: Code2, designer: Palette,
+  venturecapitalist: Zap, developer: Code2, designer: Palette,
   diplomat: Globe, selfemployed: Brain, student: GraduationCap,
   researcher: Microscope, creator: Sparkles, executive: Building2,
 };

@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, Lock, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2 } from "lucide-react";
+import { 
+  PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, ChevronDown, Lock, Key, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2,
+  Rocket, Code, CircleDollarSign, Handshake, Terminal, Palette, Award, Crown, Shield, User, ListTodo, FolderOpen, Activity, Camera, Compass, BookOpen
+} from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import { ago, strColor } from "../utils/helpers.js";
@@ -11,11 +14,42 @@ import Spin from "../components/ui/Spin.jsx";
 import ProfileView from "./ProfileView.jsx";
 
 // ─── Logo renderer ─────────────────────────────────────────────────
-function Logo({ src, size = 56, radius = 16, fontSize = 28 }) {
+function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
   const isImg = src && (src.startsWith("data:") || src.startsWith("http"));
+  if (isImg) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: radius, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+        <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="logo" />
+      </div>
+    );
+  }
+
+  const initials = name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "";
+  const finalLogoText = initials || (src && !src.startsWith("data:") && !src.startsWith("http") ? src : "RS");
+
+  const hash = name ? [...name].reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+  const hues = [220, 260, 320, 140, 35, 185];
+  const baseHue = hues[hash % hues.length];
+  const gradient = `linear-gradient(135deg, hsl(${baseHue}, 75%, 55%), hsl(${(baseHue + 35) % 360}, 80%, 45%))`;
+
   return (
-    <div style={{ width: size, height: size, borderRadius: radius, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize, flexShrink: 0, overflow: "hidden" }}>
-      {isImg ? <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="logo" /> : (src || "🚀")}
+    <div style={{ 
+      width: size, 
+      height: size, 
+      borderRadius: radius, 
+      background: gradient, 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      fontSize: initials ? fontSize : fontSize * 0.8, 
+      fontWeight: 800,
+      color: "#fff", 
+      flexShrink: 0, 
+      overflow: "hidden",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+      textShadow: "0 1px 3px rgba(0,0,0,0.2)"
+    }}>
+      {finalLogoText}
     </div>
   );
 }
@@ -24,21 +58,21 @@ function Logo({ src, size = 56, radius = 16, fontSize = 28 }) {
 const genRefCode = n => n.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
 
 const PAGE_TYPES = [
-  { id: "community", label: "Community", desc: "Public audience — announcements, community engagement", c: "#3b82f6", e: "🌐" },
-  { id: "product", label: "Product", desc: "Product updates & roadmap", c: "#10b981", e: "🚀" },
-  { id: "tech", label: "Tech", desc: "Engineers — dev logs, architecture, code discussions", c: "#8b5cf6", e: "🤖" },
-  { id: "investment", label: "Investment", desc: "Investors & advisors — pitch decks, funding updates, traction", c: "#f59e0b", e: "💰" },
-  { id: "marketing", label: "Marketing", desc: "Growth team — campaigns, content strategy, analytics", c: "#ec4899", e: "📣" },
-  { id: "sales", label: "Sales", desc: "Sales team — deals, pipeline, customer outreach", c: "#06b6d4", e: "🤝" },
+  { id: "community", label: "Community", desc: "Public audience — announcements, community engagement", c: "#3b82f6", icon: Globe, e: "🌐" },
+  { id: "product", label: "Product", desc: "Product updates & roadmap", c: "#10b981", icon: Rocket, e: "🚀" },
+  { id: "tech", label: "Tech", desc: "Engineers — dev logs, architecture, code discussions", c: "#8b5cf6", icon: Code, e: "💻" },
+  { id: "investment", label: "Investment", desc: "Investors & advisors — pitch decks, funding updates, traction", c: "#f59e0b", icon: CircleDollarSign, e: "💰" },
+  { id: "marketing", label: "Marketing", desc: "Growth team — campaigns, content strategy, analytics", c: "#ec4899", icon: Megaphone, e: "📣" },
+  { id: "sales", label: "Sales", desc: "Sales team — deals, pipeline, customer outreach", c: "#06b6d4", icon: Handshake, e: "🤝" },
 ];
 
 const JOIN_ROLES = [
-  { id: "developer", label: "Developer", e: "⚡", c: "#3b82f6" },
-  { id: "designer", label: "Designer", e: "🎨", c: "#ec4899" },
-  { id: "marketer", label: "Marketer", e: "📢", c: "#f97316" },
-  { id: "investor", label: "Investor", e: "💰", c: "#10b981" },
-  { id: "advisor", label: "Advisor", e: "🎯", c: "#8b5cf6" },
-  { id: "cofounder", label: "Co-Founder", e: "🚀", c: "#ef4444" },
+  { id: "developer", label: "Developer", icon: Terminal, c: "#3b82f6", e: "⚡" },
+  { id: "designer", label: "Designer", icon: Palette, c: "#ec4899", e: "🎨" },
+  { id: "marketer", label: "Marketer", icon: Megaphone, c: "#f97316", e: "📢" },
+  { id: "investor", label: "Investor", icon: CircleDollarSign, c: "#10b981", e: "💰" },
+  { id: "advisor", label: "Advisor", icon: Award, c: "#8b5cf6", e: "🎯" },
+  { id: "cofounder", label: "Co-Founder", icon: Crown, c: "#ef4444", e: "🚀" },
 ];
 
 // Maps join role → page type_id (null = all pages, undefined = no auto-page)
@@ -92,6 +126,147 @@ function CopyBtn({ text, label = "Copy" }) {
   );
 }
 
+// ─── GlassDropdown Component ──────────────────────────────────────────
+function GlassDropdown({ value, onChange, options, dk, style = {}, width = "100%" }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const th = T(dk);
+  const activeOpt = options.find(o => o.id === value) || options[0];
+
+  return (
+    <div style={{ position: "relative", width, zIndex: isOpen ? 10001 : 1, ...style }}>
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        type="button"
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: th.surf,
+          backdropFilter: th.blur,
+          WebkitBackdropFilter: th.blur,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 12,
+          padding: "9px 14px",
+          fontSize: 13,
+          color: th.txt,
+          cursor: "pointer",
+          outline: "none",
+          transition: "all 0.2s ease",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {activeOpt.icon ? (
+            <activeOpt.icon size={15} color={activeOpt.c || th.txt2} />
+          ) : activeOpt.e ? (
+            <span style={{ fontSize: 13, display: "inline-flex", alignSelf: "center" }}>{activeOpt.e}</span>
+          ) : null}
+          <span style={{ fontWeight: 600 }}>{activeOpt.label}</span>
+        </div>
+        <ChevronDown size={13} color={th.txt3} style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+      </button>
+
+      {/* Backdrop Click Overlay to Close */}
+      {isOpen && (
+        <div
+          onClick={() => setIsOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999,
+            background: "transparent"
+          }}
+        />
+      )}
+
+      {/* Floating Options Menu */}
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            right: 0,
+            background: dk ? "rgba(13,22,46,0.92)" : "rgba(255, 255, 255, 0.95)",
+            backdropFilter: th.blur,
+            WebkitBackdropFilter: th.blur,
+            border: `1px solid ${th.bdr}`,
+            borderRadius: 14,
+            padding: 5,
+            boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+            zIndex: 1000,
+            animation: "fadeUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) both",
+            maxHeight: 250,
+            overflowY: "auto",
+            scrollbarWidth: "thin"
+          }}
+        >
+          {options.map(opt => {
+            const isSelected = opt.id === value;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => {
+                  onChange(opt.id);
+                  setIsOpen(false);
+                }}
+                type="button"
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: isSelected 
+                    ? (dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)") 
+                    : "transparent",
+                  border: "none",
+                  borderRadius: 9,
+                  padding: "9px 12px",
+                  color: isSelected ? (opt.c || th.txt) : th.txt2,
+                  fontWeight: isSelected ? 700 : 500,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "all 0.15s ease",
+                  boxSizing: "border-box"
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)";
+                    e.currentTarget.style.color = th.txt;
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = th.txt2;
+                  }
+                }}
+              >
+                {opt.icon ? (
+                  <opt.icon size={15} color={opt.c || th.txt3} />
+                ) : opt.e ? (
+                  <span style={{ fontSize: 13, display: "inline-flex", alignSelf: "center" }}>{opt.e}</span>
+                ) : null}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opt.label}</div>
+                  {opt.desc && (
+                    <div style={{ fontSize: 10, color: th.txt3, fontWeight: 400, marginTop: 2, whiteSpace: "normal" }}>
+                      {opt.desc}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── User Profile Panel (mini) ─────────────────────────────────────
 function UserProfilePanel({ profile, userId, dk, onClose }) {
   const th = T(dk);
@@ -107,6 +282,7 @@ function UserProfilePanel({ profile, userId, dk, onClose }) {
           <Av profile={p} size={70} />
           <div style={{ fontWeight: 800, fontSize: 18, color: th.txt, marginTop: 12 }}>{p.name || "User"}</div>
           {p.handle && <div style={{ fontSize: 13, color: th.txt3, marginTop: 2 }}>@{p.handle}</div>}
+          {p.location && <div style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}><span>📍</span> {p.location}</div>}
           {p.bio && <p style={{ fontSize: 13, color: th.txt2, marginTop: 8, lineHeight: 1.5, maxWidth: 260 }}>{p.bio}</p>}
         </div>
         {p.role && (
@@ -230,6 +406,19 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   const [tasks, setTasks] = useState([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", assignee_id: "", priority: "medium" });
+
+  const assigneeOptions = [
+    { id: "", label: "Assign to…", icon: User },
+    ...pgMems.map(m => {
+      const p = profiles[m.user_id] || { name: "Member" };
+      return { id: m.user_id, label: p.name, icon: User };
+    })
+  ];
+  const priorityOptions = [
+    { id: "low", label: "Low Priority", e: "🟢" },
+    { id: "medium", label: "Medium Priority", e: "🟡" },
+    { id: "high", label: "High Priority", e: "🔴" }
+  ];
 
   // Files
   const FILE_KEY = `rs_files_${page.id}`;
@@ -374,18 +563,22 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
   };
 
   const PRIORITY_C = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
-  const PAGE_MEMBER_ROLES = [{ id: "admin", label: "Admin", e: "👑", c: "#f59e0b" }, { id: "moderator", label: "Moderator", e: "🛡️", c: "#6366f1" }, { id: "member", label: "Member", e: "👤", c: "#10b981" }];
+  const PAGE_MEMBER_ROLES = [
+    { id: "admin", label: "Admin", icon: Crown, c: "#f59e0b" },
+    { id: "moderator", label: "Moderator", icon: Shield, c: "#6366f1" },
+    { id: "member", label: "Member", icon: User, c: "#10b981" }
+  ];
   const activities = [...messages.map(m => ({ ...m, kind: "msg" })), ...tasks.map(t => ({ ...t, kind: "task" })), ...meetings.map(m => ({ ...m, kind: "mtg" }))].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 40);
 
   const inp = { background: dk ? "rgba(255,255,255,0.06)" : "#f8fafc", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "10px 14px", fontSize: 13, outline: "none", color: th.txt, fontFamily: "inherit", width: "100%", boxSizing: "border-box" };
 
   const PAGE_TABS = [
-    { id: "chat", icon: "💬", label: "Chat" },
-    { id: "tasks", icon: "✅", label: "Tasks" },
-    { id: "files", icon: "📁", label: "Files" },
-    { id: "meetings", icon: "📅", label: "Meetings" },
-    { id: "activity", icon: "⚡", label: "Activity" },
-    { id: "members", icon: "👥", label: "Members" },
+    { id: "chat", icon: MessageSquare, label: "Chat" },
+    { id: "tasks", icon: ListTodo, label: "Tasks" },
+    { id: "files", icon: FolderOpen, label: "Files" },
+    { id: "meetings", icon: Calendar, label: "Meetings" },
+    { id: "activity", icon: Activity, label: "Activity" },
+    { id: "members", icon: Users, label: "Members" },
   ];
 
   return (
@@ -400,7 +593,9 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
       {/* Page card */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "16px 20px", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 14, background: `${pt.c}20`, border: `1px solid ${pt.c}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{pt.e}</div>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: `${pt.c}20`, border: `1px solid ${pt.c}40`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <pt.icon size={20} color={pt.c} />
+          </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 16, color: th.txt }}>{page.name}</div>
             <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{page.description || pt.desc}</div>
@@ -411,11 +606,14 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 2, marginBottom: 14, background: th.surf2, borderRadius: 12, padding: 4, border: `1px solid ${th.bdr}`, overflowX: "auto" }}>
-        {PAGE_TABS.map(t => (
-          <button key={t.id} onClick={() => setPageTab(t.id)} style={{ flexShrink: 0, padding: "7px 12px", borderRadius: 9, border: "none", background: pageTab === t.id ? "#6366f1" : "transparent", color: pageTab === t.id ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
-            <span>{t.icon}</span>{t.label}
-          </button>
-        ))}
+        {PAGE_TABS.map(t => {
+          const Icon = t.icon;
+          return (
+            <button key={t.id} onClick={() => setPageTab(t.id)} style={{ flexShrink: 0, padding: "7px 12px", borderRadius: 9, border: "none", background: pageTab === t.id ? "#6366f1" : "transparent", color: pageTab === t.id ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+              <Icon size={13} /> {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── CHAT ── */}
@@ -481,18 +679,23 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
             <button onClick={() => setShowTaskForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: 5, background: "#6366f1", border: "none", borderRadius: 10, padding: "7px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}><PlusCircle size={13} /> New Task</button>
           </div>
           {showTaskForm && (
-            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+            <div style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: 16, marginBottom: 14, position: "relative", zIndex: 50 }}>
               <input value={taskForm.title} onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))} onKeyDown={e => { if (e.key === "Enter" && taskForm.title.trim()) addTask(); }} placeholder="Task title *" style={{ ...inp, marginBottom: 10 }} autoFocus />
               <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                <select value={taskForm.assignee_id} onChange={e => setTaskForm(f => ({ ...f, assignee_id: e.target.value }))} style={{ ...inp, flex: 1 }}>
-                  <option value="">Assign to…</option>
-                  {pgMems.map(m => { const p = profiles[m.user_id] || { name: "Member" }; return <option key={m.user_id} value={m.user_id}>{p.name}</option>; })}
-                </select>
-                <select value={taskForm.priority} onChange={e => setTaskForm(f => ({ ...f, priority: e.target.value }))} style={{ ...inp, flex: 1 }}>
-                  <option value="low">🟢 Low</option>
-                  <option value="medium">🟡 Medium</option>
-                  <option value="high">🔴 High</option>
-                </select>
+                <GlassDropdown
+                  value={taskForm.assignee_id}
+                  onChange={val => setTaskForm(f => ({ ...f, assignee_id: val }))}
+                  options={assigneeOptions}
+                  dk={dk}
+                  style={{ flex: 1 }}
+                />
+                <GlassDropdown
+                  value={taskForm.priority}
+                  onChange={val => setTaskForm(f => ({ ...f, priority: val }))}
+                  options={priorityOptions}
+                  dk={dk}
+                  style={{ flex: 1 }}
+                />
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowTaskForm(false)} style={{ flex: 1, padding: "9px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, cursor: "pointer", color: th.txt2, fontWeight: 600, fontSize: 13 }}>Cancel</button>
@@ -685,12 +888,19 @@ function PageChatView({ page, startup, me, profiles, pageMembers = [], allMember
                 </div>
                 {isPageAdmin ? (
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {PAGE_MEMBER_ROLES.map(r => (
-                      <button key={r.id} onClick={() => setMemberRole(pm.user_id, r.id)} style={{ background: role === r.id ? `${r.c}22` : th.surf2, border: `1px solid ${role === r.id ? r.c + "50" : th.bdr}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", color: role === r.id ? r.c : th.txt3, fontSize: 11, fontWeight: role === r.id ? 700 : 500 }}>{r.e} {r.label}</button>
-                    ))}
+                    {PAGE_MEMBER_ROLES.map(r => {
+                      const Icon = r.icon;
+                      return (
+                        <button key={r.id} onClick={() => setMemberRole(pm.user_id, r.id)} style={{ display: "flex", alignItems: "center", gap: 4, background: role === r.id ? `${r.c}22` : th.surf2, border: `1px solid ${role === r.id ? r.c + "50" : th.bdr}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", color: role === r.id ? r.c : th.txt3, fontSize: 11, fontWeight: role === r.id ? 700 : 500 }}>
+                          <Icon size={11} color={role === r.id ? r.c : th.txt3} /> {r.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <span style={{ background: `${ri.c}18`, color: ri.c, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, border: `1px solid ${ri.c}30` }}>{ri.e} {ri.label}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${ri.c}18`, color: ri.c, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 8, border: `1px solid ${ri.c}30` }}>
+                    <ri.icon size={11} color={ri.c} /> {ri.label}
+                  </span>
                 )}
               </div>
             );
@@ -923,7 +1133,7 @@ function MeetingsTab({ pages, startup, me, profiles, members, dk }) {
     <div>
       <div style={{ fontWeight: 800, fontSize: 16, color: th.txt, marginBottom: 18 }}>All Meetings Across Pages</div>
       {pages.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📅</div><p>No pages yet. Create pages first.</p></div>
+        <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><Calendar size={36} color={th.txt3} style={{ margin: "0 auto 8px" }} /><p>No pages yet. Create pages first.</p></div>
       ) : pages.map(pg => {
         const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
         const mtgs = meetingsByPage[pg.id] || [];
@@ -959,12 +1169,15 @@ function MeetingsTab({ pages, startup, me, profiles, members, dk }) {
                     <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={{ ...inp, flex: 1 }} />
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
-                    {[{ id: "google_meet", label: "Google Meet", e: "📹" }, { id: "zoom", label: "Zoom", e: "📷" }].map(p => (
-                      <button key={p.id} onClick={() => setForm(f => ({ ...f, platform: p.id }))}
-                        style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${form.platform === p.id ? "#3b82f6" : th.bdr}`, background: form.platform === p.id ? "#3b82f6" : th.surf2, color: form.platform === p.id ? "#fff" : th.txt2, fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                        {p.e} {p.label}
-                      </button>
-                    ))}
+                    {[{ id: "google_meet", label: "Google Meet", icon: Video }, { id: "zoom", label: "Zoom", icon: Camera }].map(p => {
+                      const Icon = p.icon;
+                      return (
+                        <button key={p.id} onClick={() => setForm(f => ({ ...f, platform: p.id }))}
+                          style={{ flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${form.platform === p.id ? "#3b82f6" : th.bdr}`, background: form.platform === p.id ? "#3b82f6" : th.surf2, color: form.platform === p.id ? "#fff" : th.txt2, fontWeight: 600, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                          <Icon size={14} /> {p.label}
+                        </button>
+                      );
+                    })}
                   </div>
                   <input value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} placeholder="Meeting link (optional)" style={inp} />
                   <input value={form.with_note} onChange={e => setForm(f => ({ ...f, with_note: e.target.value }))} placeholder="With whom? (e.g. John, Sarah — optional)" style={inp} />
@@ -983,7 +1196,7 @@ function MeetingsTab({ pages, startup, me, profiles, members, dk }) {
                 const booker = profiles?.[mtg.created_by] || { name: "Unknown" };
                 return (
                   <div key={mtg.id} style={{ padding: "12px 16px", borderTop: i === 0 ? "none" : `1px solid ${th.bdr}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#3b82f618", border: "1px solid #3b82f630", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📅</div>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#3b82f618", border: "1px solid #3b82f630", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Calendar size={16} color="#3b82f6" /></div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{mtg.title}</div>
                       <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{mtg.meeting_date} · {mtg.meeting_time} · {mtg.platform === "zoom" ? "📷 Zoom" : "📹 Google Meet"}</div>
@@ -1012,9 +1225,21 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
   const th = T(dk);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: existing?.name || "", logo: existing?.logo || "🚀", description: existing?.description || "", website: existing?.website || "", github_link: existing?.github_link || "", twitter: existing?.social_links?.twitter || "", linkedin: existing?.social_links?.linkedin || "" });
+  const [form, setForm] = useState({ 
+    name: existing?.name || "", 
+    logo: existing?.logo || "🚀", 
+    description: existing?.description || "", 
+    website: existing?.website || "", 
+    github_link: existing?.github_link || "", 
+    twitter: existing?.social_links?.twitter || "", 
+    linkedin: existing?.social_links?.linkedin || "",
+    location: existing?.location || "",
+    phone: existing?.phone || ""
+  });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = form.name.trim() && form.description.trim();
+  const [detectingLoc, setDetectingLoc] = useState(false);
+  const step1Valid = form.name.trim() && form.description.trim();
+  const step2Valid = step1Valid && form.location.trim() && form.phone.trim();
   const EMOJIS = ["🚀", "💡", "⚡", "🎯", "💰", "🌍", "🔥", "🤝", "📊", "🎨", "🛠️", "🧠", "💎", "🌱", "🔬", "📱"];
   const inp = { width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
@@ -1036,9 +1261,39 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
     }
   };
 
+  const detectStartupLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+    setDetectingLoc(true);
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        if (res.ok) {
+          const data = await res.json();
+          const city = data.address.city || data.address.town || data.address.village || data.address.suburb || "";
+          const country = data.address.country || "";
+          set("location", city && country ? `${city}, ${country}` : data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        } else {
+          set("location", `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+      } catch (err) {
+        set("location", `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+      } finally {
+        setDetectingLoc(false);
+      }
+    }, (err) => {
+      console.error(err);
+      alert("Failed to retrieve location: " + err.message);
+      setDetectingLoc(false);
+    });
+  };
+
   const save = async () => {
-    if (!valid) return; setSaving(true);
-    const payload = { name: form.name.trim(), logo: form.logo, description: form.description.trim(), website: form.website.trim(), github_link: form.github_link.trim(), social_links: { twitter: form.twitter.trim(), linkedin: form.linkedin.trim() }, created_by: me, founders: existing?.founders || [me], referral_code: existing?.referral_code || genRefCode(form.name) };
+    if (!step2Valid) return; setSaving(true);
+    const payload = { name: form.name.trim(), logo: form.logo, description: form.description.trim(), website: form.website.trim(), github_link: form.github_link.trim(), social_links: { twitter: form.twitter.trim(), linkedin: form.linkedin.trim() }, created_by: me, founders: existing?.founders || [me], referral_code: existing?.referral_code || genRefCode(form.name), location: form.location.trim() || null, phone: form.phone.trim() || null };
     let result;
     if (existing?.id) { await db.patch("rs_startups", `id=eq.${existing.id}`, payload); result = { ...existing, ...payload }; }
     else {
@@ -1055,10 +1310,10 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflowY: "auto" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: dk ? "rgba(13,20,38,0.97)" : "rgba(255,255,255,0.97)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: `1px solid ${th.bdr}`, borderRadius: 20, padding: 24, width: "100%", maxWidth: 460, animation: "fadeUp 0.25s ease both", margin: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: th.txt }}>{existing ? "Edit Startup" : `Create Startup — Step ${step}/2`}</h3>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: th.txt }}>{existing ? `Edit Startup — Step ${step}/2` : `Create Startup — Step ${step}/2`}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={18} /></button>
         </div>
-        {!existing && <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>{[1, 2].map(s => <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, background: s <= step ? "#3b82f6" : th.bdr, transition: "all 0.3s" }} />)}</div>}
+        <div style={{ display: "flex", gap: 4, marginBottom: 20 }}>{[1, 2].map(s => <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, background: s <= step ? "#3b82f6" : th.bdr, transition: "all 0.3s" }} />)}</div>
         {step === 1 && (
           <>
             <div style={{ marginBottom: 14 }}>
@@ -1070,12 +1325,12 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
                   onClick={() => {
                     setLogoType("emoji");
                     if (form.logo && (form.logo.startsWith("data:") || form.logo.startsWith("http"))) {
-                      set("logo", "🚀");
+                      set("logo", "");
                     }
                   }}
                   style={{ flex: 1, padding: "6px 12px", borderRadius: 8, background: logoType === "emoji" ? (dk ? "rgba(255,255,255,0.08)" : "#fff") : "transparent", color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s", border: logoType === "emoji" ? `1px solid ${th.bdr}` : "1px solid transparent", boxShadow: logoType === "emoji" ? "0 1px 3px rgba(0,0,0,0.05)" : "none" }}
                 >
-                  Pick Emoji
+                  Initials Logo
                 </button>
                 <button
                   type="button"
@@ -1087,12 +1342,13 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
               </div>
 
               {logoType === "emoji" ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: th.surf2, borderRadius: 10, padding: 10, border: `1px solid ${th.bdr}` }}>
-                  {EMOJIS.map(e => <button key={e} type="button" onClick={() => set("logo", e)} style={{ fontSize: 20, background: form.logo === e ? "#3b82f618" : "none", border: form.logo === e ? "2px solid #3b82f6" : "2px solid transparent", borderRadius: 8, width: 36, height: 36, cursor: "pointer" }}>{e}</button>)}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, background: th.surf2, borderRadius: 10, padding: 20, border: `1px solid ${th.bdr}`, minHeight: 110, justifyContent: "center" }}>
+                  <Logo name={form.name || "Startup"} src={null} size={64} radius={16} fontSize={30} />
+                  <span style={{ fontSize: 12, color: th.txt3, fontWeight: 600 }}>Preview of your initials-based logo</span>
                 </div>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 14, background: th.surf2, borderRadius: 10, padding: 12, border: `1px solid ${th.bdr}` }}>
-                  <Logo src={form.logo} size={56} radius={14} fontSize={28} />
+                  <Logo name={form.name} src={form.logo} size={56} radius={14} fontSize={28} />
                   <div style={{ flex: 1 }}>
                     <button
                       type="button"
@@ -1122,7 +1378,7 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
             ))}
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={onClose} style={{ flex: 1, padding: "10px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 12, cursor: "pointer", color: th.txt2, fontWeight: 600 }}>Cancel</button>
-              <button onClick={() => existing ? save() : setStep(2)} disabled={!valid} style={{ flex: 2, padding: "10px", background: valid ? "#3b82f6" : th.surf2, border: "none", borderRadius: 12, cursor: valid ? "pointer" : "default", color: valid ? "#fff" : th.txt3, fontWeight: 700 }}>{existing ? (saving ? "Saving…" : "Save Changes") : "Next →"}</button>
+              <button onClick={() => setStep(2)} disabled={!step1Valid} style={{ flex: 2, padding: "10px", background: step1Valid ? "#3b82f6" : th.surf2, border: "none", borderRadius: 12, cursor: step1Valid ? "pointer" : "default", color: step1Valid ? "#fff" : th.txt3, fontWeight: 700 }}>Next →</button>
             </div>
           </>
         )}
@@ -1134,9 +1390,46 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
                 <input value={form[k]} onChange={e => set(k, e.target.value)} placeholder={p} style={inp} />
               </div>
             ))}
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Location *</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input value={form.location || ""} onChange={e => set("location", e.target.value)} placeholder="e.g. Silicon Valley, CA" style={{ ...inp, flex: 1 }} />
+                <button
+                  type="button"
+                  disabled={detectingLoc}
+                  onClick={detectStartupLocation}
+                  style={{
+                    background: dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)",
+                    border: `1px solid ${th.bdr}`,
+                    borderRadius: 10,
+                    padding: "0 14px",
+                    color: th.txt2,
+                    cursor: detectingLoc ? "not-allowed" : "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                >
+                  {detectingLoc ? "⏳" : "📍 Detect"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Phone (Private) *</label>
+              <input type="tel" value={form.phone || ""} onChange={e => set("phone", e.target.value)} placeholder="e.g. +1 555-0100" style={inp} />
+              <div style={{ fontSize: 10, color: th.txt3, marginTop: 4 }}>This phone number is secure and not displayed publicly.</div>
+            </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setStep(1)} style={{ flex: 1, padding: "10px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 12, cursor: "pointer", color: th.txt2, fontWeight: 600 }}>← Back</button>
-              <button onClick={save} disabled={saving} style={{ flex: 2, padding: "10px", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, cursor: "pointer", color: "#fff", fontWeight: 700 }}>{saving ? "Launching…" : "Launch Startup 🚀"}</button>
+              <button onClick={save} disabled={saving || !step2Valid} style={{ flex: 2, padding: "10px", background: (saving || !step2Valid) ? th.surf2 : "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, cursor: (saving || !step2Valid) ? "default" : "pointer", color: (saving || !step2Valid) ? th.txt3 : "#fff", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                {existing ? (saving ? "Saving…" : "Save Changes") : (saving ? "Launching…" : (
+                  <>Launch Startup <Rocket size={15} /></>
+                ))}
+              </button>
             </div>
           </>
         )}
@@ -1178,7 +1471,7 @@ function JoinCodeModal({ me, onClose, onJoined, dk, isMobile = false }) {
         {startup && (
           <div style={{ background: th.surf2, borderRadius: 14, padding: 14, marginBottom: 16, border: "1px solid #10b98130" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <Logo src={startup.logo} size={42} radius={11} fontSize={22} />
+              <Logo name={startup.name} src={startup.logo} size={42} radius={11} fontSize={22} />
               <div>
                 <div style={{ fontWeight: 800, fontSize: 15, color: th.txt }}>{startup.name}</div>
                 <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>✓ Valid startup</div>
@@ -1195,7 +1488,7 @@ function JoinCodeModal({ me, onClose, onJoined, dk, isMobile = false }) {
 }
 
 // ─── Visitor / Member Detail View ──────────────────────────────────
-function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif, isMobile = false }) {
+function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif, isMobile = false, initialTab = "overview" }) {
   const th = T(dk);
   const [profiles, setProfiles] = useState(initialProfiles);
 
@@ -1203,7 +1496,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
     setProfiles(prev => ({ ...prev, ...initialProfiles }));
   }, [initialProfiles]);
 
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(initialTab);
   const [pages, setPages] = useState([]);
   const [members, setMembers] = useState([]);
   const [updates, setUpdates] = useState([]);
@@ -1367,17 +1660,19 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
       <div style={{ background: headerBg, border: dk ? "1px solid rgba(99,102,241,0.2)" : "1px solid #c7d2fe", borderRadius: 20, padding: "18px 20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Logo src={startup.logo} size={64} radius={16} fontSize={32} />
+            <Logo name={startup.name} src={startup.logo} size={64} radius={16} fontSize={32} />
             <div>
               <div style={{ fontWeight: 900, fontSize: 22, color: th.txt }}>{startup.name}</div>
               <div style={{ fontSize: 13, color: th.txt2, marginTop: 3 }}>{startup.description?.slice(0, 80)}{startup.description?.length > 80 ? "…" : ""}</div>
             </div>
           </div>
           {!myRequest ? (
-            <button onClick={() => setShowJoinForm(v => !v)} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
+            tab !== "pages" && (
+              <button onClick={() => setTab("pages")} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
+            )
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-              <div style={{ padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
+              <div onClick={() => setTab("pages")} style={{ cursor: "pointer", padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
                 {myRequest.status === "approved" ? "✅ Member" : myRequest.status === "rejected" ? "❌ Not approved" : "⏳ Pending"}
               </div>
               {myRequest.status === "approved" && (
@@ -1395,6 +1690,11 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
           )}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: teamUids.length ? 14 : 0 }}>
+          {startup.location && (
+            <div style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.7)", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: th.txt2, fontWeight: 600 }}>
+              <span>📍</span> {startup.location}
+            </div>
+          )}
           {startup.website && <a href={startup.website} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.7)", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Globe size={12} /> Website</a>}
           {startup.github_link && <a href={startup.github_link} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.7)", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Github size={12} /> GitHub</a>}
           {startup.social_links?.twitter && <a href={startup.social_links.twitter} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 8, padding: "5px 10px", textDecoration: "none" }}><Twitter size={13} color="#1da1f2" /></a>}
@@ -1430,8 +1730,8 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
             {JOIN_ROLES.map(r => {
               const sel = joinRoles.includes(r.id);
-              return <button key={r.id} onClick={() => setJoinRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px 8px", cursor: "pointer", textAlign: "center" }}>
-                <div style={{ fontSize: 18, marginBottom: 3 }}>{r.e}</div>
+              return <button key={r.id} onClick={() => setJoinRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <r.icon size={18} color={sel ? r.c : th.txt3} style={{ marginBottom: 4 }} />
                 <div style={{ fontSize: 11, fontWeight: 600, color: sel ? r.c : th.txt2 }}>{r.label}</div>
               </button>;
             })}
@@ -1464,8 +1764,8 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
               </div>
               {pages.length === 0 ? (
                 <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
-                  <div style={{ fontSize: 32 }}>📄</div>
-                  <p>No pages have been created in this colab yet.</p>
+                  <FileText size={36} color={th.txt3} style={{ margin: "0 auto 12px", opacity: 0.7 }} />
+                  <p style={{ margin: 0, fontSize: 14 }}>No pages have been created in this colab yet.</p>
                 </div>
               ) : pages.map(pg => {
                 const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
@@ -1482,7 +1782,9 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
                       </div>
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 12, background: isLocked ? (dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)") : `${pt.c}18`, border: `1px solid ${isLocked ? th.bdr : `${pt.c}30`}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, filter: isLocked ? "grayscale(0.6)" : "none" }}>{pt.e}</div>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: isLocked ? (dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)") : `${pt.c}18`, border: `1px solid ${isLocked ? th.bdr : `${pt.c}30`}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, filter: isLocked ? "grayscale(0.6)" : "none" }}>
+                        <pt.icon size={18} color={isLocked ? th.txt3 : pt.c} />
+                      </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: isLocked ? th.txt2 : th.txt }}>{pg.name}</div>
                         <div style={{ fontSize: 12, color: th.txt3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pg.description || pt.desc}</div>
@@ -1512,7 +1814,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
           {tab === "updates" && (
             <div>
               {updates.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📢</div><p>No updates yet.</p></div>
+                <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><Megaphone size={36} color={th.txt3} style={{ margin: "0 auto 8px" }} /><p>No updates yet.</p></div>
               ) : updates.map(u => {
                 const prof = profiles[u.created_by] || { name: "Founder" };
                 return (
@@ -1541,7 +1843,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
 }
 
 // ─── Founder Dashboard ─────────────────────────────────────────────
-function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile = false }) {
+function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile = false, initialTab = "overview" }) {
   const th = T(dk);
   const [startup, setStartup] = useState(initialStartup);
   const [profiles, setProfiles] = useState(initialProfiles);
@@ -1550,7 +1852,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
     setProfiles(prev => ({ ...prev, ...initialProfiles }));
   }, [initialProfiles]);
 
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(initialTab);
   const [requests, setRequests] = useState([]);
   const [pages, setPages] = useState([]);
   const [members, setMembers] = useState([]);
@@ -1906,7 +2208,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
       <div style={{ background: dk ? "linear-gradient(135deg,#1e3a8a22,#5b21b622)" : "linear-gradient(135deg,#dbeafe,#ede9fe)", border: `1px solid ${dk ? "#3b82f630" : "#bfdbfe"}`, borderRadius: 18, padding: 18, marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <Logo src={startup.logo} size={60} radius={16} fontSize={30} />
+            <Logo name={startup.name} src={startup.logo} size={60} radius={16} fontSize={30} />
             <div>
               <div style={{ fontWeight: 900, fontSize: 20, color: th.txt }}>{startup.name}</div>
               <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>Founder Dashboard · {pages.length} Pages · {members.length} Members</div>
@@ -1943,9 +2245,11 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
           {tab === "overview" && (
             <div>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
-                {[{ l: "Members", v: members.length, c: "#3b82f6", e: "👥" }, { l: "Pages", v: pages.length, c: "#8b5cf6", e: "📄" }, { l: "Pending", v: totalPending, c: "#f59e0b", e: "📬" }].map(s => (
+                {[{ l: "Members", v: members.length, c: "#3b82f6", icon: Users }, { l: "Pages", v: pages.length, c: "#8b5cf6", icon: FolderOpen }, { l: "Pending", v: totalPending, c: "#f59e0b", icon: ListTodo }].map(s => (
                   <div key={s.l} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "14px 16px" }}>
-                    <div style={{ fontSize: 22, marginBottom: 4 }}>{s.e}</div>
+                    <div style={{ marginBottom: 8, display: "flex" }}>
+                      <s.icon size={22} color={s.c} />
+                    </div>
                     <div style={{ fontSize: 26, fontWeight: 800, color: s.c }}>{s.v}</div>
                     <div style={{ fontSize: 11, color: th.txt3 }}>{s.l}</div>
                   </div>
@@ -1955,6 +2259,11 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 <h4 style={{ margin: "0 0 8px", fontSize: 14, fontWeight: 700, color: th.txt }}>About</h4>
                 <p style={{ margin: "0 0 12px", fontSize: 14, color: th.txt2, lineHeight: 1.6 }}>{startup.description}</p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {startup.location && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600 }}>
+                      <span>📍</span> {startup.location}
+                    </div>
+                  )}
                   {startup.website && <a href={startup.website} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Globe size={12} /> Website</a>}
                   {startup.github_link && <a href={startup.github_link} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "4px 10px", fontSize: 12, color: th.txt2, fontWeight: 600, textDecoration: "none" }}><Github size={12} /> GitHub</a>}
                   {startup.social_links?.twitter && <a href={startup.social_links.twitter} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, background: "#1da1f215", border: "1px solid #1da1f230", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#1da1f2", fontWeight: 600, textDecoration: "none" }}><Twitter size={12} /> Twitter</a>}
@@ -2032,7 +2341,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                               <span style={{ fontSize: 11, color: th.txt3, fontWeight: 600 }}>Requested page:</span>
                               {displayName ? (
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: `${pt.c}18`, border: `1px solid ${pt.c}35`, borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, color: pt.c }}>
-                                  {pt.e} {displayName}
+                                  <pt.icon size={13} color={pt.c} /> {displayName}
                                 </span>
                               ) : (
                                 <span style={{ fontSize: 11, color: th.txt3, fontStyle: "italic" }}>Unknown page</span>
@@ -2101,7 +2410,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                         {/* Roles */}
                         {(req.selected_roles || []).length > 0 && (
                           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
-                            {(req.selected_roles || []).map(rid => { const r = JOIN_ROLES.find(x => x.id === rid); return r ? <span key={rid} style={{ background: `${r.c}18`, color: r.c, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, border: `1px solid ${r.c}30` }}>{r.e} {r.label}</span> : null; })}
+                            {(req.selected_roles || []).map(rid => { const r = JOIN_ROLES.find(x => x.id === rid); return r ? <span key={rid} style={{ background: `${r.c}18`, color: r.c, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, border: `1px solid ${r.c}30`, display: "inline-flex", alignItems: "center", gap: 5 }}><r.icon size={11} color={r.c} /> {r.label}</span> : null; })}
                           </div>
                         )}
 
@@ -2138,12 +2447,17 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 <button onClick={() => setShowAddPage(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#3b82f6", border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}><PlusCircle size={14} /> Add Page</button>
               </div>
               {showAddPage && (
-                <Card dk={dk} anim={false} style={{ marginBottom: 12 }}>
+                <Card dk={dk} anim={false} style={{ marginBottom: 12, position: "relative", zIndex: 50 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                     <input value={newPageName} onChange={e => setNewPageName(e.target.value)} placeholder="Page name" style={{ ...inp, flex: 1 }} />
-                    <select value={newPageType} onChange={e => setNewPageType(e.target.value)} style={{ ...inp, width: "auto" }}>
-                      {PAGE_TYPES.map(pt => <option key={pt.id} value={pt.id}>{pt.e} {pt.label}</option>)}
-                    </select>
+                    <GlassDropdown
+                      value={newPageType}
+                      onChange={setNewPageType}
+                      options={PAGE_TYPES}
+                      dk={dk}
+                      style={{ flexShrink: 0 }}
+                      width="170px"
+                    />
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => setShowAddPage(false)} style={{ flex: 1, padding: "8px", background: "transparent", border: `1px solid ${th.bdr}`, borderRadius: 10, cursor: "pointer", color: th.txt2, fontWeight: 600 }}>Cancel</button>
@@ -2152,7 +2466,10 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 </Card>
               )}
               {pages.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages yet.</p></div>
+                <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}>
+                  <FileText size={36} color={th.txt3} style={{ margin: "0 auto 12px", opacity: 0.7 }} />
+                  <p style={{ margin: 0, fontSize: 14 }}>No pages yet.</p>
+                </div>
               ) : pages.map(pg => {
                 const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
                 const pgMems = pageMembers.filter(m => m.page_id === pg.id);
@@ -2163,7 +2480,9 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                   <Card dk={dk} key={pg.id} anim={false} style={{ marginBottom: 10 }}>
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div style={{ width: 38, height: 38, borderRadius: 10, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{pt.e}</div>
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <pt.icon size={18} color={pt.c} />
+                        </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 700, color: th.txt, fontSize: 14 }}>{pg.name}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
@@ -2237,7 +2556,13 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                   const memberPages = pageMembers.filter(pm => pm.user_id === m.user_id).map(pm => pages.find(p => p.id === pm.page_id)).filter(Boolean);
                   const assignedRoles = memberRoles[m.user_id] || [];
                   const isExpandedM = expandedMember === `m_${m.user_id}`;
-                  const ROLE_OPTS = [{ id: "developer", e: "⚡", c: "#3b82f6", label: "Dev" }, { id: "designer", e: "🎨", c: "#ec4899", label: "Design" }, { id: "marketer", e: "📢", c: "#f97316", label: "Marketing" }, { id: "advisor", e: "🎯", c: "#8b5cf6", label: "Advisor" }, { id: "investor", e: "💰", c: "#10b981", label: "Investor" }];
+                  const ROLE_OPTS = [
+                    { id: "developer", icon: Terminal, c: "#3b82f6", label: "Dev" }, 
+                    { id: "designer", icon: Palette, c: "#ec4899", label: "Design" }, 
+                    { id: "marketer", icon: Megaphone, c: "#f97316", label: "Marketing" }, 
+                    { id: "advisor", icon: Award, c: "#8b5cf6", label: "Advisor" }, 
+                    { id: "investor", icon: CircleDollarSign, c: "#10b981", label: "Investor" }
+                  ];
                   return (
                     <Card dk={dk} key={m.user_id} anim={false} style={{ marginBottom: 8 }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -2256,8 +2581,8 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                           </div>
                           {/* Page & role badges */}
                           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: memberPages.length > 0 || assignedRoles.length > 0 ? 4 : 0 }}>
-                            {memberPages.map(pg => { const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0]; return <span key={pg.id} style={{ background: `${pt.c}18`, color: pt.c, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, border: `1px solid ${pt.c}30` }}>{pt.e} {pg.name}</span>; })}
-                            {assignedRoles.map(r => { const ro = ROLE_OPTS.find(o => o.id === r); return ro ? <span key={r} style={{ background: `${ro.c}18`, color: ro.c, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, border: `1px solid ${ro.c}30` }}>{ro.e} {ro.label}</span> : null; })}
+                            {memberPages.map(pg => { const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0]; return <span key={pg.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${pt.c}18`, color: pt.c, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, border: `1px solid ${pt.c}30` }}><pt.icon size={11} color={pt.c} /> {pg.name}</span>; })}
+                            {assignedRoles.map(r => { const ro = ROLE_OPTS.find(o => o.id === r); return ro ? <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${ro.c}18`, color: ro.c, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 6, border: `1px solid ${ro.c}30` }}><ro.icon size={11} color={ro.c} /> {ro.label}</span> : null; })}
                           </div>
                           {/* Role assignment UI */}
                           {isExpandedM && (
@@ -2266,7 +2591,8 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
                                 {ROLE_OPTS.map(ro => {
                                   const active = assignedRoles.includes(ro.id);
-                                  return <button key={ro.id} onClick={() => assignMemberRole(m.user_id, ro.id)} style={{ background: active ? `${ro.c}20` : th.surf2, border: `1px solid ${active ? ro.c + "50" : th.bdr}`, borderRadius: 7, padding: "4px 9px", cursor: "pointer", color: active ? ro.c : th.txt3, fontSize: 11, fontWeight: active ? 700 : 500 }}>{ro.e} {ro.label}</button>;
+                                  const Icon = ro.icon;
+                                  return <button key={ro.id} onClick={() => assignMemberRole(m.user_id, ro.id)} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: active ? `${ro.c}20` : th.surf2, border: `1px solid ${active ? ro.c + "50" : th.bdr}`, borderRadius: 7, padding: "4px 9px", cursor: "pointer", color: active ? ro.c : th.txt3, fontSize: 11, fontWeight: active ? 700 : 500 }}><Icon size={11} color={active ? ro.c : th.txt3} /> {ro.label}</button>;
                                 })}
                               </div>
                               <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Page Access</div>
@@ -2274,7 +2600,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                                 {pages.map(pg => {
                                   const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
                                   const hasPg = pageMembers.find(pm => pm.user_id === m.user_id && pm.page_id === pg.id);
-                                  return <button key={pg.id} onClick={() => assignMemberPage(m.user_id, pg.id)} style={{ background: hasPg ? `${pt.c}20` : th.surf2, border: `1px solid ${hasPg ? pt.c + "50" : th.bdr}`, borderRadius: 7, padding: "4px 9px", cursor: "pointer", color: hasPg ? pt.c : th.txt3, fontSize: 11, fontWeight: hasPg ? 700 : 500 }}>{pt.e} {pg.name}</button>;
+                                  return <button key={pg.id} onClick={() => assignMemberPage(m.user_id, pg.id)} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: hasPg ? `${pt.c}20` : th.surf2, border: `1px solid ${hasPg ? pt.c + "50" : th.bdr}`, borderRadius: 7, padding: "4px 9px", cursor: "pointer", color: hasPg ? pt.c : th.txt3, fontSize: 11, fontWeight: hasPg ? 700 : 500 }}><pt.icon size={11} color={hasPg ? pt.c : th.txt3} /> {pg.name}</button>;
                                 })}
                                 {pages.length === 0 && <span style={{ fontSize: 11, color: th.txt3 }}>No pages yet.</span>}
                               </div>
@@ -2289,14 +2615,14 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
 
               {memberViewMode === "bypage" && (
                 pages.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📄</div><p>No pages yet.</p></div>
+                  <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><FileText size={36} color={th.txt3} style={{ margin: "0 auto 8px" }} /><p>No pages yet.</p></div>
                 ) : pages.map(pg => {
                   const pt = PAGE_TYPES.find(p => p.id === pg.type_id) || PAGE_TYPES[0];
                   const pgMems = pageMembers.filter(pm => pm.page_id === pg.id);
                   return (
                     <div key={pg.id} style={{ marginBottom: 14 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{pt.e}</div>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: `${pt.c}18`, border: `1px solid ${pt.c}30`, display: "flex", alignItems: "center", justifyContent: "center" }}><pt.icon size={12} color={pt.c} /></div>
                         <span style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{pg.name}</span>
                         <span style={{ fontSize: 11, color: th.txt3 }}>· {pgMems.length} member{pgMems.length !== 1 ? "s" : ""}</span>
                       </div>
@@ -2331,7 +2657,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                   <button onClick={postUpdate} disabled={!updateText.trim() || posting} style={{ display: "flex", alignItems: "center", gap: 6, background: updateText.trim() ? "#3b82f6" : th.surf2, border: "none", borderRadius: 10, padding: "8px 16px", color: updateText.trim() ? "#fff" : th.txt3, fontWeight: 700, fontSize: 13, cursor: updateText.trim() ? "pointer" : "default" }}><Send size={13} />{posting ? "Posting…" : "Post Update"}</button>
                 </div>
               </Card>
-              {updates.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><div style={{ fontSize: 32 }}>📢</div><p>No updates yet.</p></div>
+              {updates.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: th.txt3 }}><Megaphone size={36} color={th.txt3} style={{ margin: "0 auto 8px" }} /><p>No updates yet.</p></div>
                 : updates.map(u => {
                   const prof = profiles[u.created_by] || { name: "Founder" };
                   return (
@@ -2363,10 +2689,10 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
 }
 
 // ─── StartupDetail dispatcher ──────────────────────────────────────
-function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile }) {
+function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile, initialTab = "overview" }) {
   const isFounder = startup.created_by === me || (startup.founders || []).includes(me);
-  if (isFounder) return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} isMobile={isMobile} />;
-  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} isMobile={isMobile} />;
+  if (isFounder) return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} isMobile={isMobile} initialTab={initialTab} />;
+  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} isMobile={isMobile} initialTab={initialTab} />;
 }
 
 // ─── Main ColabView ────────────────────────────────────────────────
@@ -2378,6 +2704,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   const [savedIds, setSavedIds] = useState([]);
   const [savedOnly, setSavedOnly] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [initialTab, setInitialTab] = useState("overview");
   const [showCreate, setShowCreate] = useState(false);
   const [showJoinCode, setShowJoinCode] = useState(false);
   const [latestUpdates, setLatestUpdates] = useState({});
@@ -2411,7 +2738,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   };
 
   if (selected) {
-    return <StartupDetail startup={selected} me={me} profiles={profiles} bals={bals} dk={dk} onBack={() => { setSelected(null); load(); }} addNotif={addNotif} onStartupUpdated={s => setStartups(prev => prev.map(x => x.id === s.id ? s : x))} />;
+    return <StartupDetail startup={selected} me={me} profiles={profiles} bals={bals} dk={dk} onBack={() => { setSelected(null); setInitialTab("overview"); load(); }} addNotif={addNotif} onStartupUpdated={s => setStartups(prev => prev.map(x => x.id === s.id ? s : x))} initialTab={initialTab} />;
   }
 
   const filtered = startups.filter(s => {
@@ -2426,15 +2753,19 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   return (
     <div>
       {showCreate && <CreateStartupModal me={me} dk={dk} onClose={() => setShowCreate(false)} onSave={s => { if (s) setStartups(prev => { const ex = prev.find(x => x.id === s.id); return ex ? prev.map(x => x.id === s.id ? s : x) : [s, ...prev]; }); addNotif?.({ type: "success", msg: "Startup launched! 🚀" }); }} />}
-      {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => { setSelected(s); }} isMobile={isMobile} />}
+      {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => { setSelected(s); setInitialTab("pages"); }} isMobile={isMobile} />}
 
       <div style={{ background: dk ? "linear-gradient(135deg,#1e3a8a22,#5b21b622)" : "linear-gradient(135deg,#dbeafe,#ede9fe)", border: `1px solid ${dk ? "#3b82f630" : "#bfdbfe"}`, borderRadius: 18, padding: "16px 18px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h2 style={{ margin: "0 0 2px", fontSize: 22, fontWeight: 900, color: th.txt }}>🚀 Colab</h2>
+          <h2 style={{ margin: "0 0 2px", fontSize: 22, fontWeight: 900, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
+            <Rocket size={22} color="#3b82f6" /> Colab
+          </h2>
           <p style={{ margin: 0, fontSize: 13, color: th.txt2 }}>Startup OS · Discover · Collaborate · Build</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => setShowJoinCode(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 14px", color: th.txt2, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>🔑 Enter Code</button>
+          <button onClick={() => setShowJoinCode(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 14px", color: th.txt2, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <Key size={13} color={th.txt2} /> Enter Code
+          </button>
           <button onClick={() => setShowCreate(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><PlusCircle size={14} /> Create Startup</button>
         </div>
       </div>
@@ -2444,8 +2775,8 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
           <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>My Startups</div>
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
             {myStartups.map(s => (
-              <button key={s.id} onClick={() => setSelected(s)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer" }}>
-                <Logo src={s.logo} size={28} radius={8} fontSize={16} />
+              <button key={s.id} onClick={() => { setSelected(s); setInitialTab("overview"); }} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer" }}>
+                <Logo name={s.name} src={s.logo} size={28} radius={8} fontSize={16} />
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{s.name}</div>
                   <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>{s.referral_code}</div>
@@ -2466,7 +2797,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
 
       {loading ? <Spin dk={dk} msg="Loading startups…" /> : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: 60, color: th.txt3 }}>
-          <div style={{ fontSize: 56, marginBottom: 12 }}>🚀</div>
+          <Rocket size={48} color="#6366f1" style={{ margin: "0 auto 16px" }} />
           <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 6px", color: th.txt }}>{savedOnly ? "No saved startups" : "No startups yet"}</p>
           <p style={{ fontSize: 14, margin: "0 0 20px" }}>{savedOnly ? "Save startups to see them here" : "Be the first to create one!"}</p>
           {!savedOnly && <button onClick={() => setShowCreate(true)} style={{ background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Create Startup</button>}
@@ -2479,9 +2810,9 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
         return (
           <div key={s.id} style={{ animation: `fadeUp 0.42s cubic-bezier(0.22,1,0.36,1) ${Math.min(i * 55, 440)}ms both` }}>
             <Card dk={dk} anim={false}>
-              <div onClick={() => setSelected(s)} style={{ cursor: "pointer" }}>
+              <div onClick={() => { setSelected(s); setInitialTab("overview"); }} style={{ cursor: "pointer" }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 12 }}>
-                  <Logo src={s.logo} size={56} radius={16} fontSize={28} />
+                  <Logo name={s.name} src={s.logo} size={56} radius={16} fontSize={28} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
                       <div style={{ fontWeight: 800, fontSize: 16, color: th.txt }}>{s.name}</div>
@@ -2517,7 +2848,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
                   <span style={{ fontSize: 12, color: th.txt3 }}>{s.created_at ? ago(new Date(s.created_at).getTime()) + " ago" : ""}</span>
                   <button onClick={e => { e.stopPropagation(); toggleSave(s.id); }} style={{ background: isSaved ? "rgba(99,102,241,0.1)" : "none", border: isSaved ? "1px solid #6366f140" : "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: isSaved ? "#6366f1" : th.txt3, fontSize: 12, display: "flex", alignItems: "center" }}>🔖</button>
                 </div>
-                <button onClick={() => setSelected(s)} style={{ display: "flex", alignItems: "center", gap: 5, background: isOwner ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 10, padding: "7px 18px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }} data-testid={`button-open-${s.id}`}>
+                <button onClick={() => { setSelected(s); setInitialTab(isOwner ? "overview" : "pages"); }} style={{ display: "flex", alignItems: "center", gap: 5, background: isOwner ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 10, padding: "7px 18px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }} data-testid={`button-open-${s.id}`}>
                   {isOwner ? "Manage" : "Join"} <ChevronRight size={13} />
                 </button>
               </div>

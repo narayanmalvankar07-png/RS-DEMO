@@ -282,7 +282,7 @@ export default function App() {
     }
   };
 
-  const handleOnboardingDone = async ({ who, ints, refCode }) => {
+  const handleOnboardingDone = async ({ who, ints, refCode, location, phone, startupName, startupDesc, startupLocation, startupPhone }) => {
     const nameToUse = myProfile?.name || "User";
     const handle = genHandle(nameToUse);
     const myRefCode = genRefCode(nameToUse);
@@ -296,7 +296,7 @@ export default function App() {
       }
     }
 
-    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user" };
+    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user", location: location || null, phone: phone || null };
     await db.upsert("rs_user_profiles", profileRow);
 
     let myBal = 0;
@@ -316,7 +316,6 @@ export default function App() {
       await db.upsert("rs_token_balances", { uid: me, balance: 0 });
       setBals(b => ({ ...b, [me]: 0 }));
     }
-
     const fullProfile = { ...profileRow, hue: strToColor(nameToUse) };
     setMyProfile(fullProfile);
     setProfiles(p => ({ ...p, [me]: fullProfile }));

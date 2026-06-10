@@ -12,6 +12,8 @@ create table if not exists rs_startups (
   created_by text not null,
   founders text[] default '{}',
   referral_code text unique,
+  location text,
+  phone text,
   created_at timestamptz default now()
 );
 
@@ -252,4 +254,9 @@ drop policy if exists "allow_all_page_messages" on rs_page_messages;
 
 create policy "allow_all_meetings" on rs_page_meetings for all using (true) with check (true);
 create policy "allow_all_page_messages" on rs_page_messages for all using (true) with check (true);
+
+-- Ensure startup location and phone columns exist
+alter table rs_startups add column if not exists location text;
+alter table rs_startups add column if not exists phone text;
+
 

@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS rs_startups (
   created_by uuid references auth.users(id),
   founders uuid[] default '{}',
   referral_code text unique,
+  location text,
+  phone text,
   created_at timestamp with time zone default now()
 );
 
@@ -370,3 +372,8 @@ CREATE TABLE IF NOT EXISTS rs_alignments (
 
 -- Optional: Enable RLS (Row Level Security) and add basic open policies for testing. 
 -- You might want to lock this down later for production.
+
+-- Ensure startup location and phone columns exist
+ALTER TABLE rs_startups ADD COLUMN IF NOT EXISTS location text;
+ALTER TABLE rs_startups ADD COLUMN IF NOT EXISTS phone text;
+
