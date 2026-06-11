@@ -259,4 +259,40 @@ create policy "allow_all_page_messages" on rs_page_messages for all using (true)
 alter table rs_startups add column if not exists location text;
 alter table rs_startups add column if not exists phone text;
 
+-- Funding applications table
+create table if not exists rs_funding_applications (
+  id uuid primary key default gen_random_uuid(),
+  uid text not null, -- using text to align with other tables using text for uid
+  data jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+alter table rs_funding_applications enable row level security;
+drop policy if exists "allow_all_funding" on rs_funding_applications;
+create policy "allow_all_funding" on rs_funding_applications for all using (true) with check (true);
+
+-- Investors table
+create table if not exists rs_investors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  logo text,
+  stage text,
+  check_size text,
+  sectors jsonb default '[]'::jsonb,
+  description text,
+  created_at timestamptz default now()
+);
+
+alter table rs_investors enable row level security;
+drop policy if exists "allow_all_investors" on rs_investors;
+create policy "allow_all_investors" on rs_investors for all using (true) with check (true);
+
+-- Seed some investors if table is empty
+insert into rs_investors (name, logo, stage, check_size, sectors, description)
+values 
+('Peak XV Partners', '🏔️', 'Seed to Series C', '$1M - $8M', '["SaaS", "AI", "Fintech", "Consumer"]'::jsonb, 'Peak XV Partners is a leading venture capital firm investing across India, South East Asia and beyond. We partner with founders to build legendary companies.'),
+('Accel Partners', '⚡', 'Pre-seed to Series B', '$500K - $4M', '["SaaS", "AI", "Enterprise Software", "HealthTech"]'::jsonb, 'Accel is a global venture capital firm that acts as the first partner to exceptional teams, from inception through all phases of growth.'),
+('Y Combinator', '🍊', 'Pre-seed / Seed', '$500K (Standard Terms)', '["All Sectors", "AI", "SaaS", "Web3", "ClimateTech"]'::jsonb, 'Y Combinator is a startup accelerator that launches twice a year. We invest $500k in a large number of startups and work with them for three months.')
+on conflict (name) do nothing;
+
 

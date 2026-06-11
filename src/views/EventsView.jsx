@@ -15,8 +15,7 @@ function EventsView({ dk, addNotif }) {
 
   useEffect(() => {
     (async () => {
-      let data = await db.get("rs_events", "order=event_date.asc");
-      if (!data?.length) { await db.postMany("rs_events", SEED_EVENTS); data = await db.get("rs_events", "order=event_date.asc") || []; }
+      let data = await db.get("rs_events", "order=event_date.asc") || [];
       setEvents(data); setLoading(false);
     })();
   }, []);

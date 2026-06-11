@@ -1,7 +1,7 @@
 // src/views/FeedView.jsx
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Hash, X, Bookmark, Sparkles } from "lucide-react";
-import { T, SEED_POSTS, WHO_OPTS, INT_OPTS, SB_URL, SB_KEY } from '../config/constants.js';
+import { T, WHO_OPTS, INT_OPTS, SB_URL, SB_KEY } from '../config/constants.js';
 import { genId } from '../utils/helpers.js';
 import { db } from '../services/supabase.js';
 import { sendWSMessage, subscribeWS } from '../services/websocket.js';
@@ -29,7 +29,6 @@ function FeedView({ me, dk, myProfile, onProfile, bals, profiles, addNotif, book
     const ml = (allLikes || []).filter(l => l.uid === me);
     const ls = new Set(ml.map(l => l.post_id));
     let rows = rp || [];
-    if (!rows.length) { await db.postMany("rs_posts", SEED_POSTS); rows = await db.get("rs_posts", "order=created_at.desc&limit=80") || []; }
 
     let extraComments = [];
     if (focusPostId && !rows.some(p => p.id === focusPostId)) {

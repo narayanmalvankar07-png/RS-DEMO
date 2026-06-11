@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell } from "lucide-react";
+import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign } from "lucide-react";
 import { T } from "../../config/constants.js";
 import { canManageAds } from "../../utils/helpers.js";
 import Av from "../ui/Av.jsx";
@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "messages", icon: MessageCircle, label: "Messages" },
   { id: "colab", icon: Lightbulb, label: "Colab" },
+  { id: "funding", icon: DollarSign, label: "Funding" },
   { id: "events", icon: Calendar, label: "Events" },
   { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
   { id: "wallet", icon: Wallet, label: "Wallet", walletBadge: true },

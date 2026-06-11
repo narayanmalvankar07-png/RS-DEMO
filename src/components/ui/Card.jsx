@@ -1,10 +1,11 @@
 import { T } from '../../config/constants.js';
 
-export default function Card({ children, dk, style: ext = {}, anim = true, hover = true, className = "" }) {
+export default function Card({ children, dk, style: ext = {}, anim = true, hover = true, className = "", onClick, ...props }) {
   const th = T(dk);
   return (
     <div
       className={`${hover ? "rs-card" : ""} ${anim ? "rs-fade-up" : ""} ${className}`}
+      onClick={onClick}
       style={{
         background: th.surf,
         backdropFilter: th.blur,
@@ -15,8 +16,10 @@ export default function Card({ children, dk, style: ext = {}, anim = true, hover
         marginBottom: 14,
         ...ext,
       }}
+      {...props}
     >
       {children}
     </div>
   );
 }
+

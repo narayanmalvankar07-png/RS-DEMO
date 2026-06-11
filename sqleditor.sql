@@ -370,6 +370,55 @@ CREATE TABLE IF NOT EXISTS rs_alignments (
   unique(follower_uid, following_uid)
 );
 
+-- ==============================================================================
+-- 10. FUNDING & INVESTOR PORTAL
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS rs_funding_applications (
+  id uuid primary key default gen_random_uuid(),
+  uid uuid references auth.users(id) on delete cascade,
+  data jsonb default '{}'::jsonb,
+  created_at timestamp with time zone default now()
+);
+
+CREATE TABLE IF NOT EXISTS rs_investors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  logo text,
+  stage text,
+  check_size text,
+  location text default 'Global',
+  sectors jsonb default '[]'::jsonb,
+  description text,
+  type text default 'VCs',
+  created_at timestamp with time zone default now()
+);
+
+-- Ensure type and location columns exist if table was already created
+ALTER TABLE rs_investors ADD COLUMN IF NOT EXISTS type text DEFAULT 'VCs';
+ALTER TABLE rs_investors ADD COLUMN IF NOT EXISTS location text DEFAULT 'Global';
+
+-- Seed diverse funding sources if table is empty
+INSERT INTO rs_investors (name, logo, stage, check_size, location, sectors, description, type)
+VALUES 
+('Peak XV Partners', '🏔️', 'Seed to Series C', '$1M - $8M', 'India', '["SaaS", "AI", "Fintech", "Consumer"]'::jsonb, 'Peak XV Partners is a leading venture capital firm investing across India, South East Asia and beyond. We partner with founders to build legendary companies.', 'VCs'),
+('Accel Partners', '⚡', 'Pre-seed to Series B', '$500K - $4M', 'Global', '["SaaS", "AI", "Enterprise Software", "HealthTech"]'::jsonb, 'Accel is a global venture capital firm that acts as the first partner to exceptional teams, from inception through all phases of growth.', 'VCs'),
+('Y Combinator', '🍊', 'Pre-seed / Seed', '$500K (Standard Terms)', 'Global', '["All Sectors", "AI", "SaaS", "Web3", "ClimateTech"]'::jsonb, 'Y Combinator is a startup accelerator that launches twice a year. We invest $500k in a large number of startups and work with them for three months.', 'Accelerators'),
+('Naval Ravikant', '🦅', 'Pre-seed / Seed', '$50K - $250K', 'United States', '["AI", "SaaS", "Web3", "DeepTech"]'::jsonb, 'Prolific angel investor and co-founder of AngelList. Investing in early-stage startups with strong technical leverage.', 'Angels'),
+('Premji Invest', '🏢', 'Series A to Growth', '$5M - $20M', 'India', '["AI", "SaaS", "Consumer", "Healthcare"]'::jsonb, 'The investment office of Azim Premji, partnering with exceptional entrepreneurs to build long-term value.', 'Family Offices'),
+('National Science Foundation', '🎓', 'Pre-seed / R&D', '$250K - $1M', 'United States', '["Biotech", "DeepTech", "ClimateTech"]'::jsonb, 'Government research grants supporting commercialization of highly innovative, high-impact scientific and engineering technologies.', 'Grants'),
+('Svea Funding', '💳', 'Post-revenue', '$100K - $2M', 'Europe', '["SaaS", "E-commerce", "Marketplace"]'::jsonb, 'Non-dilutive venture debt and revenue-based financing for scaling subscription and recurring revenue startups.', 'Debt'),
+('Kickstarter Campaign', '📢', 'Idea to Prototype', '$10K - $500K', 'Global', '["Consumer", "Hardware", "Design", "Software"]'::jsonb, 'Community-backed reward crowdfunding platform to launch creative and consumer product ideas directly to backers.', 'Crowdfunding'),
+('Founders Fund', '🦅', 'Seed to Growth', '$1M - $15M', 'United States', '["AI", "Aerospace", "DeepTech", "Enterprise Software"]'::jsonb, 'Venture capital firm investing in science and technology companies solving difficult problems.', 'VCs'),
+('Kalaari Capital', '🎨', 'Seed to Series A', '$500K - $2.5M', 'India', '["SaaS", "Fintech", "E-commerce", "Consumer"]'::jsonb, 'Kalaari Capital is an early-stage, technology-focused venture capital firm with a strong commitment to partnering with outstanding entrepreneurs.', 'VCs'),
+('Tata Trusts', '🦁', 'Idea to Series A', '$100K - $1M', 'India', '["HealthTech", "ClimateTech", "Biotech", "Agritech"]'::jsonb, 'Philanthropic family office and grant provider backing technology that solves critical social problems.', 'Family Offices'),
+('Sequoia Capital (US)', '🌲', 'Seed to Series C', '$2M - $15M', 'United States', '["AI", "SaaS", "Fintech", "Web3"]'::jsonb, 'Leading venture capital firm helping bold founders build legendary companies from idea to IPO.', 'VCs'),
+('Lishana Angels', '🌟', 'Idea to Pre-seed', '$25K - $150K', 'Europe', '["AI", "SaaS", "Fintech", "Marketplace"]'::jsonb, 'An angel network backing early-stage developers, designers and technical founders across Europe.', 'Angels'),
+('Antler Global', '🦌', 'Idea / Pre-seed', '$100K - $250K', 'Global', '["SaaS", "Fintech", "AI", "Marketplace"]'::jsonb, 'Global startup generator and early-stage VC enabling extraordinary people to build defining companies.', 'Accelerators'),
+('VentureSouq', '🌴', 'Seed to Series B', '$250K - $2M', 'Europe', '["Fintech", "Web3", "SaaS"]'::jsonb, 'A venture capital firm focused on early-stage technology companies with global scalability.', 'VCs'),
+('Indie.vc', '🎸', 'MVP to Post-revenue', '$100K - $500K', 'United States', '["SaaS", "E-commerce", "Consumer Tech"]'::jsonb, 'A pilot program designed to fund revenue-generating startups focusing on profitability over VC scale.', 'Debt')
+ON CONFLICT (name) DO NOTHING;
+
 -- Optional: Enable RLS (Row Level Security) and add basic open policies for testing. 
 -- You might want to lock this down later for production.
 

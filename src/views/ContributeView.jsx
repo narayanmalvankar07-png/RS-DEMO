@@ -20,11 +20,7 @@ export default function ContributeView({ me, dk, addNotif }) {
 
   useEffect(() => {
     (async () => {
-      let data = await db.get("rs_contributions", "order=upvotes.desc");
-      if (!data?.length) {
-        await db.postMany("rs_contributions", SEED_CONTRIBS);
-        data = await db.get("rs_contributions", "order=upvotes.desc") || [];
-      }
+      let data = await db.get("rs_contributions", "order=upvotes.desc") || [];
       setContributions(data);
       setLoading(false);
     })();

@@ -78,12 +78,6 @@ export const CAT_COLORS = { Technology: "#3b82f6", Product: "#10b981", Developer
 // Type Colors
 export const TYP_COLORS = { article: "#3b82f6", tool: "#10b981", idea: "#f59e0b" };
 
-// Seed Posts
-export const SEED_POSTS = [
-  { uid: "seed", text: "🚀 Just launched RightSignal — a platform for founders, investors and builders to share signal over noise. #RightSignal #Founders #BuildInPublic", like_count: 47, repost_count: 12, media: [], hashtags: ["#rightsignal", "#founders", "#buildinpublic"] },
-  { uid: "seed", text: "The best time to start was yesterday. The second best time is now. Stop overthinking and ship it. 💡 #BuildInPublic #Startups", like_count: 89, repost_count: 23, media: [], hashtags: ["#buildinpublic", "#startups"] },
-  { uid: "seed", text: "Hot take: Most startup failures are not due to bad products. Founders solve problems that dont exist at scale. Always validate first. #StartupSandbox", like_count: 134, repost_count: 45, media: [], hashtags: ["#startupsandbox"] },
-];
 
 // Seed Events
 export const SEED_EVENTS = [
