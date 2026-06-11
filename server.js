@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,9 @@ const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
 });
+
+// ── Resend client ───────────────────────────────────────────────────
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ── Supabase client ─────────────────────────────────────────────────
 // Pass ws as transport so Supabase realtime works on Node.js 20
@@ -354,6 +358,157 @@ app.post("/api/upload-attachment", async (req, res) => {
   } catch (err) {
     console.error("POST /api/upload-attachment error:", err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/send-application ──────────────────────────────────────
+// Sends email via Resend
+app.post("/api/send-application", async (req, res) => {
+  const userId = getUser(req);
+  if (!userId) return res.status(401).json({ error: "x-user-id header required" });
+
+  const { investorEmail, investorName, formData } = req.body;
+  if (!investorEmail || !formData) {
+    return res.status(400).json({ error: "investorEmail and formData required" });
+  }
+
+  try {
+    const data = await resend.emails.send({
+      from: 'RightSignal <onboarding@rightsignal.social>',
+      to: investorEmail,
+      subject: `New Application from ${formData.startupName}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #1f2937; line-height: 1.6; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+          
+          <!-- Header -->
+          <div style="background-color: #111827; padding: 32px 40px; text-align: left;">
+            <p style="color: #9ca3af; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0; font-weight: 600;">New Investment Application</p>
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800;">${formData.startupName || 'Undisclosed Startup'}</h1>
+            <p style="color: #d1d5db; margin: 8px 0 0 0; font-size: 16px;">Applying to: <strong>${investorName}</strong></p>
+          </div>
+
+          <!-- Quick Overview -->
+          <div style="padding: 32px 40px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+            <p style="margin: 0; font-size: 18px; font-style: italic; color: #4b5563; border-left: 4px solid #6366f1; padding-left: 16px;">
+              "${formData.elevatorPitch || 'No elevator pitch provided.'}"
+            </p>
+          </div>
+
+          <div style="padding: 40px;">
+            
+            <!-- Company Profile & Fundraising -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 40px;">
+              <tr>
+                <td width="50%" valign="top" style="padding-right: 20px;">
+                  <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Fundraising Details</h3>
+                  <p style="margin: 4px 0;"><strong>Raising Now:</strong> <span style="color: #059669; font-weight: bold;">${formData.amountRaisingNow || 'N/A'}</span></p>
+                  <p style="margin: 4px 0;"><strong>Round:</strong> ${formData.currentFundraisingRound || 'N/A'}</p>
+                  <p style="margin: 4px 0;"><strong>Instrument:</strong> ${formData.fundingInstrument || 'N/A'}</p>
+                  <p style="margin: 4px 0;"><strong>Current Valuation:</strong> ${formData.currentValuation || 'N/A'}</p>
+                  <p style="margin: 4px 0;"><strong>Runway:</strong> ${formData.runwayRemaining || 'N/A'}</p>
+                  <p style="margin: 4px 0;"><strong>Previously Raised:</strong> ${formData.raisedBefore || 'N/A'}</p>
+                </td>
+                <td width="50%" valign="top" style="padding-left: 20px; border-left: 1px solid #e5e7eb;">
+                  <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Company Profile</h3>
+                  <p style="margin: 4px 0;"><strong>Industry:</strong> ${formData.industry || 'N/A'}</p>
+                  <p style="margin: 4px 0;"><strong>Website:</strong> <a href="${formData.websiteUrl || '#'}" style="color: #6366f1;">${formData.websiteUrl || 'N/A'}</a></p>
+                  <p style="margin: 4px 0;"><strong>Status:</strong> ${formData.registrationStatus || 'N/A'} ${formData.entityType ? '('+formData.entityType+')' : ''}</p>
+                  <p style="margin: 4px 0;"><strong>Incorporated:</strong> ${formData.incorporationDate || 'N/A'} in ${formData.registrationCountry || 'N/A'}</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Business Overview -->
+            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Business Overview</h3>
+            <div style="margin-bottom: 32px;">
+              <p style="margin: 0 0 12px 0;"><strong>Problem:</strong><br><span style="color: #4b5563;">${formData.problemStatement || 'N/A'}</span></p>
+              <p style="margin: 0 0 12px 0;"><strong>Solution:</strong><br><span style="color: #4b5563;">${formData.solution || 'N/A'}</span></p>
+              <p style="margin: 0 0 12px 0;"><strong>Target Customers:</strong><br><span style="color: #4b5563;">${formData.targetCustomers || 'N/A'}</span></p>
+              <p style="margin: 0 0 12px 0;"><strong>Product Status:</strong><br><span style="color: #4b5563;">${formData.currentProductStatus || 'N/A'}</span></p>
+            </div>
+
+            <!-- Market & Competition -->
+            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Market & Competition</h3>
+            <div style="margin-bottom: 32px;">
+              <p style="margin: 4px 0;"><strong>TAM:</strong> ${formData.tam || 'N/A'} | <strong>SAM:</strong> ${formData.sam || 'N/A'} | <strong>SOM:</strong> ${formData.som || 'N/A'}</p>
+              <p style="margin: 12px 0 4px 0;"><strong>Competitors:</strong><br><span style="color: #4b5563;">${formData.competitors || 'N/A'}</span></p>
+              <p style="margin: 8px 0 0 0;"><strong>Competitive Advantage:</strong><br><span style="color: #4b5563;">${formData.competitiveAdvantage || 'N/A'}</span></p>
+            </div>
+
+            <!-- Traction & Metrics -->
+            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Traction & Metrics</h3>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="33%" style="padding-bottom: 12px;"><strong>Total Users:</strong><br><span style="font-size: 18px; color: #111827;">${formData.totalUsers || 'N/A'}</span></td>
+                  <td width="33%" style="padding-bottom: 12px;"><strong>Active Users:</strong><br><span style="font-size: 18px; color: #111827;">${formData.activeUsers || 'N/A'}</span></td>
+                  <td width="33%" style="padding-bottom: 12px;"><strong>Paying Customers:</strong><br><span style="font-size: 18px; color: #111827;">${formData.payingCustomers || 'N/A'}</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Monthly Rev:</strong><br><span style="font-size: 18px; color: #111827;">${formData.monthlyRevenue || 'N/A'}</span></td>
+                  <td><strong>Annual Rev:</strong><br><span style="font-size: 18px; color: #111827;">${formData.annualRevenue || 'N/A'}</span></td>
+                  <td><strong>MoM Growth:</strong><br><span style="font-size: 18px; color: #111827;">${formData.monthlyGrowth || 'N/A'}</span></td>
+                </tr>
+              </table>
+              <p style="margin: 16px 0 0 0;"><strong>Key Milestones:</strong><br><span style="color: #4b5563;">${formData.keyAchievements || 'N/A'}</span></p>
+            </div>
+
+            <!-- Documents & Links -->
+            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Documents & Links</h3>
+            <div style="margin-bottom: 40px;">
+              <p style="margin: 6px 0;">📄 <a href="${formData.pitchDeckUrl || '#'}" style="color: #2563eb; font-weight: bold; text-decoration: none;">View Pitch Deck</a></p>
+              ${formData.financialModelUrl ? '<p style="margin: 6px 0;">📊 <a href="' + formData.financialModelUrl + '" style="color: #2563eb; text-decoration: none;">Financial Model</a></p>' : ''}
+              ${formData.dataRoomUrl ? '<p style="margin: 6px 0;">📁 <a href="' + formData.dataRoomUrl + '" style="color: #2563eb; text-decoration: none;">Data Room</a></p>' : ''}
+              ${formData.investorMemoUrl ? '<p style="margin: 6px 0;">📝 <a href="' + formData.investorMemoUrl + '" style="color: #2563eb; text-decoration: none;">Investor Memo</a></p>' : ''}
+              ${formData.productDemoUrl ? '<p style="margin: 6px 0;">💻 <a href="' + formData.productDemoUrl + '" style="color: #2563eb; text-decoration: none;">Product Demo</a></p>' : ''}
+              ${formData.demoVideoUrl ? '<p style="margin: 6px 0;">▶️ <a href="' + formData.demoVideoUrl + '" style="color: #2563eb; text-decoration: none;">Demo Video</a></p>' : ''}
+              
+              ${formData.additionalNotes ? '<div style="margin-top: 16px; padding: 16px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;"><p style="margin: 0; color: #92400e;"><strong>Additional Notes:</strong><br>' + formData.additionalNotes + '</p></div>' : ''}
+            </div>
+
+            <!-- Use of Funds -->
+            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Use of Funds Allocation</h3>
+            <div style="margin-bottom: 32px;">
+              <p style="margin: 4px 0;"><strong>Product Dev:</strong> ${formData.useOfFundsDev || '0'}% | <strong>Hiring:</strong> ${formData.useOfFundsHiring || '0'}% | <strong>Marketing:</strong> ${formData.useOfFundsMarketing || '0'}% | <strong>Operations:</strong> ${formData.useOfFundsOps || '0'}% | <strong>Other:</strong> ${formData.useOfFundsOther || '0'}%</p>
+            </div>
+
+            <!-- Founder Details -->
+            <div style="border-top: 2px solid #e5e7eb; padding-top: 32px;">
+              <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0;">Founding Team</h3>
+              
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="50%" valign="top">
+                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #111827;">${formData.founderName || 'N/A'}</p>
+                    <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">${formData.founderDesignation || 'Primary Founder'} • ${formData.founderCity || 'N/A'}, ${formData.founderCountry || 'N/A'}</p>
+                    <p style="margin: 2px 0; font-size: 14px;">🔗 <a href="${formData.founderLinkedin || '#'}" style="color: #2563eb;">LinkedIn Profile</a></p>
+                  </td>
+                  <td width="50%" valign="top">
+                    ${formData.coFounderName ? '<p style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #111827;">' + formData.coFounderName + '</p><p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">' + (formData.coFounderDesignation || 'Co-Founder') + '</p>' : '<p style="color: #9ca3af; font-style: italic;">No Co-Founder specified.</p>'}
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Declaration -->
+            <div style="margin-top: 40px; padding: 24px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; color: #6b7280;">
+              <p style="margin: 0 0 8px 0;">✅ <strong>Founder Declaration:</strong> "I confirm that the information submitted is accurate and can be shared with selected investors through the RightSignal platform."</p>
+              <p style="margin: 0;">Signed by <strong>${formData.declarationName || formData.founderName || 'N/A'}</strong> on <strong>${formData.declarationDate || 'N/A'}</strong></p>
+            </div>
+
+          </div>
+          
+          <!-- Footer -->
+          <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0; font-size: 12px; color: #6b7280;">Securely processed and verified by <a href="https://rightsignal.social" style="color: #6366f1; text-decoration: none; font-weight: bold;">RightSignal</a></p>
+          </div>
+        </div>
+      `,
+    });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("POST /api/send-application error:", error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
