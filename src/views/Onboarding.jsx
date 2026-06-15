@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowRight, Sparkles, Hash, Rocket, TrendingUp, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Building2, Cpu, Bot, Activity, Music, Link, Heart, Gamepad2, Plane, Smile, MapPin, Phone, Loader2 } from "lucide-react";
 import { T, WHO_OPTS, INT_OPTS } from "../config/constants.js";
 
@@ -37,6 +37,126 @@ const COUNTRIES = [
   { iso: "th", code: "+66", name: "TH" }
 ];
 
+// Custom inline GlassSelect for Onboarding country code prefix with flag images
+function OnboardingGlassSelect({ value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [open]);
+
+  const selectedOpt = options.find(opt => opt.value === value) || options[0];
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+      {/* Trigger */}
+      <div
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          padding: "12px 16px",
+          borderRadius: 16,
+          border: "1px solid rgba(255,255,255,0.12)",
+          background: "rgba(255,255,255,0.06)",
+          color: "#f0f4ff",
+          fontSize: 14,
+          boxSizing: "border-box",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          userSelect: "none",
+          transition: "border-color 0.2s"
+        }}
+      >
+        <span>{selectedOpt?.label || value}</span>
+        <span style={{ 
+          transform: open ? "rotate(180deg)" : "rotate(0)", 
+          transition: "transform 0.2s", 
+          fontSize: 8, 
+          color: "rgba(180,205,255,0.6)", 
+          display: "inline-block" 
+        }}>
+          ▼
+        </span>
+      </div>
+
+      {/* Dropdown Options List */}
+      {open && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 5px)",
+          left: 0,
+          right: 0,
+          background: "rgba(15, 23, 42, 0.95)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 16,
+          boxShadow: "0 -10px 25px rgba(0, 0, 0, 0.5)",
+          zIndex: 100,
+          maxHeight: 200,
+          overflowY: "auto",
+          padding: 6
+        }}>
+          {options.map((opt, idx) => {
+            const isSelected = opt.value === value;
+            // Generate a unique key with value + index since values (+1) can be duplicates
+            return (
+              <div
+                key={`${opt.value}-${idx}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  fontSize: 13,
+                  color: isSelected ? "#6366f1" : "rgba(240,244,255,0.8)",
+                  background: isSelected ? "rgba(99, 102, 241, 0.15)" : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  fontWeight: isSelected ? 600 : 500,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.color = "#f0f4ff";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgba(240,244,255,0.8)";
+                  }
+                }}
+              >
+                <span>{opt.label}</span>
+                {isSelected && <span style={{ color: "#6366f1", fontSize: 10 }}>✓</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Onboarding({ user, onComplete }) {
   const [who, setWho] = useState(user?.who || "founder");
   const [ints, setInts] = useState(user?.interests || []);
@@ -47,6 +167,13 @@ export default function Onboarding({ user, onComplete }) {
   const [phone, setPhone] = useState(user?.phone || "");
   const [countryCode, setCountryCode] = useState(user?.countryCode || "+1");
   const [detecting, setDetecting] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -110,13 +237,14 @@ export default function Onboarding({ user, onComplete }) {
     flex: 1, borderRadius: 16, border: "1px solid rgba(255,255,255,0.12)",
     padding: "12px 16px", background: "rgba(255,255,255,0.06)",
     color: "#f0f4ff", outline: "none", fontSize: 14, fontFamily: "inherit",
+    width: "100%", boxSizing: "border-box",
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: darkBg, backgroundAttachment: "fixed" }}>
-      <div className="rs-scale-in" style={{ width: "min(760px, 100%)", background: "rgba(255,255,255,0.05)", backdropFilter: "blur(28px) saturate(1.8)", WebkitBackdropFilter: "blur(28px) saturate(1.8)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 32, padding: "32px 28px", color: "#f0f4ff" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? "12px 10px" : "24px 16px", background: darkBg, backgroundAttachment: "fixed", boxSizing: "border-box", overflowX: "hidden" }}>
+      <div className="rs-scale-in" style={{ width: "min(760px, 100%)", background: "rgba(255,255,255,0.05)", backdropFilter: "blur(28px) saturate(1.8)", WebkitBackdropFilter: "blur(28px) saturate(1.8)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: isMobile ? 24 : 32, padding: isMobile ? "24px 16px" : "32px 28px", color: "#f0f4ff", boxSizing: "border-box" }}>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28, flexWrap: "wrap" }}>
           <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 24px rgba(99,102,241,0.4)", flexShrink: 0 }}>
             <Sparkles size={24} color="#fff" />
           </div>
@@ -126,7 +254,7 @@ export default function Onboarding({ user, onComplete }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 24, marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(180,205,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>I am a</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
@@ -208,26 +336,25 @@ export default function Onboarding({ user, onComplete }) {
             <div style={{ marginTop: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(180,205,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Phone Number (Private) *</div>
               <div style={{ display: "flex", gap: 8 }}>
-                <select 
-                  value={countryCode} 
-                  onChange={e => setCountryCode(e.target.value)} 
-                  style={{ 
-                    ...inputStyle, 
-                    flex: "0 0 110px", 
-                    appearance: "none", 
-                    backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23b4cdff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E\")",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 12px top 50%",
-                    backgroundSize: "10px auto",
-                    paddingRight: 30
-                  }}
-                >
-                  {COUNTRIES.map(c => (
-                    <option key={c.iso} value={c.code} style={{ background: "#0f172a", color: "#f0f4ff" }}>
-                      {c.code} ({c.name})
-                    </option>
-                  ))}
-                </select>
+                <div style={{ width: 115, flexShrink: 0 }}>
+                  <OnboardingGlassSelect
+                    value={countryCode}
+                    onChange={setCountryCode}
+                    options={COUNTRIES.map(c => ({
+                      value: c.code,
+                      label: (
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <img 
+                            src={`https://flagcdn.com/w20/${c.iso}.png`} 
+                            style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
+                            alt="" 
+                          />
+                          {c.code}
+                        </span>
+                      )
+                    }))}
+                  />
+                </div>
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 555-0199" style={inputStyle} />
               </div>
               <div style={{ fontSize: 11, color: "rgba(180,205,255,0.45)", marginTop: 4 }}>This information is secure and will never be shared publicly.</div>

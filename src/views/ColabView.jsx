@@ -1667,7 +1667,9 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
             </div>
           </div>
           {!myRequest ? (
-            <button onClick={() => setShowJoinForm(v => !v)} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
+            tab !== "pages" && (
+              <button onClick={() => setTab("pages")} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 22px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0 }}>Join Startup</button>
+            )
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
               <div onClick={() => setTab("pages")} style={{ cursor: "pointer", padding: "8px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: myRequest.status === "approved" ? "#10b98118" : myRequest.status === "rejected" ? "#ef444418" : "#f59e0b18", color: myRequest.status === "approved" ? "#10b981" : myRequest.status === "rejected" ? "#ef4444" : "#f59e0b", border: `1px solid ${myRequest.status === "approved" ? "#10b98140" : myRequest.status === "rejected" ? "#ef444440" : "#f59e0b40"}` }}>
@@ -1718,26 +1720,6 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
 
 
 
-      {/* Join role form */}
-      {showJoinForm && !myRequest && (
-        <Card dk={dk} anim={false} style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: th.txt }}>Select your role(s)</div>
-            <button onClick={() => setShowJoinForm(false)} style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3 }}><X size={16} /></button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
-            {JOIN_ROLES.map(r => {
-              const sel = joinRoles.includes(r.id);
-              return <button key={r.id} onClick={() => setJoinRoles(rs => rs.includes(r.id) ? rs.filter(x => x !== r.id) : [...rs, r.id])} style={{ background: sel ? `${r.c}20` : th.surf2, border: `1.5px solid ${sel ? r.c : th.bdr}`, borderRadius: 10, padding: "10px 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                <r.icon size={18} color={sel ? r.c : th.txt3} style={{ marginBottom: 4 }} />
-                <div style={{ fontSize: 11, fontWeight: 600, color: sel ? r.c : th.txt2 }}>{r.label}</div>
-              </button>;
-            })}
-          </div>
-          <textarea value={joinMsg} onChange={e => setJoinMsg(e.target.value)} placeholder="Why do you want to join? (optional)" rows={2} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", color: th.txt, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10 }} />
-          <button onClick={submitJoin} disabled={!joinRoles.length || submittingJoin} style={{ width: "100%", padding: "10px", background: joinRoles.length ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : th.surf2, border: "none", borderRadius: 10, cursor: joinRoles.length ? "pointer" : "default", color: joinRoles.length ? "#fff" : th.txt3, fontWeight: 700 }}>{submittingJoin ? "Sending…" : "Send Request"}</button>
-        </Card>
-      )}
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 16, background: th.surf2, borderRadius: 12, padding: 4, border: `1px solid ${th.bdr}`, overflowX: "auto" }}>

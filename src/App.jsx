@@ -213,6 +213,19 @@ export default function App() {
     loadProfiles();
   }, [screen, me, loadProfiles]);
 
+  // Track page views in Supabase rs_page_views table
+  useEffect(() => {
+    if (screen !== "app" || !view) return;
+    db.post("rs_page_views", {
+      path: `/${view}`,
+      referrer: document.referrer || "",
+      user_agent: navigator.userAgent,
+      uid: me || null
+    }).catch(err => {
+      console.warn("Analytics tracking skipped (table may not exist yet):", err);
+    });
+  }, [screen, view, me]);
+
   const loadNotifs = async uid => {
     try {
       const rows = await db.get("rs_notifications", `uid=eq.${uid}&order=created_at.desc&limit=40`);
@@ -279,7 +292,7 @@ export default function App() {
     }
   };
 
-  const handleOnboardingDone = async ({ who, ints, refCode, location, phone, startupName, startupDesc, startupLocation, startupPhone }) => {
+  const handleOnboardingDone = async ({ who, ints, refCode, location, phone, countryCode, startupName, startupDesc, startupLocation, startupPhone }) => {
     const nameToUse = myProfile?.name || "User";
     const handle = genHandle(nameToUse);
     const myRefCode = genRefCode(nameToUse);
@@ -293,7 +306,8 @@ export default function App() {
       }
     }
 
-    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user", location: location || null, phone: phone || null };
+    const formattedPhone = countryCode && phone ? `${countryCode} ${phone.trim()}` : phone ? phone.trim() : null;
+    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user", location: location || null, phone: formattedPhone };
     await db.upsert("rs_user_profiles", profileRow);
 
     let myBal = 0;

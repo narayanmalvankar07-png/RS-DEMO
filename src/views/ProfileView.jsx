@@ -16,6 +16,147 @@ import Card from "../components/ui/Card.jsx";
 import Spin from "../components/ui/Spin.jsx";
 import PostCard from "../components/shared/PostCard.jsx";
 
+const PROFILE_COUNTRIES = [
+  { iso: "us", code: "+1", name: "US/CA" }, { iso: "gb", code: "+44", name: "UK" },
+  { iso: "in", code: "+91", name: "IN" }, { iso: "au", code: "+61", name: "AU" },
+  { iso: "cn", code: "+86", name: "CN" }, { iso: "de", code: "+49", name: "DE" },
+  { iso: "fr", code: "+33", name: "FR" }, { iso: "jp", code: "+81", name: "JP" },
+  { iso: "br", code: "+55", name: "BR" }, { iso: "ae", code: "+971", name: "AE" },
+  { iso: "sa", code: "+966", name: "SA" }, { iso: "sg", code: "+65", name: "SG" },
+  { iso: "za", code: "+27", name: "ZA" }, { iso: "ng", code: "+234", name: "NG" },
+  { iso: "mx", code: "+52", name: "MX" }, { iso: "id", code: "+62", name: "ID" },
+  { iso: "it", code: "+39", name: "IT" }, { iso: "es", code: "+34", name: "ES" },
+  { iso: "nl", code: "+31", name: "NL" }, { iso: "se", code: "+46", name: "SE" },
+  { iso: "ch", code: "+41", name: "CH" }, { iso: "kr", code: "+82", name: "KR" },
+  { iso: "tr", code: "+90", name: "TR" }, { iso: "ar", code: "+54", name: "AR" },
+  { iso: "co", code: "+57", name: "CO" }, { iso: "ph", code: "+63", name: "PH" },
+  { iso: "vn", code: "+84", name: "VN" }, { iso: "pk", code: "+92", name: "PK" },
+  { iso: "bd", code: "+880", name: "BD" }, { iso: "ru", code: "+7", name: "RU" },
+  { iso: "eg", code: "+20", name: "EG" }, { iso: "ke", code: "+254", name: "KE" },
+  { iso: "gh", code: "+233", name: "GH" }, { iso: "ca", code: "+1", name: "CA" },
+  { iso: "nz", code: "+64", name: "NZ" }, { iso: "ie", code: "+353", name: "IE" },
+  { iso: "il", code: "+972", name: "IL" }, { iso: "my", code: "+60", name: "MY" },
+  { iso: "th", code: "+66", name: "TH" }
+];
+
+function ProfileGlassSelect({ value, onChange, options, dk, th }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [open]);
+
+  const selectedOpt = options.find(opt => opt.value === value) || options[0];
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+      {/* Trigger */}
+      <div
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          padding: "9px 12px",
+          borderRadius: 10,
+          border: `1px solid ${th.inpB}`,
+          background: th.inp,
+          color: th.txt,
+          fontSize: 13,
+          boxSizing: "border-box",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          userSelect: "none",
+          transition: "border-color 0.2s"
+        }}
+      >
+        <span>{selectedOpt?.label || value}</span>
+        <span style={{ 
+          transform: open ? "rotate(180deg)" : "rotate(0)", 
+          transition: "transform 0.2s", 
+          fontSize: 8, 
+          color: th.txt3, 
+          display: "inline-block" 
+        }}>
+          ▼
+        </span>
+      </div>
+
+      {/* Dropdown Options List */}
+      {open && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 5px)",
+          left: 0,
+          right: 0,
+          background: th.side,
+          backdropFilter: th.blur,
+          WebkitBackdropFilter: th.blur,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 10,
+          boxShadow: "0 -10px 25px rgba(0, 0, 0, 0.3)",
+          zIndex: 100,
+          maxHeight: 200,
+          overflowY: "auto",
+          padding: 4
+        }}>
+          {options.map((opt, idx) => {
+            const isSelected = opt.value === value;
+            return (
+              <div
+                key={`${opt.value}-${idx}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: isSelected ? "#6366f1" : th.txt2,
+                  background: isSelected ? (dk ? "rgba(99, 102, 241, 0.15)" : "rgba(99, 102, 241, 0.08)") : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  fontWeight: isSelected ? 600 : 500,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = dk ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.03)";
+                    e.currentTarget.style.color = th.txt;
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = th.txt2;
+                  }
+                }}
+              >
+                <span>{opt.label}</span>
+                {isSelected && <span style={{ color: "#6366f1", fontSize: 10 }}>✓</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif, onProfileUpdate, isMobile = false }) {
   const th = T(dk);
   const profile = profiles[uid] || { name: "Unknown", handle: "unknown", bio: "No profile available." };
@@ -30,7 +171,8 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [editBio, setEditBio] = useState(profile.bio || "");
   const [editName, setEditName] = useState(profile.name || "");
   const [editLocation, setEditLocation] = useState(profile.location || "");
-  const [editPhone, setEditPhone] = useState(profile.phone || "");
+  const [editPhonePrefix, setEditPhonePrefix] = useState("+91");
+  const [editPhoneNum, setEditPhoneNum] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [alignCount, setAlignCount] = useState(0);
@@ -85,6 +227,27 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setEditBio(profile.bio || "");
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
+    setEditLocation(profile.location || "");
+    
+    const phoneStr = profile.phone || "";
+    let parsedPrefix = "+91";
+    let parsedNum = phoneStr;
+    if (phoneStr) {
+      const match = PROFILE_COUNTRIES.find(c => phoneStr.startsWith(c.code + " "));
+      if (match) {
+        parsedPrefix = match.code;
+        parsedNum = phoneStr.slice(match.code.length + 1);
+      } else {
+        const matchNoSpace = PROFILE_COUNTRIES.find(c => phoneStr.startsWith(c.code));
+        if (matchNoSpace) {
+          parsedPrefix = matchNoSpace.code;
+          parsedNum = phoneStr.slice(matchNoSpace.code.length);
+        }
+      }
+    }
+    setEditPhonePrefix(parsedPrefix);
+    setEditPhoneNum(parsedNum);
+    
     setEditing(false);
   };
   const [tab, setTab] = useState("posts");
@@ -252,7 +415,25 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
     setEditLocation(profile.location || "");
-    setEditPhone(profile.phone || "");
+    
+    const phoneStr = profile.phone || "";
+    let parsedPrefix = "+91";
+    let parsedNum = phoneStr;
+    if (phoneStr) {
+      const match = PROFILE_COUNTRIES.find(c => phoneStr.startsWith(c.code + " "));
+      if (match) {
+        parsedPrefix = match.code;
+        parsedNum = phoneStr.slice(match.code.length + 1);
+      } else {
+        const matchNoSpace = PROFILE_COUNTRIES.find(c => phoneStr.startsWith(c.code));
+        if (matchNoSpace) {
+          parsedPrefix = matchNoSpace.code;
+          parsedNum = phoneStr.slice(matchNoSpace.code.length);
+        }
+      }
+    }
+    setEditPhonePrefix(parsedPrefix);
+    setEditPhoneNum(parsedNum);
   }, [uid, profile.bio, profile.name, profile.avatar, profile.social_links, profile.location, profile.phone]);
 
   useEffect(() => {
@@ -349,13 +530,14 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const saveProfile = async () => {
     setSaving(true);
     try {
+      const fullPhone = editPhonePrefix && editPhoneNum ? `${editPhonePrefix} ${editPhoneNum.trim()}` : editPhoneNum ? editPhoneNum.trim() : null;
       const payload = {
         name: editName,
         bio: editBio,
         avatar: editAvatar,
         social_links: editSocials,
         location: editLocation || null,
-        phone: editPhone || null
+        phone: fullPhone
       };
       await db.patch("rs_user_profiles", `id=eq.${uid}`, payload);
       onProfileUpdate?.(uid, payload);
@@ -574,7 +756,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                 return (
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12, marginBottom: 12 }}>
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Location *</label>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Location</label>
                       <div style={{ display: "flex", gap: 6 }}>
                         <input value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="e.g. London, UK" style={{ ...inpStyle, flex: 1 }} />
                         <button
@@ -610,9 +792,32 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                         </button>
                       </div>
                     </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Phone (Private) *</label>
-                      <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="e.g. +1 555-0199" style={inpStyle} />
+                     <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Phone (Private)</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ width: 110, flexShrink: 0 }}>
+                          <ProfileGlassSelect
+                            value={editPhonePrefix}
+                            onChange={setEditPhonePrefix}
+                            options={PROFILE_COUNTRIES.map(c => ({
+                              value: c.code,
+                              label: (
+                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <img 
+                                    src={`https://flagcdn.com/w20/${c.iso}.png`} 
+                                    style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
+                                    alt="" 
+                                  />
+                                  {c.code}
+                                </span>
+                              )
+                            }))}
+                            dk={dk}
+                            th={th}
+                          />
+                        </div>
+                        <input type="tel" value={editPhoneNum} onChange={e => setEditPhoneNum(e.target.value)} placeholder="e.g. 555-0199" style={inpStyle} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -873,7 +1078,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             </button>
           )}
           {isOwnProfile && editing && (() => {
-            const isProfileFormValid = editName.trim() && editLocation.trim() && editPhone.trim();
+             const isProfileFormValid = !!editName.trim();
             return (
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={saveProfile} disabled={saving || !isProfileFormValid} style={{ display: "flex", alignItems: "center", gap: 6, background: (saving || !isProfileFormValid) ? th.surf3 : "#10b981", color: (saving || !isProfileFormValid) ? th.txt3 : "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: (saving || !isProfileFormValid) ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: (saving || !isProfileFormValid) ? 0.6 : 1, transition: "all 0.2s" }}>

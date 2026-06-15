@@ -497,6 +497,29 @@ const FALLBACK_INVESTORS = [
   }
 ];
 
+const FUNDING_COUNTRIES = [
+  { iso: "us", code: "+1", name: "US/CA" }, { iso: "gb", code: "+44", name: "UK" },
+  { iso: "in", code: "+91", name: "IN" }, { iso: "au", code: "+61", name: "AU" },
+  { iso: "cn", code: "+86", name: "CN" }, { iso: "de", code: "+49", name: "DE" },
+  { iso: "fr", code: "+33", name: "FR" }, { iso: "jp", code: "+81", name: "JP" },
+  { iso: "br", code: "+55", name: "BR" }, { iso: "ae", code: "+971", name: "AE" },
+  { iso: "sa", code: "+966", name: "SA" }, { iso: "sg", code: "+65", name: "SG" },
+  { iso: "za", code: "+27", name: "ZA" }, { iso: "ng", code: "+234", name: "NG" },
+  { iso: "mx", code: "+52", name: "MX" }, { iso: "id", code: "+62", name: "ID" },
+  { iso: "it", code: "+39", name: "IT" }, { iso: "es", code: "+34", name: "ES" },
+  { iso: "nl", code: "+31", name: "NL" }, { iso: "se", code: "+46", name: "SE" },
+  { iso: "ch", code: "+41", name: "CH" }, { iso: "kr", code: "+82", name: "KR" },
+  { iso: "tr", code: "+90", name: "TR" }, { iso: "ar", code: "+54", name: "AR" },
+  { iso: "co", code: "+57", name: "CO" }, { iso: "ph", code: "+63", name: "PH" },
+  { iso: "vn", code: "+84", name: "VN" }, { iso: "pk", code: "+92", name: "PK" },
+  { iso: "bd", code: "+880", name: "BD" }, { iso: "ru", code: "+7", name: "RU" },
+  { iso: "eg", code: "+20", name: "EG" }, { iso: "ke", code: "+254", name: "KE" },
+  { iso: "gh", code: "+233", name: "GH" }, { iso: "ca", code: "+1", name: "CA" },
+  { iso: "nz", code: "+64", name: "NZ" }, { iso: "ie", code: "+353", name: "IE" },
+  { iso: "il", code: "+972", name: "IL" }, { iso: "my", code: "+60", name: "MY" },
+  { iso: "th", code: "+66", name: "TH" }
+];
+
 
 
 const STAGE_STEPS = [
@@ -514,6 +537,7 @@ const INITIAL_FORM = {
   founderName: "",
   rsid: "",
   founderDesignation: "Founder",
+  founderMobilePrefix: "+91",
   founderMobile: "",
   founderEmail: "",
   founderLinkedin: "",
@@ -1476,12 +1500,35 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                       </div>
                       <div>
                         <label style={{ fontSize: 11, color: th.txt2, fontWeight: 600, display: "block", marginBottom: 5 }}>Mobile Number*</label>
-                        <input
-                          type="tel"
-                          value={form.founderMobile}
-                          onChange={e => setForm({ ...form, founderMobile: e.target.value })}
-                          style={{ width: "100%", padding: 10, borderRadius: 10, border: `1px solid ${formErrors.founderMobile ? "#ef4444" : th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
-                        />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ width: 110, flexShrink: 0 }}>
+                            <GlassSelect
+                              value={form.founderMobilePrefix || "+91"}
+                              onChange={val => setForm({ ...form, founderMobilePrefix: val })}
+                              options={FUNDING_COUNTRIES.map(c => ({
+                                value: c.code,
+                                label: (
+                                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <img 
+                                      src={`https://flagcdn.com/w20/${c.iso}.png`} 
+                                      style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
+                                      alt="" 
+                                    />
+                                    {c.code}
+                                  </span>
+                                )
+                              }))}
+                              dk={dk}
+                              th={th}
+                            />
+                          </div>
+                          <input
+                            type="tel"
+                            value={form.founderMobile}
+                            onChange={e => setForm({ ...form, founderMobile: e.target.value })}
+                            style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${formErrors.founderMobile ? "#ef4444" : th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
+                          />
+                        </div>
                       </div>
                     </div>
 
