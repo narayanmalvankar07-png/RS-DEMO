@@ -14,6 +14,29 @@ const INT_ICON_MAP = {
   crypto: Link, health: Heart, gaming: Gamepad2, travel: Plane, fun: Smile,
 };
 
+const COUNTRIES = [
+  { iso: "us", code: "+1", name: "US/CA" }, { iso: "gb", code: "+44", name: "UK" },
+  { iso: "in", code: "+91", name: "IN" }, { iso: "au", code: "+61", name: "AU" },
+  { iso: "cn", code: "+86", name: "CN" }, { iso: "de", code: "+49", name: "DE" },
+  { iso: "fr", code: "+33", name: "FR" }, { iso: "jp", code: "+81", name: "JP" },
+  { iso: "br", code: "+55", name: "BR" }, { iso: "ae", code: "+971", name: "AE" },
+  { iso: "sa", code: "+966", name: "SA" }, { iso: "sg", code: "+65", name: "SG" },
+  { iso: "za", code: "+27", name: "ZA" }, { iso: "ng", code: "+234", name: "NG" },
+  { iso: "mx", code: "+52", name: "MX" }, { iso: "id", code: "+62", name: "ID" },
+  { iso: "it", code: "+39", name: "IT" }, { iso: "es", code: "+34", name: "ES" },
+  { iso: "nl", code: "+31", name: "NL" }, { iso: "se", code: "+46", name: "SE" },
+  { iso: "ch", code: "+41", name: "CH" }, { iso: "kr", code: "+82", name: "KR" },
+  { iso: "tr", code: "+90", name: "TR" }, { iso: "ar", code: "+54", name: "AR" },
+  { iso: "co", code: "+57", name: "CO" }, { iso: "ph", code: "+63", name: "PH" },
+  { iso: "vn", code: "+84", name: "VN" }, { iso: "pk", code: "+92", name: "PK" },
+  { iso: "bd", code: "+880", name: "BD" }, { iso: "ru", code: "+7", name: "RU" },
+  { iso: "eg", code: "+20", name: "EG" }, { iso: "ke", code: "+254", name: "KE" },
+  { iso: "gh", code: "+233", name: "GH" }, { iso: "ca", code: "+1", name: "CA" },
+  { iso: "nz", code: "+64", name: "NZ" }, { iso: "ie", code: "+353", name: "IE" },
+  { iso: "il", code: "+972", name: "IL" }, { iso: "my", code: "+60", name: "MY" },
+  { iso: "th", code: "+66", name: "TH" }
+];
+
 export default function Onboarding({ user, onComplete }) {
   const [who, setWho] = useState(user?.who || "founder");
   const [ints, setInts] = useState(user?.interests || []);
@@ -40,6 +63,14 @@ export default function Onboarding({ user, onComplete }) {
           const city = data.address.city || data.address.town || data.address.village || data.address.suburb || "";
           const country = data.address.country || "";
           setLocation(city && country ? `${city}, ${country}` : data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          
+          const isoCode = data.address?.country_code?.toLowerCase();
+          const codeMap = {};
+          COUNTRIES.forEach(c => codeMap[c.iso] = c.code);
+          
+          if (isoCode && codeMap[isoCode]) {
+            setCountryCode(codeMap[isoCode]);
+          }
         } else {
           setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         }
@@ -191,16 +222,11 @@ export default function Onboarding({ user, onComplete }) {
                     paddingRight: 30
                   }}
                 >
-                  <option value="+1">+1 (US/CA)</option>
-                  <option value="+44">+44 (UK)</option>
-                  <option value="+91">+91 (IN)</option>
-                  <option value="+61">+61 (AU)</option>
-                  <option value="+86">+86 (CN)</option>
-                  <option value="+49">+49 (DE)</option>
-                  <option value="+33">+33 (FR)</option>
-                  <option value="+81">+81 (JP)</option>
-                  <option value="+55">+55 (BR)</option>
-                  <option value="+971">+971 (AE)</option>
+                  {COUNTRIES.map(c => (
+                    <option key={c.iso} value={c.code} style={{ background: "#0f172a", color: "#f0f4ff" }}>
+                      {c.code} ({c.name})
+                    </option>
+                  ))}
                 </select>
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 555-0199" style={inputStyle} />
               </div>
