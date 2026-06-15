@@ -282,6 +282,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_peakxv",
     name: "Peak XV Partners",
+    email: "jjatan220@gmail.com",
     logo: "🏔️",
     stage: "Seed to Series C",
     checkSize: "$1M - $8M",
@@ -293,6 +294,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_accel",
     name: "Accel Partners",
+    email: "jjatan220@gmail.com",
     logo: "⚡",
     stage: "Pre-seed to Series B",
     checkSize: "$500K - $4M",
@@ -304,6 +306,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_yc",
     name: "Y Combinator",
+    email: "jjatan220@gmail.com",
     logo: "🍊",
     stage: "Pre-seed / Seed",
     checkSize: "$500K (Standard Terms)",
@@ -315,6 +318,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_naval",
     name: "Naval Ravikant",
+    email: "jjatan220@gmail.com",
     logo: "🦅",
     stage: "Pre-seed / Seed",
     checkSize: "$50K - $250K",
@@ -326,6 +330,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_premji",
     name: "Premji Invest",
+    email: "jjatan220@gmail.com",
     logo: "🏢",
     stage: "Series A to Growth",
     checkSize: "$5M - $20M",
@@ -337,6 +342,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_nsf",
     name: "National Science Foundation",
+    email: "jjatan220@gmail.com",
     logo: "🎓",
     stage: "Pre-seed / R&D",
     checkSize: "$250K - $1M",
@@ -348,6 +354,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_svea",
     name: "Svea Funding",
+    email: "jjatan220@gmail.com",
     logo: "💳",
     stage: "Post-revenue",
     checkSize: "$100K - $2M",
@@ -359,6 +366,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_kickstarter",
     name: "Kickstarter Campaign",
+    email: "jjatan220@gmail.com",
     logo: "📢",
     stage: "Idea to Prototype",
     checkSize: "$10K - $500K",
@@ -370,6 +378,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_blume",
     name: "Blume Ventures",
+    email: "jjatan220@gmail.com",
     logo: "🌸",
     stage: "Pre-seed / Seed",
     checkSize: "$250K - $1.5M",
@@ -381,6 +390,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_elevation",
     name: "Elevation Capital",
+    email: "jjatan220@gmail.com",
     logo: "📈",
     stage: "Seed to Series A",
     checkSize: "$500K - $3M",
@@ -392,6 +402,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_foundersfund",
     name: "Founders Fund",
+    email: "jjatan220@gmail.com",
     logo: "🦅",
     stage: "Seed to Growth",
     checkSize: "$1M - $15M",
@@ -403,6 +414,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_kalaari",
     name: "Kalaari Capital",
+    email: "jjatan220@gmail.com",
     logo: "🎨",
     stage: "Seed to Series A",
     checkSize: "$500K - $2.5M",
@@ -414,6 +426,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_tatatrusts",
     name: "Tata Trusts",
+    email: "jjatan220@gmail.com",
     logo: "🦁",
     stage: "Idea to Series A",
     checkSize: "$100K - $1M",
@@ -425,6 +438,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_sequoiaus",
     name: "Sequoia Capital (US)",
+    email: "jjatan220@gmail.com",
     logo: "🌲",
     stage: "Seed to Series C",
     checkSize: "$2M - $15M",
@@ -436,6 +450,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_lishana",
     name: "Lishana Angels",
+    email: "jjatan220@gmail.com",
     logo: "🌟",
     stage: "Idea to Pre-seed",
     checkSize: "$25K - $150K",
@@ -447,6 +462,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_antler",
     name: "Antler Global",
+    email: "jjatan220@gmail.com",
     logo: "🦌",
     stage: "Idea / Pre-seed",
     checkSize: "$100K - $250K",
@@ -458,6 +474,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_venturesouq",
     name: "VentureSouq",
+    email: "jjatan220@gmail.com",
     logo: "🌴",
     stage: "Seed to Series B",
     checkSize: "$250K - $2M",
@@ -469,6 +486,7 @@ const FALLBACK_INVESTORS = [
   {
     id: "inv_indie",
     name: "Indie.vc",
+    email: "jjatan220@gmail.com",
     logo: "🎸",
     stage: "MVP to Post-revenue",
     checkSize: "$100K - $500K",
@@ -775,7 +793,24 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(response));
         
         if (pendingVCId) {
-          const investorName = investors.find(i => i.id === pendingVCId)?.name || "Investor";
+          const targetInvestor = investors.find(i => i.id === pendingVCId);
+          const investorName = targetInvestor?.name || "Investor";
+          const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
+          
+          try {
+            await fetch("/api/send-application", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-user-id": me },
+              body: JSON.stringify({
+                investorEmail: targetEmail,
+                investorName: investorName,
+                formData: updatedForm
+              }),
+            });
+          } catch (err) {
+            console.error("Failed to trigger email:", err);
+          }
+
           addNotif?.({ type: "success", msg: `🚀 Application submitted successfully to ${investorName}!` });
         } else {
           addNotif?.({ type: "success", msg: "✨ Startup Funding Profile updated successfully!" });
@@ -791,7 +826,24 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
         
         if (pendingVCId) {
-          const investorName = investors.find(i => i.id === pendingVCId)?.name || "Investor";
+          const targetInvestor = investors.find(i => i.id === pendingVCId);
+          const investorName = targetInvestor?.name || "Investor";
+          const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
+          
+          try {
+            await fetch("/api/send-application", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-user-id": me },
+              body: JSON.stringify({
+                investorEmail: targetEmail,
+                investorName: investorName,
+                formData: updatedForm
+              }),
+            });
+          } catch (err) {
+            console.error("Failed to trigger email:", err);
+          }
+
           addNotif?.({ type: "success", msg: `🚀 Application saved locally & submitted to ${investorName}!` });
         } else {
           addNotif?.({ type: "success", msg: "✨ Saved Funding Profile locally!" });

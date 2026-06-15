@@ -22,6 +22,7 @@ export default function Onboarding({ user, onComplete }) {
   const [submitting, setSubmitting] = useState(false);
   const [location, setLocation] = useState(user?.location || "");
   const [phone, setPhone] = useState(user?.phone || "");
+  const [countryCode, setCountryCode] = useState(user?.countryCode || "+1");
   const [detecting, setDetecting] = useState(false);
 
   const detectLocation = () => {
@@ -60,7 +61,7 @@ export default function Onboarding({ user, onComplete }) {
     if (submitting || !isValid) return;
     setSubmitting(true);
     try {
-      await onComplete({ who, ints, refCode, location, phone });
+      await onComplete({ who, ints, refCode, location, phone, countryCode });
     } catch (err) {
       setSubmitting(false);
     }
@@ -175,7 +176,34 @@ export default function Onboarding({ user, onComplete }) {
 
             <div style={{ marginTop: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(180,205,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Phone Number (Private) *</div>
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +1 555-0199" style={inputStyle} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <select 
+                  value={countryCode} 
+                  onChange={e => setCountryCode(e.target.value)} 
+                  style={{ 
+                    ...inputStyle, 
+                    flex: "0 0 110px", 
+                    appearance: "none", 
+                    backgroundImage: "url(\"data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23b4cdff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E\")",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 12px top 50%",
+                    backgroundSize: "10px auto",
+                    paddingRight: 30
+                  }}
+                >
+                  <option value="+1">+1 (US/CA)</option>
+                  <option value="+44">+44 (UK)</option>
+                  <option value="+91">+91 (IN)</option>
+                  <option value="+61">+61 (AU)</option>
+                  <option value="+86">+86 (CN)</option>
+                  <option value="+49">+49 (DE)</option>
+                  <option value="+33">+33 (FR)</option>
+                  <option value="+81">+81 (JP)</option>
+                  <option value="+55">+55 (BR)</option>
+                  <option value="+971">+971 (AE)</option>
+                </select>
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 555-0199" style={inputStyle} />
+              </div>
               <div style={{ fontSize: 11, color: "rgba(180,205,255,0.45)", marginTop: 4 }}>This information is secure and will never be shared publicly.</div>
             </div>
 
