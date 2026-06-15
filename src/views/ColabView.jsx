@@ -55,6 +55,29 @@ function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
 }
 
 // ─── Constants ─────────────────────────────────────────────────────
+const COLAB_COUNTRIES = [
+  { iso: "us", code: "+1", name: "US/CA" }, { iso: "gb", code: "+44", name: "UK" },
+  { iso: "in", code: "+91", name: "IN" }, { iso: "au", code: "+61", name: "AU" },
+  { iso: "cn", code: "+86", name: "CN" }, { iso: "de", code: "+49", name: "DE" },
+  { iso: "fr", code: "+33", name: "FR" }, { iso: "jp", code: "+81", name: "JP" },
+  { iso: "br", code: "+55", name: "BR" }, { iso: "ae", code: "+971", name: "AE" },
+  { iso: "sa", code: "+966", name: "SA" }, { iso: "sg", code: "+65", name: "SG" },
+  { iso: "za", code: "+27", name: "ZA" }, { iso: "ng", code: "+234", name: "NG" },
+  { iso: "mx", code: "+52", name: "MX" }, { iso: "id", code: "+62", name: "ID" },
+  { iso: "it", code: "+39", name: "IT" }, { iso: "es", code: "+34", name: "ES" },
+  { iso: "nl", code: "+31", name: "NL" }, { iso: "se", code: "+46", name: "SE" },
+  { iso: "ch", code: "+41", name: "CH" }, { iso: "kr", code: "+82", name: "KR" },
+  { iso: "tr", code: "+90", name: "TR" }, { iso: "ar", code: "+54", name: "AR" },
+  { iso: "co", code: "+57", name: "CO" }, { iso: "ph", code: "+63", name: "PH" },
+  { iso: "vn", code: "+84", name: "VN" }, { iso: "pk", code: "+92", name: "PK" },
+  { iso: "bd", code: "+880", name: "BD" }, { iso: "ru", code: "+7", name: "RU" },
+  { iso: "eg", code: "+20", name: "EG" }, { iso: "ke", code: "+254", name: "KE" },
+  { iso: "gh", code: "+233", name: "GH" }, { iso: "ca", code: "+1", name: "CA" },
+  { iso: "nz", code: "+64", name: "NZ" }, { iso: "ie", code: "+353", name: "IE" },
+  { iso: "il", code: "+972", name: "IL" }, { iso: "my", code: "+60", name: "MY" },
+  { iso: "th", code: "+66", name: "TH" }
+];
+
 const genRefCode = n => n.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
 
 const PAGE_TYPES = [
@@ -123,6 +146,125 @@ function CopyBtn({ text, label = "Copy" }) {
     <button onClick={copy} style={{ display: "flex", alignItems: "center", gap: 5, background: copied ? "#10b98118" : "rgba(255,255,255,0.07)", border: `1px solid ${copied ? "#10b98140" : "rgba(255,255,255,0.12)"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: copied ? "#10b981" : "#94a3b8", fontSize: 12, fontWeight: 600 }}>
       {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? "Copied!" : label}
     </button>
+  );
+}
+
+// ─── ColabGlassSelect Component ────────────────────────────────────────
+function ColabGlassSelect({ value, onChange, options, dk, th }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [open]);
+
+  const selectedOpt = options.find(opt => opt.value === value) || options[0];
+
+  return (
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
+      {/* Trigger */}
+      <div
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          padding: "9px 12px",
+          borderRadius: 10,
+          border: `1px solid ${th.inpB}`,
+          background: th.inp,
+          color: th.txt,
+          fontSize: 13,
+          boxSizing: "border-box",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          userSelect: "none",
+          transition: "border-color 0.2s"
+        }}
+      >
+        <span>{selectedOpt?.label || value}</span>
+        <span style={{ 
+          transform: open ? "rotate(180deg)" : "rotate(0)", 
+          transition: "transform 0.2s", 
+          fontSize: 8, 
+          color: th.txt3, 
+          display: "inline-block" 
+        }}>
+          ▼
+        </span>
+      </div>
+
+      {/* Dropdown Options List */}
+      {open && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 5px)",
+          left: 0,
+          right: 0,
+          background: th.side || th.surf || "rgba(13,20,38,0.97)",
+          backdropFilter: th.blur,
+          WebkitBackdropFilter: th.blur,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 10,
+          boxShadow: "0 -10px 25px rgba(0, 0, 0, 0.3)",
+          zIndex: 100,
+          maxHeight: 200,
+          overflowY: "auto",
+          padding: 4
+        }}>
+          {options.map((opt, idx) => {
+            const isSelected = opt.value === value;
+            return (
+              <div
+                key={`${opt.value}-${idx}`}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: isSelected ? "#6366f1" : th.txt2,
+                  background: isSelected ? (dk ? "rgba(99, 102, 241, 0.15)" : "rgba(99, 102, 241, 0.08)") : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  fontWeight: isSelected ? 600 : 500,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = dk ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.03)";
+                    e.currentTarget.style.color = th.txt;
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = th.txt2;
+                  }
+                }}
+              >
+                <span>{opt.label}</span>
+                {isSelected && <span style={{ color: "#6366f1", fontSize: 10 }}>✓</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1225,6 +1367,28 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
   const th = T(dk);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+
+  // Parse phonePrefix and phoneNum from existing.phone
+  const phoneStr = existing?.phone || "";
+  let parsedPrefix = "+91";
+  let parsedNum = phoneStr;
+  if (phoneStr) {
+    const match = COLAB_COUNTRIES.find(c => phoneStr.startsWith(c.code + " "));
+    if (match) {
+      parsedPrefix = match.code;
+      parsedNum = phoneStr.slice(match.code.length + 1);
+    } else {
+      const matchNoSpace = COLAB_COUNTRIES.find(c => phoneStr.startsWith(c.code));
+      if (matchNoSpace) {
+        parsedPrefix = matchNoSpace.code;
+        parsedNum = phoneStr.slice(matchNoSpace.code.length);
+      }
+    }
+  }
+
+  const [phonePrefix, setPhonePrefix] = useState(parsedPrefix);
+  const [phoneNum, setPhoneNum] = useState(parsedNum);
+
   const [form, setForm] = useState({ 
     name: existing?.name || "", 
     logo: existing?.logo || "🚀", 
@@ -1233,13 +1397,12 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
     github_link: existing?.github_link || "", 
     twitter: existing?.social_links?.twitter || "", 
     linkedin: existing?.social_links?.linkedin || "",
-    location: existing?.location || "",
-    phone: existing?.phone || ""
+    location: existing?.location || ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [detectingLoc, setDetectingLoc] = useState(false);
   const step1Valid = form.name.trim() && form.description.trim();
-  const step2Valid = step1Valid && form.location.trim() && form.phone.trim();
+  const step2Valid = step1Valid && form.location.trim() && phoneNum.trim();
   const EMOJIS = ["🚀", "💡", "⚡", "🎯", "💰", "🌍", "🔥", "🤝", "📊", "🎨", "🛠️", "🧠", "💎", "🌱", "🔬", "📱"];
   const inp = { width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", color: th.txt, fontFamily: "inherit" };
 
@@ -1293,7 +1456,8 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
 
   const save = async () => {
     if (!step2Valid) return; setSaving(true);
-    const payload = { name: form.name.trim(), logo: form.logo, description: form.description.trim(), website: form.website.trim(), github_link: form.github_link.trim(), social_links: { twitter: form.twitter.trim(), linkedin: form.linkedin.trim() }, created_by: me, founders: existing?.founders || [me], referral_code: existing?.referral_code || genRefCode(form.name), location: form.location.trim() || null, phone: form.phone.trim() || null };
+    const fullPhone = phonePrefix && phoneNum ? `${phonePrefix} ${phoneNum.trim()}` : phoneNum ? phoneNum.trim() : null;
+    const payload = { name: form.name.trim(), logo: form.logo, description: form.description.trim(), website: form.website.trim(), github_link: form.github_link.trim(), social_links: { twitter: form.twitter.trim(), linkedin: form.linkedin.trim() }, created_by: me, founders: existing?.founders || [me], referral_code: existing?.referral_code || genRefCode(form.name), location: form.location.trim() || null, phone: fullPhone };
     let result;
     if (existing?.id) { await db.patch("rs_startups", `id=eq.${existing.id}`, payload); result = { ...existing, ...payload }; }
     else {
@@ -1420,7 +1584,30 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Phone (Private) *</label>
-              <input type="tel" value={form.phone || ""} onChange={e => set("phone", e.target.value)} placeholder="e.g. +1 555-0100" style={inp} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ width: 110, flexShrink: 0 }}>
+                  <ColabGlassSelect
+                    value={phonePrefix}
+                    onChange={setPhonePrefix}
+                    options={COLAB_COUNTRIES.map(c => ({
+                      value: c.code,
+                      label: (
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <img 
+                            src={`https://flagcdn.com/w20/${c.iso}.png`} 
+                            style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
+                            alt="" 
+                          />
+                          {c.code}
+                        </span>
+                      )
+                    }))}
+                    dk={dk}
+                    th={th}
+                  />
+                </div>
+                <input type="tel" value={phoneNum || ""} onChange={e => setPhoneNum(e.target.value)} placeholder="e.g. 555-0100" style={inp} />
+              </div>
               <div style={{ fontSize: 10, color: th.txt3, marginTop: 4 }}>This phone number is secure and not displayed publicly.</div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -2778,11 +2965,37 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
       </div>
 
       {loading ? <Spin dk={dk} msg="Loading startups…" /> : filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 60, color: th.txt3 }}>
-          <Rocket size={48} color="#6366f1" style={{ margin: "0 auto 16px" }} />
-          <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 6px", color: th.txt }}>{savedOnly ? "No saved startups" : "No startups yet"}</p>
-          <p style={{ fontSize: 14, margin: "0 0 20px" }}>{savedOnly ? "Save startups to see them here" : "Be the first to create one!"}</p>
-          {!savedOnly && <button onClick={() => setShowCreate(true)} style={{ background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Create Startup</button>}
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 60,
+          background: th.surf,
+          backdropFilter: th.blur,
+          WebkitBackdropFilter: th.blur,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 24,
+          textAlign: "center",
+          gap: 12
+        }}>
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: dk ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+            border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: dk ? "0 0 20px rgba(99, 102, 241, 0.15)" : "0 0 20px rgba(99, 102, 241, 0.05)",
+            marginBottom: 6
+          }}>
+            <Rocket size={28} color="#6366f1" />
+          </div>
+          <p style={{ fontSize: 16, fontWeight: 600, margin: 0, color: th.txt }}>{savedOnly ? "No saved startups" : "No startups yet"}</p>
+          <p style={{ fontSize: 14, margin: 0, color: th.txt2 }}>{savedOnly ? "Save startups to see them here" : "Be the first to create one!"}</p>
+          {!savedOnly && <button onClick={() => setShowCreate(true)} style={{ background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 12, padding: "10px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>Create Startup</button>}
         </div>
       ) : filtered.map((s, i) => {
         const isOwner = s.created_by === me || (s.founders || []).includes(me);

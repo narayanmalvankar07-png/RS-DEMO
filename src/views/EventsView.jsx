@@ -1,5 +1,6 @@
 // src/views/EventsView.jsx
 import { useState, useEffect } from "react";
+import { Calendar, Globe, Users } from "lucide-react";
 import { T, SEED_EVENTS, CAT_COLORS } from '../config/constants.js';
 import { fmt, fmtDate } from '../utils/helpers.js';
 import { db } from '../services/supabase.js';
@@ -29,7 +30,46 @@ function EventsView({ dk, addNotif }) {
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {cats.map(c => <button key={c} onClick={() => setFilter(c)} style={{ padding: "5px 14px", borderRadius: 20, border: `1px solid ${filter === c ? CAT_COLORS[c] || "#3b82f6" : th.bdr}`, background: filter === c ? (CAT_COLORS[c] || "#3b82f6") + "18" : "transparent", color: filter === c ? (CAT_COLORS[c] || "#3b82f6") : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{c}</button>)}
       </div>
-      {loading ? <Spin dk={dk} msg="Loading events…" /> : filtered.map(ev => (
+      {loading ? (
+        <Spin dk={dk} msg="Loading events…" />
+      ) : filtered.length === 0 ? (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "48px 24px",
+          background: th.surf,
+          backdropFilter: th.blur,
+          WebkitBackdropFilter: th.blur,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 24,
+          textAlign: "center",
+          gap: 12,
+          marginTop: 16
+        }}>
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: dk ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+            border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: dk ? "0 0 20px rgba(99, 102, 241, 0.15)" : "0 0 20px rgba(99, 102, 241, 0.05)",
+            marginBottom: 6
+          }}>
+            <Calendar size={28} color="#6366f1" />
+          </div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.txt }}>No events found</h3>
+          <p style={{ margin: 0, fontSize: 13, color: th.txt3, maxWidth: 300, lineHeight: 1.5 }}>
+            {filter === "All" 
+              ? "There are currently no scheduled events. Please check back later!" 
+              : `There are no events listed under the "${filter}" category.`}
+          </p>
+        </div>
+      ) : filtered.map(ev => (
         <Card dk={dk} key={ev.id}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
             <span style={{ background: (CAT_COLORS[ev.category] || "#6b7280") + "18", color: CAT_COLORS[ev.category] || "#6b7280", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99 }}>{ev.category}</span>
@@ -39,9 +79,9 @@ function EventsView({ dk, addNotif }) {
           <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 10px", lineHeight: 1.5 }}>{ev.description}</p>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", gap: 12, fontSize: 12, color: th.txt3 }}>
-              <span>📅 {fmtDate(ev.event_date)}</span>
-              <span>🌐 {ev.timezone}</span>
-              {ev.popularity && <span>👥 {fmt(ev.popularity)}+</span>}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Calendar size={13} /> {fmtDate(ev.event_date)}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Globe size={13} /> {ev.timezone}</span>
+              {ev.popularity && <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Users size={13} /> {fmt(ev.popularity)}+</span>}
             </div>
             <button onClick={() => window.open(ev.url, "_blank")} style={{ background: "#3b82f6", border: "none", borderRadius: 8, padding: "6px 14px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>View Event</button>
           </div>

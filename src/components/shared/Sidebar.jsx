@@ -11,7 +11,7 @@ const NAV_LINKS = [
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "messages", icon: MessageCircle, label: "Messages" },
   { id: "colab", icon: Lightbulb, label: "Colab" },
-  { id: "funding", icon: DollarSign, label: "Funding" },
+  { id: "funding", icon: DollarSign, label: "Funding", comingSoon: true },
   { id: "events", icon: Calendar, label: "Events" },
   { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
   { id: "wallet", icon: Wallet, label: "Wallet", walletBadge: true },
@@ -116,6 +116,24 @@ export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, 
                   border: "1px solid rgba(245,158,11,0.3)",
                 }}>
                   {bal}
+                </span>
+              )}
+              {link.comingSoon && (
+                <span style={{
+                  background: dk ? "rgba(245, 158, 11, 0.15)" : "rgba(245, 158, 11, 0.08)",
+                  color: "#f59e0b",
+                  fontSize: 8,
+                  fontWeight: 800,
+                  padding: "2px 6px",
+                  borderRadius: 99,
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  flexShrink: 0
+                }}>
+                  Soon
                 </span>
               )}
             </button>

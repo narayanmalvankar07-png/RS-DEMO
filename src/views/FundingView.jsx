@@ -9,7 +9,48 @@ import {
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import Card from "../components/ui/Card.jsx";
-import Spin from "../components/ui/Spin.jsx";
+import Spin from '../components/ui/Spin.jsx';
+
+// ─── Logo renderer ─────────────────────────────────────────────────
+function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
+  const isImg = src && (src.startsWith("data:") || src.startsWith("http"));
+  if (isImg) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: radius, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+        <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="logo" />
+      </div>
+    );
+  }
+
+  const initials = name ? name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() : "";
+  const finalLogoText = initials || (src && !src.startsWith("data:") && !src.startsWith("http") ? src : "FI");
+
+  const hash = name ? [...name].reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+  const hues = [220, 260, 320, 140, 35, 185];
+  const baseHue = hues[hash % hues.length];
+  const gradient = `linear-gradient(135deg, hsl(${baseHue}, 75%, 55%), hsl(${(baseHue + 35) % 360}, 80%, 45%))`;
+
+  return (
+    <div style={{ 
+      width: size, 
+      height: size, 
+      borderRadius: radius, 
+      background: gradient, 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center", 
+      fontSize: initials ? fontSize : fontSize * 0.8, 
+      fontWeight: 800,
+      color: "#fff", 
+      flexShrink: 0, 
+      overflow: "hidden",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+      textShadow: "0 1px 3px rgba(0,0,0,0.2)"
+    }}>
+      {finalLogoText}
+    </div>
+  );
+}
 
 // ─── CUSTOM LIQUID GLASS DROP-DOWN COMPONENT ───────────────────────
 function GlassSelect({ value, onChange, options, formError, dk, th }) {
@@ -654,16 +695,8 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     try {
       // 1. Fetch real investors from DB
       const dbInvestors = await db.get("rs_investors");
-      let merged = [];
-      if (dbInvestors && dbInvestors.length > 0) {
-        const mappedDb = dbInvestors.map(i => ({ ...i, type: i.type || "VCs" }));
-        const dbNames = new Set(mappedDb.map(i => i.name.toLowerCase()));
-        const missingFallbacks = FALLBACK_INVESTORS.filter(f => !dbNames.has(f.name.toLowerCase()));
-        merged = [...mappedDb, ...missingFallbacks];
-      } else {
-        merged = FALLBACK_INVESTORS;
-      }
-      setInvestors(merged);
+      const mappedDb = (dbInvestors || []).map(i => ({ ...i, type: i.type || "VCs" }));
+      setInvestors(mappedDb);
 
       // 2. Load my application
       const myRows = await db.get("rs_funding_applications", `uid=eq.${me}`);
@@ -671,20 +704,14 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         setMyApplication(myRows[0]);
         setForm({ ...INITIAL_FORM, ...myRows[0].data });
       } else {
-        // Check local storage fallback
-        const localApp = localStorage.getItem(`rs_funding_app_${me}`);
-        if (localApp) {
-          try {
-            const parsed = JSON.parse(localApp);
-            setMyApplication(parsed);
-            setForm({ ...INITIAL_FORM, ...parsed.data });
-          } catch (e) {}
-        }
+        localStorage.removeItem(`rs_funding_app_${me}`);
+        setMyApplication(null);
+        setForm(INITIAL_FORM);
       }
 
     } catch (e) {
       console.error("Failed to load funding data:", e);
-      setInvestors(FALLBACK_INVESTORS);
+      setInvestors([]);
     } finally {
       setLoading(false);
     }
@@ -1064,10 +1091,70 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: th.txt, letterSpacing: "-0.5px", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ background: "linear-gradient(135deg, #10b981, #6366f1)", width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16 }}>$</span>
+            <span style={{ background: "linear-gradient(135deg, #10b981, #6366f1)", width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+              <DollarSign size={18} />
+            </span>
             Funding
           </h2>
           <p style={{ margin: 0, color: th.txt2, fontSize: 13, marginTop: 4 }}>Apply directly to diverse funding sources and view firm details</p>
+        </div>
+      </div>
+
+      {/* ─── COMING SOON BANNER ─── */}
+      <div style={{
+        position: "relative",
+        background: dk ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.01)",
+        backdropFilter: th.blur,
+        WebkitBackdropFilter: th.blur,
+        border: `1px solid ${dk ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"}`,
+        borderLeft: `4px solid #6366f1`,
+        borderRadius: 12,
+        padding: "12px 18px",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        overflow: "hidden",
+        animation: "borderGlow 6s ease infinite",
+        boxShadow: "0 4px 24px rgba(0, 0, 0, 0.02)",
+        flexDirection: isMobile ? "column" : "row",
+        textAlign: isMobile ? "center" : "left"
+      }}>
+        {/* CSS Keyframe Animations */}
+        <style>{`
+          @keyframes borderGlow {
+            0%, 100% { border-left-color: #6366f1; }
+            50% { border-left-color: #a855f7; }
+          }
+          @keyframes pulseLive {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+          }
+        `}</style>
+
+        {/* Coming Soon Pill */}
+        <span style={{
+          background: dk ? "rgba(245, 158, 11, 0.12)" : "rgba(245, 158, 11, 0.06)",
+          color: "#f59e0b",
+          border: "1px solid rgba(245, 158, 11, 0.25)",
+          fontSize: 9,
+          fontWeight: 800,
+          padding: "3px 10px",
+          borderRadius: 99,
+          letterSpacing: "0.05em",
+          textTransform: "uppercase",
+          flexShrink: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f59e0b", display: "inline-block", animation: "pulseLive 1.5s infinite" }} />
+          Soon
+        </span>
+
+        {/* Minimal Description */}
+        <div style={{ fontSize: 13, color: th.txt2, lineHeight: 1.4, flex: 1 }}>
+          <strong style={{ color: th.txt, marginRight: 6 }}>Direct Investor Portal:</strong>
+          We are integrating direct VC applications, Investor Discovery, and Funding Matchmaking. Launching soon.
         </div>
       </div>
 
@@ -1213,7 +1300,20 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           textAlign: "center",
           gap: 12
         }}>
-          <div style={{ fontSize: 40 }}>🔍</div>
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: dk ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+            border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: dk ? "0 0 20px rgba(99, 102, 241, 0.15)" : "0 0 20px rgba(99, 102, 241, 0.05)",
+            marginBottom: 6
+          }}>
+            <Search size={28} color="#6366f1" />
+          </div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.txt }}>No funding sources found</h3>
           <p style={{ margin: 0, fontSize: 13, color: th.txt2, maxWidth: 320 }}>Try adjusting your search keywords, sector, or category filter.</p>
         </div>
@@ -1236,9 +1336,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 }}
               >
                 <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                  <div style={{ fontSize: 32, width: 52, height: 52, borderRadius: 16, background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "center" }}>
-                    {vc.logo || "💼"}
-                  </div>
+                  <Logo name={vc.name} src={vc.logo && (vc.logo.startsWith("data:") || vc.logo.startsWith("http")) ? vc.logo : null} size={52} radius={16} fontSize={22} />
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.txt }}>{vc.name}</h3>
@@ -2351,9 +2449,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             {/* Header */}
             <div style={{ padding: isMobile ? "12px 16px" : "18px 24px", borderBottom: `1px solid ${th.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: dk ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <span style={{ fontSize: 28, width: 44, height: 44, borderRadius: 12, background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {selectedVC.logo || "💼"}
-                </span>
+                <Logo name={selectedVC.name} src={selectedVC.logo && (selectedVC.logo.startsWith("data:") || selectedVC.logo.startsWith("http")) ? selectedVC.logo : null} size={44} radius={12} fontSize={18} />
                 <div>
                   <h3 style={{ margin: 0, fontSize: isMobile ? 14 : 16, fontWeight: 800, color: th.txt }}>{selectedVC.name}</h3>
                   <p style={{ margin: 0, fontSize: 10, color: th.txt3 }}>{selectedVC.type || "VCs"} • Funder Profile</p>
