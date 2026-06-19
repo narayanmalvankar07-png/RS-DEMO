@@ -409,6 +409,33 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     }
   };
 
+  const handleDeletePost = async (id) => {
+    try {
+      await db.del("rs_posts", `id=eq.${id}&uid=eq.${me}`);
+      setPosts(prev => prev.filter(x => x.id !== id));
+      setReposts(prev => prev.filter(x => x.id !== id));
+      setLikedPosts(prev => prev.filter(x => x.id !== id));
+      addNotif?.({ type: "success", msg: "Post deleted successfully" });
+    } catch (err) {
+      console.error(err);
+      addNotif?.({ type: "error", msg: "Failed to delete post" });
+    }
+  };
+
+  const handleEditPost = async (id, text) => {
+    try {
+      await db.patch("rs_posts", `id=eq.${id}`, { text });
+      const update = x => x.id === id ? { ...x, text } : x;
+      setPosts(prev => prev.map(update));
+      setReposts(prev => prev.map(update));
+      setLikedPosts(prev => prev.map(update));
+      addNotif?.({ type: "success", msg: "Post updated successfully" });
+    } catch (err) {
+      console.error(err);
+      addNotif?.({ type: "error", msg: "Failed to update post" });
+    }
+  };
+
   useEffect(() => {
     setEditBio(profile.bio || "");
     setEditName(profile.name || "");
@@ -1123,7 +1150,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           ) : (
             <div>
               {posts.map(p => (
-                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: p.liked !== undefined ? p.liked : false, reposted: p.reposted !== undefined ? p.reposted : false, comments: p.comments || [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => handleLike(p.id, false)} onRepost={() => handleRepost(p)} onUndoRepost={() => handleUndoRepost(p.id)} onQuoteRepost={(orig, qt) => handleQuoteRepost(orig, qt)} onComment={handleComment} onBookmark={() => { }} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
+                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: p.liked !== undefined ? p.liked : false, reposted: p.reposted !== undefined ? p.reposted : false, comments: p.comments || [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => handleLike(p.id, false)} onRepost={() => handleRepost(p)} onUndoRepost={() => handleUndoRepost(p.id)} onQuoteRepost={(orig, qt) => handleQuoteRepost(orig, qt)} onComment={handleComment} onBookmark={() => { }} onDelete={handleDeletePost} onEdit={handleEditPost} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
               ))}
             </div>
           )
@@ -1139,7 +1166,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           ) : (
             <div>
               {likedPosts.map(p => (
-                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: p.liked !== undefined ? p.liked : true, reposted: p.reposted !== undefined ? p.reposted : false, comments: p.comments || [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => handleLike(p.id, true)} onRepost={() => handleRepost(p)} onUndoRepost={() => handleUndoRepost(p.id)} onQuoteRepost={(orig, qt) => handleQuoteRepost(orig, qt)} onComment={handleComment} onBookmark={() => { }} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
+                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: p.liked !== undefined ? p.liked : true, reposted: p.reposted !== undefined ? p.reposted : false, comments: p.comments || [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => handleLike(p.id, true)} onRepost={() => handleRepost(p)} onUndoRepost={() => handleUndoRepost(p.id)} onQuoteRepost={(orig, qt) => handleQuoteRepost(orig, qt)} onComment={handleComment} onBookmark={() => { }} onDelete={handleDeletePost} onEdit={handleEditPost} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
               ))}
             </div>
           )
@@ -1155,7 +1182,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
           ) : (
             <div>
               {reposts.map(p => (
-                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: p.liked !== undefined ? p.liked : false, reposted: p.reposted !== undefined ? p.reposted : false, comments: p.comments || [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => handleLike(p.id, false)} onRepost={() => handleRepost(p)} onUndoRepost={() => handleUndoRepost(p.id)} onQuoteRepost={(orig, qt) => handleQuoteRepost(orig, qt)} onComment={handleComment} onBookmark={() => { }} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
+                <PostCard key={p.id} post={{ ...p, id: p.id, uid: p.uid, text: p.text, media: p.media || [], hashtags: p.hashtags || [], likes: p.like_count || 0, reposts: p.repost_count || 0, liked: p.liked !== undefined ? p.liked : false, reposted: p.reposted !== undefined ? p.reposted : false, comments: p.comments || [], ts: new Date(p.created_at).getTime() }} me={me} onLike={() => handleLike(p.id, false)} onRepost={() => handleRepost(p)} onUndoRepost={() => handleUndoRepost(p.id)} onQuoteRepost={(orig, qt) => handleQuoteRepost(orig, qt)} onComment={handleComment} onBookmark={() => { }} onDelete={handleDeletePost} onEdit={handleEditPost} dk={dk} onProfile={() => { }} bals={bals} profiles={profiles} onTag={() => { }} bookmarks={[]} />
               ))}
             </div>
           )

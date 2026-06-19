@@ -664,10 +664,12 @@ export default function App() {
                   {isMobile && (
                     <button onClick={() => setMobileSearchOpen(true)} className="rs-icon-btn" style={{ background: "none", border: "none", cursor: "pointer", color: th.txt2, padding: "6px 5px", display: "flex", alignItems: "center" }}><Search size={18} /></button>
                   )}
-                  <button onClick={() => navTo("wallet")} style={{ display: "flex", alignItems: "center", gap: 4, background: "linear-gradient(135deg,#78350f,#d97706)", border: "none", borderRadius: 10, padding: isMobile ? "5px 9px" : "5px 12px", cursor: "pointer", boxShadow: "0 0 12px rgba(245,158,11,.3)" }}>
-                    <span style={{ fontSize: 12, color: "#fff" }}>◈</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{bals[me] ?? 0}</span>
-                  </button>
+                  {!isMobile && (
+                    <button onClick={() => navTo("wallet")} style={{ display: "flex", alignItems: "center", gap: 4, background: "linear-gradient(135deg,#78350f,#d97706)", border: "none", borderRadius: 10, padding: isMobile ? "5px 9px" : "5px 12px", cursor: "pointer", boxShadow: "0 0 12px rgba(245,158,11,.3)" }}>
+                      <span style={{ fontSize: 12, color: "#fff" }}>◈</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{bals[me] ?? 0}</span>
+                    </button>
+                  )}
                   {!isMobile && (
                     <button onClick={() => setDk(x => !x)} style={{ display: "flex", alignItems: "center", gap: 5, background: dk ? "rgba(59,130,246,.15)" : th.inp, border: `1px solid ${dk ? "#3b82f640" : th.inpB}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: dk ? "#3b82f6" : th.txt2 }}>
                       {dk ? <Sun size={14} /> : <Moon size={14} />}
@@ -685,9 +687,7 @@ export default function App() {
                   </button>
                   {showN && <NotifPanel notifs={visibleNotifs} setNotifs={setNotifs} onClose={() => setShowN(false)} dk={dk} onPoll={() => loadNotifs(me)} onSelect={handleNotificationClick} />}
                   <div onClick={() => openProfile(me)} style={{ cursor: "pointer" }}><Av profile={myProfile || {}} size={30} bal={bals[me] ?? 0} /></div>
-                  {!isMobile && (
-                    <button onClick={handleSignOut} title="Sign out" className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: th.txt3, display: "flex", alignItems: "center" }}><LogOut size={14} /></button>
-                  )}
+                  <button onClick={handleSignOut} title="Sign out" className="rs-icon-btn" style={{ background: "none", border: `1px solid ${th.bdr}`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", color: th.txt3, display: "flex", alignItems: "center" }}><LogOut size={14} /></button>
                 </div>
               </>
             )}

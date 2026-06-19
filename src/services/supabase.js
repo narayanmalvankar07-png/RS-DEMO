@@ -283,7 +283,7 @@ export const db = {
       if (!r.ok) {
         const errText = await r.text().catch(() => r.status);
         console.error(`Supabase Error [PATCH ${t}] status=${r.status}:`, errText);
-        return;
+        throw new Error(`PATCH failed with status ${r.status}: ${errText}`);
       }
 
       // Update Cache
@@ -303,6 +303,7 @@ export const db = {
       }
     } catch (e) {
       console.error(`Supabase Error [PATCH Exception ${t}]:`, e.message);
+      throw e;
     }
   },
   del: async (t, q) => {
@@ -311,7 +312,7 @@ export const db = {
       if (!r.ok) {
         const errText = await r.text().catch(() => r.status);
         console.error(`Supabase Error [DELETE ${t}] status=${r.status}:`, errText);
-        return;
+        throw new Error(`DELETE failed with status ${r.status}: ${errText}`);
       }
 
       // Update Cache
@@ -331,6 +332,7 @@ export const db = {
       }
     } catch (e) {
       console.error(`Supabase Error [DELETE Exception ${t}]:`, e.message);
+      throw e;
     }
   },
   upsert: async (t, body) => {
