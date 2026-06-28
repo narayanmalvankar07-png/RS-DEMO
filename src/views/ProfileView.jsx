@@ -169,6 +169,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [loadingLikes, setLoadingLikes] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editBio, setEditBio] = useState(profile.bio || "");
+  const [editAbout, setEditAbout] = useState(profile.about_us || "");
   const [editName, setEditName] = useState(profile.name || "");
   const [editLocation, setEditLocation] = useState(profile.location || "");
   const [editPhonePrefix, setEditPhonePrefix] = useState("+91");
@@ -176,6 +177,8 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [detecting, setDetecting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [alignCount, setAlignCount] = useState(0);
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false);
 
   const getSocialLinksObj = (raw) => {
     if (!raw) return { website: "", github: "", resume: "", linkedin: "", twitter: "" };
@@ -206,6 +209,29 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const [editAvatar, setEditAvatar] = useState(profile.avatar || "");
   const [editSocials, setEditSocials] = useState(getSocialLinksObj(profile.social_links));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const handleBioChange = (e) => {
+    const val = e.target.value;
+    if (val.length <= 200) {
+      setEditBio(val);
+    }
+  };
+  const handleAboutChange = (e) => {
+    const val = e.target.value;
+    const words = val.split(/(\s+)/);
+    let count = 0;
+    let allowedParts = [];
+    for (let part of words) {
+      if (part.trim() !== "") {
+        count++;
+      }
+      if (count <= 200) {
+        allowedParts.push(part);
+      } else {
+        break;
+      }
+    }
+    setEditAbout(allowedParts.join(""));
+  };
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -225,6 +251,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const handleCancel = () => {
     setEditName(profile.name || "");
     setEditBio(profile.bio || "");
+    setEditAbout(profile.about_us || "");
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
     setEditLocation(profile.location || "");
@@ -437,7 +464,10 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   };
 
   useEffect(() => {
+    setIsBioExpanded(false);
+    setIsAboutExpanded(false);
     setEditBio(profile.bio || "");
+    setEditAbout(profile.about_us || "");
     setEditName(profile.name || "");
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
@@ -461,7 +491,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     }
     setEditPhonePrefix(parsedPrefix);
     setEditPhoneNum(parsedNum);
-  }, [uid, profile.bio, profile.name, profile.avatar, profile.social_links, profile.location, profile.phone]);
+  }, [uid, profile.bio, profile.about_us, profile.name, profile.avatar, profile.social_links, profile.location, profile.phone]);
 
   useEffect(() => {
     setLoadingPosts(true);
@@ -561,6 +591,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       const payload = {
         name: editName,
         bio: editBio,
+        about_us: editAbout,
         avatar: editAvatar,
         social_links: editSocials,
         location: editLocation || null,
@@ -688,6 +719,8 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
   const whoOpt = WHO_OPTS.find(w => w.id === profile.who);
   const interests = (profile.interests || []).map(id => INT_OPTS.find(x => x.id === id)).filter(Boolean);
   const postCount = posts.length;
+  const bioCharCount = editBio.length;
+  const aboutWordCount = editAbout.trim() === "" ? 0 : editAbout.trim().split(/\s+/).length;
 
   return (
     <div>
@@ -748,12 +781,12 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
               <div style={{ fontSize: 22, fontWeight: 800, color: th.txt }}>{profile.name}</div>
             )}
             <div style={{ fontSize: 13, color: th.txt3, marginBottom: 4 }}>@{profile.handle || profile.email || uid.slice(0, 8)}</div>
-            {profile.location && (
-              <div style={{ fontSize: 12, color: th.txt2, display: "inline-flex", alignItems: "center", gap: 4, background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)", border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 8px", marginTop: 2 }}>
-                <span>📍</span> {profile.location}
-              </div>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start", marginTop: 6, marginBottom: 4 }}>
+              {profile.location && (
+                <div style={{ fontSize: 12, color: th.txt2, display: "inline-flex", alignItems: "center", gap: 4, background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)", border: `1px solid ${th.bdr}`, borderRadius: 6, padding: "2px 8px" }}>
+                  <span>📍</span> {profile.location}
+                </div>
+              )}
               {whoOpt && (() => { const RI = ROLE_ICON_MAP[whoOpt.id] || User; return <span style={{ fontSize: 11, background: `${whoOpt.c}18`, color: whoOpt.c, padding: "3px 10px", borderRadius: 99, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><RI size={10} />{whoOpt.label}</span>; })()}
               {profile.system_role && profile.system_role !== "user" && <span style={{ fontSize: 11, background: dk ? "rgba(59,130,246,.12)" : "#eff6ff", color: "#3b82f6", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>{role}</span>}
               {profile.verified && <span style={{ color: "#3b82f6", fontSize: 13, fontWeight: 700 }}>✓ Verified</span>}
@@ -765,7 +798,70 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
         <div style={{ marginTop: 14 }}>
           {editing ? (
             <>
-              <textarea value={editBio} onChange={e => setEditBio(e.target.value)} rows={3} style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "10px 12px", color: th.txt, outline: "none", fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+              <div style={{ position: "relative" }}>
+                <textarea
+                  value={editBio}
+                  onChange={handleBioChange}
+                  rows={4}
+                  placeholder="Tell us about yourself..."
+                  style={{
+                    width: "100%",
+                    background: th.inp,
+                    border: `1px solid ${th.inpB}`,
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    color: th.txt,
+                    outline: "none",
+                    fontSize: 13,
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                    fontFamily: "inherit"
+                  }}
+                />
+                <div style={{
+                  fontSize: 11,
+                  color: bioCharCount >= 200 ? "#ef4444" : th.txt3,
+                  textAlign: "right",
+                  marginTop: 2,
+                  marginBottom: 6,
+                  fontWeight: bioCharCount >= 200 ? 700 : 500
+                }}>
+                  {bioCharCount} / 200 characters
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12, position: "relative" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>About Us *</div>
+                <textarea
+                  value={editAbout}
+                  onChange={handleAboutChange}
+                  rows={3}
+                  placeholder="Tell us about your organization..."
+                  style={{
+                    width: "100%",
+                    background: th.inp,
+                    border: `1px solid ${th.inpB}`,
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    color: th.txt,
+                    outline: "none",
+                    fontSize: 13,
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                    fontFamily: "inherit"
+                  }}
+                />
+                <div style={{
+                  fontSize: 11,
+                  color: aboutWordCount >= 200 ? "#ef4444" : th.txt3,
+                  textAlign: "right",
+                  marginTop: 2,
+                  marginBottom: 6,
+                  fontWeight: aboutWordCount >= 200 ? 700 : 500
+                }}>
+                  {aboutWordCount} / 200 words
+                </div>
+              </div>
               
               {(() => {
                 const inpStyle = {
@@ -887,7 +983,82 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             </>
           ) : (
             <>
-              <p style={{ margin: 0, color: th.txt2, fontSize: 14, lineHeight: 1.7 }}>{profile.bio || "No bio yet."}</p>
+              {(() => {
+                const bioText = profile.bio || "No bio yet.";
+                const needsTruncation = bioText.length > 200;
+                const displayedBio = needsTruncation && !isBioExpanded ? bioText.slice(0, 200) + "..." : bioText;
+                return (
+                  <div style={{ textAlign: "left", wordBreak: "break-word", whiteSpace: "pre-line" }}>
+                    <p style={{ margin: 0, color: th.txt2, fontSize: 14, lineHeight: 1.7, display: "inline", whiteSpace: "pre-line" }}>
+                      {displayedBio}
+                    </p>
+                    {needsTruncation && (
+                      <button
+                        onClick={() => setIsBioExpanded(!isBioExpanded)}
+                        style={{
+                          background: dk ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)",
+                          border: `1px solid ${dk ? "rgba(59,130,246,0.24)" : "rgba(59,130,246,0.15)"}`,
+                          borderRadius: 99,
+                          color: "#3b82f6",
+                          cursor: "pointer",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          marginLeft: 8,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        <span>{isBioExpanded ? "Read Less ⬆" : "Read More ⬇"}</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {profile.about_us && (() => {
+                const aboutText = profile.about_us;
+                const needsTruncation = aboutText.length > 200;
+                const displayedAbout = needsTruncation && !isAboutExpanded ? aboutText.slice(0, 200) + "..." : aboutText;
+                return (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${th.bdr}`, paddingTop: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>About Us</div>
+                    <div style={{ textAlign: "left", wordBreak: "break-word", whiteSpace: "pre-line" }}>
+                      <p style={{ margin: 0, color: th.txt2, fontSize: 13, lineHeight: 1.6, display: "inline", whiteSpace: "pre-line" }}>
+                        {displayedAbout}
+                      </p>
+                      {needsTruncation && (
+                        <button
+                          onClick={() => setIsAboutExpanded(!isAboutExpanded)}
+                          style={{
+                            background: dk ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.06)",
+                            border: `1px solid ${dk ? "rgba(59,130,246,0.24)" : "rgba(59,130,246,0.15)"}`,
+                            borderRadius: 99,
+                            color: "#3b82f6",
+                            cursor: "pointer",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            marginLeft: 8,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                            transition: "all 0.2s"
+                          }}
+                        >
+                          <span>{isAboutExpanded ? "Read Less ⬆" : "Read More ⬇"}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {(() => {
                 const socials = getSocialLinksObj(profile.social_links);
@@ -1105,7 +1276,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             </button>
           )}
           {isOwnProfile && editing && (() => {
-             const isProfileFormValid = !!editName.trim();
+             const isProfileFormValid = !!editName.trim() && bioCharCount <= 200 && !!editAbout.trim() && aboutWordCount <= 200;
             return (
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={saveProfile} disabled={saving || !isProfileFormValid} style={{ display: "flex", alignItems: "center", gap: 6, background: (saving || !isProfileFormValid) ? th.surf3 : "#10b981", color: (saving || !isProfileFormValid) ? th.txt3 : "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: (saving || !isProfileFormValid) ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: (saving || !isProfileFormValid) ? 0.6 : 1, transition: "all 0.2s" }}>

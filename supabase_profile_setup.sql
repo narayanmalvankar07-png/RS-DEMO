@@ -3,3 +3,4 @@
 ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS bio text;
 ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS avatar text;
 ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS social_links jsonb DEFAULT '{}';
+ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS about_us text;

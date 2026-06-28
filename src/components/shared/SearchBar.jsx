@@ -13,8 +13,15 @@ function SearchBar({ dk, profiles, onProfile, onTag }) {
 
   useEffect(() => {
     if (!q.trim()) { setResults({ users: [], tags: [] }); setOpen(false); return; }
-    const lower = q.toLowerCase();
-    const users = Object.values(profiles).filter(p => p.name?.toLowerCase().includes(lower) || p.handle?.toLowerCase().includes(lower) || p.bio?.toLowerCase().includes(lower)).slice(0, 5);
+    const lower = q.toLowerCase().trim();
+    const cleanQuery = lower.startsWith("@") ? lower.slice(1) : lower;
+    const users = Object.values(profiles).filter(p => 
+      p.name?.toLowerCase().includes(lower) || 
+      p.handle?.toLowerCase().includes(cleanQuery) || 
+      p.id?.toLowerCase() === lower ||
+      p.id?.toLowerCase().includes(lower) ||
+      p.bio?.toLowerCase().includes(lower)
+    ).slice(0, 5);
     const tagPool = ["#rightsignal","#startupsandbox","#buildinpublic","#founders","#ai","#tech","#startups","#finance","#crypto","#design"];
     const tags = tagPool.filter(t => t.includes(lower) && lower.startsWith("#")).slice(0, 4);
     setResults({ users, tags });

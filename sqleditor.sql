@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS rs_user_profiles (
   name text,
   handle text,
   bio text,
+  about_us text,
   avatar text,
   avatar_url text,
   verified boolean DEFAULT false,

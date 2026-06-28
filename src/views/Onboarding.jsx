@@ -166,6 +166,33 @@ export default function Onboarding({ user, onComplete }) {
   const [location, setLocation] = useState(user?.location || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [countryCode, setCountryCode] = useState(user?.countryCode || "+1");
+  const [bio, setBio] = useState("");
+
+  const handleBioChange = (e) => {
+    const val = e.target.value;
+    if (val.length <= 200) {
+      setBio(val);
+    }
+  };
+  const [about, setAbout] = useState("");
+  const aboutWordCount = about.trim() === "" ? 0 : about.trim().split(/\s+/).length;
+  const handleAboutChange = (e) => {
+    const val = e.target.value;
+    const words = val.split(/(\s+)/);
+    let count = 0;
+    let allowedParts = [];
+    for (let part of words) {
+      if (part.trim() !== "") {
+        count++;
+      }
+      if (count <= 200) {
+        allowedParts.push(part);
+      } else {
+        break;
+      }
+    }
+    setAbout(allowedParts.join(""));
+  };
   const [detecting, setDetecting] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
 
@@ -213,13 +240,13 @@ export default function Onboarding({ user, onComplete }) {
     });
   };
 
-  const isValid = who && location.trim() && phone.trim();
+  const isValid = who && location.trim() && phone.trim() && bio.trim() && bio.length <= 200 && about.trim() && aboutWordCount <= 200;
 
   const handleSubmit = async () => {
     if (submitting || !isValid) return;
     setSubmitting(true);
     try {
-      await onComplete({ who, ints, refCode, location, phone, countryCode });
+      await onComplete({ who, ints, refCode, location, phone, countryCode, bio: bio.trim(), about_us: about.trim() });
     } catch (err) {
       setSubmitting(false);
     }
@@ -358,6 +385,62 @@ export default function Onboarding({ user, onComplete }) {
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 555-0199" style={inputStyle} />
               </div>
               <div style={{ fontSize: 11, color: "rgba(180,205,255,0.45)", marginTop: 4 }}>This information is secure and will never be shared publicly.</div>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(180,205,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Bio *</div>
+              <div style={{ position: "relative" }}>
+                <textarea
+                  value={bio}
+                  onChange={handleBioChange}
+                  placeholder="Tell the community about yourself, your background, projects, or startup goals..."
+                  rows={4}
+                  style={{
+                    ...inputStyle,
+                    resize: "vertical",
+                    minHeight: 80,
+                    width: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <div style={{
+                  fontSize: 11,
+                  color: bio.length >= 200 ? "#ef4444" : "rgba(180,205,255,0.45)",
+                  textAlign: "right",
+                  marginTop: 2,
+                  fontWeight: bio.length >= 200 ? 700 : 500
+                }}>
+                  {bio.length} / 200 characters
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(180,205,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>About Us *</div>
+              <div style={{ position: "relative" }}>
+                <textarea
+                  value={about}
+                  onChange={handleAboutChange}
+                  placeholder="Describe your organization, team focus, startup vision, or collaborative efforts..."
+                  rows={4}
+                  style={{
+                    ...inputStyle,
+                    resize: "vertical",
+                    minHeight: 80,
+                    width: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <div style={{
+                  fontSize: 11,
+                  color: aboutWordCount >= 200 ? "#ef4444" : "rgba(180,205,255,0.45)",
+                  textAlign: "right",
+                  marginTop: 2,
+                  fontWeight: aboutWordCount >= 200 ? 700 : 500
+                }}>
+                  {aboutWordCount} / 200 words
+                </div>
+              </div>
             </div>
 
             <div style={{ marginTop: 20 }}>

@@ -292,7 +292,7 @@ export default function App() {
     }
   };
 
-  const handleOnboardingDone = async ({ who, ints, refCode, location, phone, countryCode, startupName, startupDesc, startupLocation, startupPhone }) => {
+  const handleOnboardingDone = async ({ who, ints, refCode, location, phone, countryCode, bio, about_us, startupName, startupDesc, startupLocation, startupPhone }) => {
     const nameToUse = myProfile?.name || "User";
     const handle = genHandle(nameToUse);
     const myRefCode = genRefCode(nameToUse);
@@ -307,7 +307,7 @@ export default function App() {
     }
 
     const formattedPhone = countryCode && phone ? `${countryCode} ${phone.trim()}` : phone ? phone.trim() : null;
-    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user", location: location || null, phone: formattedPhone };
+    const profileRow = { id: me, email: myProfile?.email || "", name: nameToUse, handle, bio: bio || "", about_us: about_us || "", role: WHO_OPTS.find(w => w.id === who)?.label || "Member", who, interests: ints, ref_code: myRefCode, referred_by: actualRefUid || null, is_admin: isAdminEmail, system_role: isAdminEmail ? "admin" : "user", location: location || null, phone: formattedPhone };
     await db.upsert("rs_user_profiles", profileRow);
 
     let myBal = 0;

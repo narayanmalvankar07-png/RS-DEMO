@@ -52,8 +52,8 @@ export default function AuthScreen({ onAuth }) {
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <img src="/logo.jpeg" alt="Logo" style={{ width: 52, height: 52, borderRadius: 16, objectFit: "contain", margin: "0 auto 14px", display: "block" }} />
           <div style={{ fontSize: 22, fontWeight: 800, color: "#f0f4ff", letterSpacing: "-0.5px" }}>RightSignal</div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(180,200,255,0.45)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 3 }}>Signal Over Noise</div>
-          <p style={{ color: "rgba(180,205,255,0.5)", fontSize: 14, marginTop: 8 }}>Where founders &amp; investors meet</p>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(180,200,255,0.45)", letterSpacing: 2.5, textTransform: "uppercase", marginTop: 3 }}>Where Signals Align</div>
+          <p style={{ color: "rgba(180,205,255,0.5)", fontSize: 14, marginTop: 8 }}>A Global Ecosystem for Growth</p>
         </div>
 
         <div style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(28px) saturate(1.8)", WebkitBackdropFilter: "blur(28px) saturate(1.8)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 28, padding: "26px 28px" }}>

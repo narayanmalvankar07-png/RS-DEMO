@@ -159,7 +159,7 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
                 <div style={{ display: "grid", gap: 18 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: th.txt, marginBottom: 4 }}>Platform Name</div>
-                    <div style={{ fontSize: 13, color: th.txt3 }}>RightSignal — Signal Over Noise</div>
+                    <div style={{ fontSize: 13, color: th.txt3 }}>RightSignal — A Global Ecosystem for Growth</div>
                   </div>
                   <div style={{ borderTop: `1px solid ${th.bdr}`, paddingTop: 18 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: th.txt, marginBottom: 4 }}>Admin Email</div>

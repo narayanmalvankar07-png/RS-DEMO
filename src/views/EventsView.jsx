@@ -76,7 +76,7 @@ function EventsView({ dk, addNotif }) {
             <span style={{ background: "#10b98118", color: "#10b981", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99 }}>{ev.is_free ? "FREE" : "PAID"}</span>
           </div>
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 6px", color: th.txt }}>{ev.title}</h3>
-          <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 10px", lineHeight: 1.5 }}>{ev.description}</p>
+          <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 10px", lineHeight: 1.5, whiteSpace: "pre-line" }}>{ev.description}</p>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", gap: 12, fontSize: 12, color: th.txt3 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Calendar size={13} /> {fmtDate(ev.event_date)}</span>
