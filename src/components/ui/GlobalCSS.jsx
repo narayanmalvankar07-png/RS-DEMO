@@ -195,6 +195,10 @@ export default function GlobalCSS({ dk }) {
       input::placeholder, textarea::placeholder {
         color: ${dk ? "rgba(120,150,210,0.42)" : "rgba(100,116,139,0.55)"};
       }
+      select option {
+        background-color: ${dk ? "#0f172a" : "#ffffff"};
+        color: ${dk ? "#e8f0fe" : "#0f172a"};
+      }
       a { text-decoration: none; color: inherit; }
     `}</style>
   );

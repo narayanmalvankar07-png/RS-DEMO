@@ -213,6 +213,7 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
                   transition: "all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)",
                   position: "relative",
                   overflow: "hidden",
+                  opacity: isUnread ? 1 : 0.6,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-2px)";

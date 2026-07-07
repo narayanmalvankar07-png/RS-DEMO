@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { ShieldCheck, Users, Activity, LayoutDashboard, FileText, Settings, LogOut, Sun, Moon } from "lucide-react";
+import { ShieldCheck, Users, Activity, LayoutDashboard, FileText, Settings, LogOut, Sun, Moon, GraduationCap } from "lucide-react";
 import { T, ROLES } from "../config/constants.js";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import SGN from "../components/ui/SGN.jsx";
+import AdminScholarshipsView from "./AdminScholarshipsView.jsx";
 
 export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onSignOut }) {
   const th = T(dk);
@@ -15,6 +16,7 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
   const tabs = [
     { id: "overview", icon: LayoutDashboard, label: "Overview" },
     { id: "users", icon: Users, label: "Members" },
+    { id: "scholarships", icon: GraduationCap, label: "Scholarships" },
     { id: "settings", icon: Settings, label: "Settings" },
   ];
 
@@ -150,6 +152,10 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
                 </Card>
               )}
             </div>
+          )}
+
+          {tab === "scholarships" && (
+            <AdminScholarshipsView dk={dk} addNotif={() => {}} />
           )}
 
           {tab === "settings" && (
