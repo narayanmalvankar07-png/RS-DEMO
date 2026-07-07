@@ -39,6 +39,7 @@ import ContributeView from "./views/ContributeView";
 import ColabView from "./views/ColabView";
 import NotificationsView from "./views/NotificationsView";
 import FundingView from "./views/FundingView";
+import ScholarshipsView from "./views/ScholarshipsView.jsx";
 
 // ─── OAUTH TOKEN DETECTION (runs before React) ────────────────────
 (function detectOAuthReturn() {
@@ -605,11 +606,11 @@ export default function App() {
       case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
-      case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} isMobile={isMobile} />;
-      case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
+      case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
+      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} />;
       case "funding": return <FundingView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} />;
-      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
+      case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }
   };

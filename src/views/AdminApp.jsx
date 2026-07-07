@@ -29,7 +29,7 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, color: th.txt }}>Admin Portal</div>
-            <div style={{ fontSize: 11, color: th.txt3 }}>RightSignal · {roleLabel}</div>
+            <div style={{ fontSize: 11, color: th.txt3 }}>RightSignal. · {roleLabel}</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

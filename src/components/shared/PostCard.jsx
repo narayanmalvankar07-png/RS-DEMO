@@ -22,6 +22,9 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
   const [showAllComments, setShowAllComments] = useState(false);
   const [editText, setEditText] = useState(post.text || "");
   const [editError, setEditError] = useState("");
+const [expanded, setExpanded] = useState(false);
+const shouldTruncate = post.text?.length > 500;
+const displayText = shouldTruncate && !expanded ? (post.text?.slice(0,500) + "…") : (post.text || "");
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef(null);
@@ -183,14 +186,20 @@ function PostCard({ post, me, onLike, onRepost, onUndoRepost, onQuoteRepost, onC
                 </div>
               </div>
             ) : post.text && (
-              <p style={{ margin: "0 0 8px", fontSize: 14, lineHeight: 1.75, color: th.txt, whiteSpace: "pre-wrap" }}>
-                {post.text.split(/(\*\*[^*]+\*\*|#[a-zA-Z0-9_]+)/g).map((p, i) => {
-                  if (p.startsWith("**") && p.endsWith("**")) return <strong key={i}>{p.slice(2, -2)}</strong>;
-                  if (p.startsWith("#")) return <span key={i} style={{ color: "#3b82f6", fontWeight: 600, cursor: "pointer" }} onClick={() => onTag?.(p.toLowerCase())}>{p}</span>;
-                  return <span key={i}>{p}</span>;
-                })}
-              </p>
-            )}
+                <p style={{ margin: "0 0 8px", fontSize: 14, lineHeight: 1.75, color: th.txt, whiteSpace: "pre-wrap" }}>
+                  {displayText.split(/(\\*\\*[^*]+\\*\\*|#[a-zA-Z0-9_]+)/g).map((p, i) => {
+                    if (p.startsWith("**") && p.endsWith("**")) return <strong key={i}>{p.slice(2, -2)}</strong>;
+                    if (p.startsWith("#")) return <span key={i} style={{ color: "#3b82f6", fontWeight: 600, cursor: "pointer" }} onClick={() => onTag?.(p.toLowerCase())}>{p}</span>;
+                    return <span key={i}>{p}</span>;
+                  })}
+                  {shouldTruncate && (
+                    <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", color: "#3b82f6", marginLeft: 8, cursor: "pointer", fontSize: 13 }}>
+                      {expanded ? "Show less" : "Read more"}
+                    </button>
+                  )}
+                </p>
+              )
+            }
 
             {post.hashtags?.length > 0 && (
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
