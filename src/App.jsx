@@ -60,7 +60,7 @@ import ScholarshipsView from "./views/ScholarshipsView.jsx";
         ) {
           isValid = true;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       if (isValid) {
         window.location.href = `${originParam}/${hash}`;
@@ -621,7 +621,7 @@ export default function App() {
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
-      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
+      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} onMarkRead={markNotifsReadInDB} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} />;
       case "funding": return <FundingView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} />;
       case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} myProfile={myProfile} onProfile={openProfile} />;

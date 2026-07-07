@@ -19,7 +19,7 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
         if (actorId && actorId === n.uid) return false;
         return true;
       });
-      
+
       const mapped = await Promise.all(
         validNotifs.map(async (n) => {
           let post = null;
@@ -30,28 +30,28 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
             try {
               const rows = await db.get("rs_posts", `id=eq.${n.post_id}`);
               if (rows?.length) post = rows[0];
-            } catch {}
+            } catch { }
           }
-          
+
           if (n.type === "comment" && n.comment_id && !realCommentText) {
-             try {
-               const crow = await db.get("rs_comments", `id=eq.${n.comment_id}`);
-               if (crow?.length) realCommentText = crow[0].text;
-             } catch {}
+            try {
+              const crow = await db.get("rs_comments", `id=eq.${n.comment_id}`);
+              if (crow?.length) realCommentText = crow[0].text;
+            } catch { }
           }
-          
+
           let prof = profiles[profId] || null;
 
           if (n.type === "align_request" && !prof) {
             try {
               const pending = await db.get("rs_align_requests", `target_uid=eq.${me}&status=eq.pending&order=created_at.desc&limit=1`);
               if (pending?.length) prof = profiles[pending[0].requester_uid];
-            } catch {}
+            } catch { }
           } else if (n.type === "align_accept" && !prof) {
             try {
               const accepted = await db.get("rs_align_requests", `requester_uid=eq.${me}&status=eq.accepted&order=created_at.desc&limit=1`);
               if (accepted?.length) prof = profiles[accepted[0].target_uid];
-            } catch {}
+            } catch { }
           }
 
           return { ...n, post, prof, comment_text: realCommentText, profile_id: profId };
@@ -66,14 +66,14 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
   const markAllRead = () => {
     setNotifs((ns) => ns.map((n) => ({ ...n, read: true })));
     extNotifs.forEach(n => {
-      if (!n.read && n.id !== "n0") db.patch("rs_notifications", `id=eq.${n.id}`, { read: true }).catch(() => {});
+      if (!n.read && n.id !== "n0") db.patch("rs_notifications", `id=eq.${n.id}`, { read: true }).catch(() => { });
     });
   };
 
   const handleClick = (n) => {
     setNotifs((ns) => ns.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
     if (n.id && n.id !== "n0") {
-      db.patch("rs_notifications", `id=eq.${n.id}`, { read: true }).catch(() => {});
+      db.patch("rs_notifications", `id=eq.${n.id}`, { read: true }).catch(() => { });
     }
 
     if (onSelect) {
@@ -90,16 +90,16 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
   const getIcon = (type) => {
     const bg = dk ? "rgba(30, 41, 59, 0.95)" : "rgba(255, 255, 255, 0.95)";
     const bdr = dk ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.08)";
-    const iconStyle = { 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center", 
-      width: 22, 
-      height: 22, 
-      borderRadius: "50%", 
-      background: bg, 
-      boxShadow: dk ? "0 4px 10px rgba(0,0,0,0.4)" : "0 4px 10px rgba(99,102,241,0.15)", 
-      border: `1px solid ${bdr}` 
+    const iconStyle = {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: 22,
+      height: 22,
+      borderRadius: "50%",
+      background: bg,
+      boxShadow: dk ? "0 4px 10px rgba(0,0,0,0.4)" : "0 4px 10px rgba(99,102,241,0.15)",
+      border: `1px solid ${bdr}`
     };
 
     switch (type) {
@@ -126,28 +126,28 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, color: th.txt, letterSpacing: "-0.5px", margin: 0 }}>Notifications</h2>
           {extNotifs.filter(n => !n.read).length > 0 && (
-            <span style={{ 
-              background: "#6366f1", 
-              color: "#fff", 
-              fontSize: 11, 
-              fontWeight: 700, 
-              padding: "2px 8px", 
-              borderRadius: 20, 
-              boxShadow: "0 2px 10px rgba(99,102,241,0.3)" 
+            <span style={{
+              background: "#6366f1",
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 20,
+              boxShadow: "0 2px 10px rgba(99,102,241,0.3)"
             }}>
               {extNotifs.filter(n => !n.read).length} new
             </span>
           )}
         </div>
         {extNotifs.some(n => !n.read) && (
-          <button 
-            onClick={markAllRead} 
-            style={{ 
-              background: dk ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.08)", 
-              border: "none", 
-              color: "#6366f1", 
-              fontSize: 13, 
-              fontWeight: 700, 
+          <button
+            onClick={markAllRead}
+            style={{
+              background: dk ? "rgba(99,102,241,0.15)" : "rgba(99,102,241,0.08)",
+              border: "none",
+              color: "#6366f1",
+              fontSize: 13,
+              fontWeight: 700,
               cursor: "pointer",
               padding: "6px 14px",
               borderRadius: 20,
@@ -172,15 +172,15 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {extNotifs.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 40px", color: th.txt3, background: th.surf, borderRadius: 24, border: `1px dashed ${th.bdr}` }}>
-            <div style={{ 
-              width: 64, 
-              height: 64, 
-              borderRadius: "50%", 
-              background: dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.06)", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center", 
-              margin: "0 auto 16px" 
+            <div style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.06)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px"
             }}>
               <Bell size={28} color="#6366f1" style={{ opacity: 0.8 }} />
             </div>
@@ -196,13 +196,13 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
                 key={n.id}
                 onClick={() => handleClick(n)}
                 style={{
-                  display: "flex", 
-                  alignItems: "flex-start", 
+                  display: "flex",
+                  alignItems: "flex-start",
                   gap: 16,
                   padding: "18px 20px",
                   borderRadius: 20,
-                  background: isUnread 
-                    ? (dk ? "rgba(99,102,241,0.08)" : "linear-gradient(135deg, rgba(99,102,241,0.06), rgba(99,102,241,0.02))") 
+                  background: isUnread
+                    ? (dk ? "rgba(99,102,241,0.08)" : "linear-gradient(135deg, rgba(99,102,241,0.06), rgba(99,102,241,0.02))")
                     : th.surf,
                   border: `1px solid ${isUnread ? "rgba(99,102,241,0.25)" : th.bdr}`,
                   borderLeft: isUnread ? "4px solid #6366f1" : undefined,
@@ -217,8 +217,8 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow = dk 
-                    ? "0 6px 24px -2px rgba(0,0,0,0.4)" 
+                  e.currentTarget.style.boxShadow = dk
+                    ? "0 6px 24px -2px rgba(0,0,0,0.4)"
                     : "0 6px 24px -2px rgba(99,102,241,0.12)";
                   if (!isUnread) {
                     e.currentTarget.style.background = th.surf2;
@@ -246,25 +246,25 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
                     <span style={{ fontWeight: 700, color: th.txt }}>{actorProfile.name}</span>
                     <span style={{ color: isUnread ? th.txt : th.txt2 }}>
                       {n.type === "like" ? "liked your signal." :
-                       n.type === "comment" ? (n.comment_text ? "commented on your signal:" : "commented on your signal.") :
-                       n.type === "align_request" ? "sent you an align request." :
-                       n.type === "align_accept" ? "accepted your align request." :
-                       n.type === "repost" ? "reposted your signal." :
-                       n.type === "quote" ? "quote-reposted your signal." :
-                       n.msg}
+                        n.type === "comment" ? (n.comment_text ? "commented on your signal:" : "commented on your signal.") :
+                          n.type === "align_request" ? "sent you an align request." :
+                            n.type === "align_accept" ? "accepted your align request." :
+                              n.type === "repost" ? "reposted your signal." :
+                                n.type === "quote" ? "quote-reposted your signal." :
+                                  n.msg}
                     </span>
                     <span style={{ fontSize: 11, color: th.txt3, whiteSpace: "nowrap" }}>
                       • {new Date(n.ts || Date.now()).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
                     {isUnread && (
-                      <span style={{ 
-                        background: "linear-gradient(135deg, #6366f1, #4f46e5)", 
-                        color: "#fff", 
-                        fontSize: 8, 
-                        fontWeight: 800, 
-                        padding: "1px 5px", 
-                        borderRadius: 4, 
-                        textTransform: "uppercase", 
+                      <span style={{
+                        background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+                        color: "#fff",
+                        fontSize: 8,
+                        fontWeight: 800,
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        textTransform: "uppercase",
                         letterSpacing: "0.5px",
                         boxShadow: "0 2px 6px rgba(99,102,241,0.25)"
                       }}>
@@ -349,26 +349,26 @@ export default function NotificationsView({ notifs, setNotifs, me, dk, profiles,
 
                 {n.type === "align_request" && (
                   <div style={{ display: "flex", alignItems: "center", height: 44, marginLeft: 8 }}>
-                    <button style={{ 
-                      background: "#6366f1", 
-                      color: "#fff", 
-                      border: "none", 
-                      borderRadius: 10, 
-                      padding: "8px 16px", 
-                      fontSize: 13, 
-                      fontWeight: 700, 
+                    <button style={{
+                      background: "#6366f1",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      fontWeight: 700,
                       cursor: "pointer",
                       boxShadow: "0 2px 8px rgba(99,102,241,0.25)",
                       transition: "all 0.2s"
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "scale(1.05)";
-                      e.currentTarget.style.background = "#4f46e5";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "scale(1)";
-                      e.currentTarget.style.background = "#6366f1";
-                    }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "scale(1.05)";
+                        e.currentTarget.style.background = "#4f46e5";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "scale(1)";
+                        e.currentTarget.style.background = "#6366f1";
+                      }}
                     >
                       View
                     </button>

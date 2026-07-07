@@ -82,12 +82,12 @@ function ProfileGlassSelect({ value, onChange, options, dk, th }) {
         }}
       >
         <span>{selectedOpt?.label || value}</span>
-        <span style={{ 
-          transform: open ? "rotate(180deg)" : "rotate(0)", 
-          transition: "transform 0.2s", 
-          fontSize: 8, 
-          color: th.txt3, 
-          display: "inline-block" 
+        <span style={{
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+          transition: "transform 0.2s",
+          fontSize: 8,
+          color: th.txt3,
+          display: "inline-block"
         }}>
           ▼
         </span>
@@ -255,7 +255,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
     setEditLocation(profile.location || "");
-    
+
     const phoneStr = profile.phone || "";
     let parsedPrefix = "+91";
     let parsedNum = phoneStr;
@@ -274,7 +274,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     }
     setEditPhonePrefix(parsedPrefix);
     setEditPhoneNum(parsedNum);
-    
+
     setEditing(false);
   };
   const [tab, setTab] = useState("posts");
@@ -321,7 +321,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
               profile_id: me,
               read: false
             });
-          } catch {}
+          } catch { }
         }
       } else {
         // Remove Like
@@ -472,7 +472,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setEditAvatar(profile.avatar || "");
     setEditSocials(getSocialLinksObj(profile.social_links));
     setEditLocation(profile.location || "");
-    
+
     const phoneStr = profile.phone || "";
     let parsedPrefix = "+91";
     let parsedNum = phoneStr;
@@ -508,15 +508,15 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
       const myFeed = (d || []).map(p => {
         let original_uid = null;
         if (p.reposted_by && p.original_post_id) {
-           const orig = (d || []).find(r => r.id === p.original_post_id);
-           if (orig) original_uid = orig.uid;
+          const orig = (d || []).find(r => r.id === p.original_post_id);
+          if (orig) original_uid = orig.uid;
         }
         return {
-        ...p,
-        original_uid,
-        liked: ls.has(p.id),
-        reposted: repSet.has(p.id),
-        comments: cs.filter(c => c.post_id === p.id)
+          ...p,
+          original_uid,
+          liked: ls.has(p.id),
+          reposted: repSet.has(p.id),
+          comments: cs.filter(c => c.post_id === p.id)
         };
       });
       const myOriginals = myFeed.filter(p => p.uid === uid && p.reposted_by !== uid);
@@ -555,11 +555,11 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
               if (orig) original_uid = orig.uid;
             }
             return {
-            ...p,
-            original_uid,
-            liked: (uid === me) ? true : ls.has(p.id),
-            reposted: repSet.has(p.id),
-            comments: cs.filter(c => c.post_id === p.id)
+              ...p,
+              original_uid,
+              liked: (uid === me) ? true : ls.has(p.id),
+              reposted: repSet.has(p.id),
+              comments: cs.filter(c => c.post_id === p.id)
             };
           });
           setLikedPosts(p);
@@ -612,7 +612,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setCheckingAlign(true);
     const targetName = profile.name || "a member";
     const myName = profiles[me]?.name || "a member";
-    
+
     setHasOutgoingRequest(true);
     try {
       await db.upsert("rs_align_requests", { requester_uid: me, target_uid: uid, status: "pending" });
@@ -643,7 +643,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     setCheckingAlign(true);
     const requesterName = profile.name || "a member";
     const myName = profiles[me]?.name || "a member";
-    
+
     setIncomingRequest(null);
     setIsAligned(true);
     setAlignCount(prev => prev + 1);
@@ -681,7 +681,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     if (checkingAlign) return;
     setCheckingAlign(true);
     const targetName = profile.name || "a member";
-    
+
     setIsAligned(false);
     setAlignCount(prev => Math.max(0, prev - 1));
     try {
@@ -703,7 +703,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
     if (checkingAlign || !hasOutgoingRequest) return;
     setCheckingAlign(true);
     const targetName = profile.name || "a member";
-    
+
     setHasOutgoingRequest(false);
     try {
       await db.del("rs_align_requests", `requester_uid=eq.${me}&target_uid=eq.${uid}&status=eq.pending`);
@@ -862,7 +862,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                   {aboutWordCount} / 200 words
                 </div>
               </div>
-              
+
               {(() => {
                 const inpStyle = {
                   width: "100%",
@@ -915,7 +915,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                         </button>
                       </div>
                     </div>
-                     <div>
+                    <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: th.txt2, display: "block", marginBottom: 4 }}>Phone (Private)</label>
                       <div style={{ display: "flex", gap: 8 }}>
                         <div style={{ width: 110, flexShrink: 0 }}>
@@ -926,10 +926,10 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
                               value: c.code,
                               label: (
                                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                  <img 
-                                    src={`https://flagcdn.com/w20/${c.iso}.png`} 
-                                    style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
-                                    alt="" 
+                                  <img
+                                    src={`https://flagcdn.com/w20/${c.iso}.png`}
+                                    style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }}
+                                    alt=""
                                   />
                                   {c.code}
                                 </span>
@@ -1276,7 +1276,7 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             </button>
           )}
           {isOwnProfile && editing && (() => {
-             const isProfileFormValid = !!editName.trim() && bioCharCount <= 200 && !!editAbout.trim() && aboutWordCount <= 200;
+            const isProfileFormValid = !!editName.trim() && bioCharCount <= 200 && !!editAbout.trim() && aboutWordCount <= 200;
             return (
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={saveProfile} disabled={saving || !isProfileFormValid} style={{ display: "flex", alignItems: "center", gap: 6, background: (saving || !isProfileFormValid) ? th.surf3 : "#10b981", color: (saving || !isProfileFormValid) ? th.txt3 : "#fff", border: "none", borderRadius: 10, padding: "10px 16px", cursor: (saving || !isProfileFormValid) ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: (saving || !isProfileFormValid) ? 0.6 : 1, transition: "all 0.2s" }}>
