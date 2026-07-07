@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign } from "lucide-react";
+import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign, Award, Settings } from "lucide-react";
 import { T } from "../../config/constants.js";
-import { canManageAds } from "../../utils/helpers.js";
+import { canManageAds, hasRole } from "../../utils/helpers.js";
 import Av from "../ui/Av.jsx";
 import RightSignalLogo from "../ui/RightSignalLogo.jsx";
 
@@ -14,17 +14,35 @@ const NAV_LINKS = [
   { id: "funding", icon: DollarSign, label: "Funding", comingSoon: true },
   { id: "events", icon: Calendar, label: "Events" },
   { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
+  // Admin‑only navigation item
+  { id: "user-management", icon: Settings, label: "User Management", adminOnly: true },
   { id: "wallet", icon: Wallet, label: "Wallet", walletBadge: true },
 ];
 
 export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, onClose, unreadNotifs = 0, unreadMsgs = 0 }) {
+  // Debug logs to verify role and link generation
+  console.log('Sidebar myProfile.system_role:', myProfile?.system_role);
+  // Build navigation links with Scholarships inserted after Sandbox and before Wallet for student users
+  // Build navigation links with role‑based filtering
+  const filteredBaseLinks = NAV_LINKS.filter(l => {
+    // Exclude wallet for now – it will be added later
+    if (l.id === "wallet") return false;
+    // Exclude admin‑only items for non‑admin users
+    if (l.adminOnly && !canManageAds(myProfile)) return false;
+    return true;
+  });
+  const walletLink = NAV_LINKS.find(l => l.id === "wallet");
+  const links = [
+    ...filteredBaseLinks,
+    ...(myProfile?.who === "student" ? [{ id: "scholarships", icon: Award, label: "Scholarships" }] : []),
+    ...(walletLink ? [walletLink] : []),
+    ...(canManageAds(myProfile) ? [{ id: "ads", icon: Megaphone, label: "Ads Manager" }] : []),
+  ];
+  console.log('Sidebar links:', links.map(l => l.id));
   const th = T(dk);
   const bal = bals[me] ?? 0;
 
-  const links = [
-    ...NAV_LINKS,
-    ...(canManageAds(myProfile) ? [{ id: "ads", icon: Megaphone, label: "Ads Manager" }] : []),
-  ];
+
 
   const innerContent = (
     <>
