@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import crypto from "crypto";
 
 const app = express();
 app.use(cors());
@@ -509,6 +510,231 @@ app.post("/api/send-application", async (req, res) => {
   } catch (error) {
     console.error("POST /api/send-application error:", error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Password Reset & Management Maps ────────────────────────────────
+const resetTokens = new Map(); // token -> { email, expiresAt }
+const rateLimitMap = new Map(); // email -> lastRequestTime
+
+// Rate limit helper
+const checkRateLimit = (email) => {
+  const lastRequest = rateLimitMap.get(email);
+  if (lastRequest && Date.now() - lastRequest < 60000) {
+    return false;
+  }
+  rateLimitMap.set(email, Date.now());
+  return true;
+};
+
+// Password policy validator
+const validatePasswordPolicy = (pwd) => {
+  if (pwd.length < 8) return "Password must be at least 8 characters long.";
+  if (!/[A-Z]/.test(pwd)) return "Password must contain at least one uppercase letter.";
+  if (!/[a-z]/.test(pwd)) return "Password must contain at least one lowercase letter.";
+  if (!/[0-9]/.test(pwd)) return "Password must contain at least one number.";
+  if (!/[^A-Za-z0-9]/.test(pwd)) return "Password must contain at least one special character.";
+  return null;
+};
+
+// ── POST /api/auth/forgot-password ──────────────────────────────────
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required." });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  
+  if (!checkRateLimit(normalizedEmail)) {
+    return res.status(429).json({ error: "Password reset request rate limit exceeded. Please wait 60 seconds." });
+  }
+
+  try {
+    // 1. Verify user exists in rs_user_profiles
+    const { data: profile, error: profileErr } = await supabase
+      .from("rs_user_profiles")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (profileErr) {
+      console.error("Forgot password query error:", profileErr);
+    }
+
+    // Standard security: return success even if user not found to prevent enumeration
+    if (!profile) {
+      console.log(`[Forgot Password] User not found: ${normalizedEmail}`);
+      return res.status(200).json({ msg: "Password reset email sent successfully." });
+    }
+
+    // 2. Generate a secure reset token
+    const token = crypto.randomUUID();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 mins expiry
+
+    // 3. Clear any existing tokens for this email
+    for (const [t, d] of resetTokens.entries()) {
+      if (d.email === normalizedEmail) {
+        resetTokens.delete(t);
+      }
+    }
+
+    // 4. Save token
+    resetTokens.set(token, { email: normalizedEmail, expiresAt });
+
+    // 5. Build reset URL
+    const origin = req.headers.origin || "http://localhost:5173";
+    const resetLink = `${origin}/?reset-token=${token}`;
+
+    console.log("=========================================");
+    console.log(`PASSWORD RESET LINK FOR ${normalizedEmail}:`);
+    console.log(resetLink);
+    console.log("=========================================");
+
+    // 6. Send recovery email via Resend
+    try {
+      await resend.emails.send({
+        from: "RightSignal Auth <onboarding@resend.dev>",
+        to: normalizedEmail,
+        subject: "Reset your RightSignal Password",
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+            <h2 style="color: #4f46e5; margin-top: 0;">Reset your Password</h2>
+            <p>You requested to reset your password on RightSignal.</p>
+            <p>Please click the button below to set a new password. This link is single-use and will expire in 15 minutes.</p>
+            <div style="margin: 24px 0;">
+              <a href="${resetLink}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Reset Password</a>
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">If you did not request this, please ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+            <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">RightSignal Platform</p>
+          </div>
+        `
+      });
+    } catch (emailErr) {
+      console.error("Resend delivery failed:", emailErr.message);
+    }
+
+    return res.status(200).json({ msg: "Password reset email sent successfully." });
+  } catch (err) {
+    console.error("Forgot password system exception:", err.message);
+    return res.status(500).json({ error: "Failed to process forgot password request." });
+  }
+});
+
+// ── POST /api/auth/reset-password ────────────────────────────────────
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    return res.status(400).json({ error: "Token and password are required." });
+  }
+
+  // 1. Verify token
+  const tokenData = resetTokens.get(token);
+  if (!tokenData) {
+    return res.status(400).json({ error: "Invalid or expired reset link." });
+  }
+
+  if (Date.now() > tokenData.expiresAt) {
+    resetTokens.delete(token);
+    return res.status(400).json({ error: "Invalid or expired reset link." });
+  }
+
+  // 2. Validate password policy
+  const policyErr = validatePasswordPolicy(password);
+  if (policyErr) {
+    return res.status(400).json({ error: policyErr });
+  }
+
+  try {
+    // 3. Find user profile by email
+    const { data: profile, error: profileErr } = await supabase
+      .from("rs_user_profiles")
+      .select("id")
+      .eq("email", tokenData.email)
+      .maybeSingle();
+
+    if (profileErr || !profile) {
+      return res.status(400).json({ error: "User profile not found." });
+    }
+
+    // 4. Update the password in Supabase Auth
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(profile.id, { password });
+    if (updateErr) {
+      console.error("Supabase password update error:", updateErr);
+      return res.status(400).json({ error: updateErr.message });
+    }
+
+    // 5. Invalidate the used token and all other tokens for this email
+    for (const [t, d] of resetTokens.entries()) {
+      if (d.email === tokenData.email) {
+        resetTokens.delete(t);
+      }
+    }
+
+    return res.status(200).json({ msg: "Password reset completed successfully." });
+  } catch (err) {
+    console.error("Reset password exception:", err.message);
+    return res.status(500).json({ error: "Failed to reset password." });
+  }
+});
+
+// ── POST /api/auth/change-password ───────────────────────────────────
+app.post("/api/auth/change-password", async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "Current password and new password are required." });
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing or invalid authorization header." });
+  }
+  const token = authHeader.split(" ")[1];
+
+  try {
+    // 1. Authenticate calling user using their JWT
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: "Unauthorized session." });
+    }
+
+    // 2. Verify current password by making a request to Supabase Token API
+    const verifyRes = await fetch(`${process.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: {
+        "apikey": process.env.VITE_SUPABASE_ANON_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email: user.email, password: currentPassword })
+    });
+
+    if (!verifyRes.ok) {
+      return res.status(400).json({ error: "Current password is incorrect." });
+    }
+
+    // 3. Prevent reusing current password
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: "New password cannot be the same as your current password." });
+    }
+
+    // 4. Validate password policy
+    const policyErr = validatePasswordPolicy(newPassword);
+    if (policyErr) {
+      return res.status(400).json({ error: policyErr });
+    }
+
+    // 5. Update user password in Supabase Auth
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(user.id, { password: newPassword });
+    if (updateErr) {
+      console.error("Supabase password change error:", updateErr);
+      return res.status(400).json({ error: updateErr.message });
+    }
+
+    return res.status(200).json({ msg: "Password updated successfully." });
+  } catch (err) {
+    console.error("Change password exception:", err.message);
+    return res.status(500).json({ error: "Failed to update password." });
   }
 });
 

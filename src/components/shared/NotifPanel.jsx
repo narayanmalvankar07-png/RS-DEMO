@@ -4,9 +4,9 @@ import { T } from "../../config/constants.js";
 
 export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll, onSelect }) {
   const th = T(dk);
-  const panelBg  = dk ? "rgba(10, 14, 30, 0.96)" : "rgba(255, 255, 255, 0.95)";
-  const hdrBdr   = dk ? "rgba(255,255,255,0.10)"  : "rgba(0,0,0,0.08)";
-  const unreadBg = dk ? "rgba(99,102,241,0.12)"   : "rgba(99,102,241,0.07)";
+  const panelBg = dk ? "rgba(10, 14, 30, 0.96)" : "rgba(255, 255, 255, 0.95)";
+  const hdrBdr = dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
+  const unreadBg = dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.07)";
   const ttlMs = 30 * 24 * 60 * 60 * 1000;
   const visibleNotifs = notifs.filter(n => (n.ts || 0) >= Date.now() - ttlMs);
 
@@ -41,7 +41,7 @@ export default function NotifPanel({ notifs, setNotifs, onClose, dk, onPoll, onS
           </div>
         ) : visibleNotifs.map((n, i) => (
           <button key={n.id} onClick={() => { setNotifs(ns => ns.map(x => x.id === n.id ? { ...x, read: true } : x)); onClose?.(); onSelect?.(n); }}
-            style={{ width: "100%", textAlign: "left", padding: "12px 14px", border: "none", background: n.read ? "transparent" : unreadBg, cursor: "pointer", borderBottom: `1px solid ${hdrBdr}`, transition: "background 0.18s", animation: `fadeUp 0.32s cubic-bezier(0.22,1,0.36,1) ${i * 30}ms both` }}>
+            style={{ width: "100%", textAlign: "left", padding: "12px 14px", border: "none", background: n.read ? "transparent" : unreadBg, cursor: "pointer", borderBottom: `1px solid ${hdrBdr}`, transition: "background 0.18s", animation: `fadeUp 0.32s cubic-bezier(0.22,1,0.36,1) ${i * 30}ms both`, opacity: n.read ? 0.6 : 1 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
               {!n.read && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1", flexShrink: 0, marginTop: 4, boxShadow: "0 0 6px #6366f1" }} />}
               <div style={{ flex: 1 }}>

@@ -60,7 +60,7 @@ import ScholarshipsView from "./views/ScholarshipsView.jsx";
         ) {
           isValid = true;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       if (isValid) {
         window.location.href = `${originParam}/${hash}`;
@@ -123,6 +123,20 @@ export default function App() {
 
   const [view, setView] = useState("feed");
   const [profUid, setProfUid] = useState(null);
+  const [resetToken, setResetToken] = useState(null);
+
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get("reset-token");
+      if (token) {
+        setResetToken(token);
+        setScreen("auth");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch (e) { }
+  }, []);
+
 
   const handleProfileUpdate = useCallback((uid, updates) => {
     setProfiles(prev => ({ ...prev, [uid]: { ...prev[uid], ...updates } }));
@@ -588,7 +602,7 @@ export default function App() {
     </div>
   );
 
-  if (screen === "auth") return <><GlobalCSS dk={dk} /><AuthScreen onAuth={handleAuth} /></>;
+  if (screen === "auth") return <><GlobalCSS dk={dk} /><AuthScreen onAuth={handleAuth} resetToken={resetToken} onClearResetToken={() => setResetToken(null)} /></>;
   if (screen === "onboarding") return <><GlobalCSS dk={dk} /><Onboarding user={myProfile || {}} onComplete={handleOnboardingDone} /></>;
   if (screen === "admin") return <AdminApp me={me} myProfile={myProfile} bals={bals} profiles={profiles} dk={dk} setDk={setDk} onSignOut={handleSignOut} />;
 
@@ -607,10 +621,10 @@ export default function App() {
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
       case "events": return <EventsView dk={dk} addNotif={addNotif} />;
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
-      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} />;
+      case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} onMarkRead={markNotifsReadInDB} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} />;
       case "funding": return <FundingView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} />;
-      case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} />;
+      case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} myProfile={myProfile} onProfile={openProfile} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }
   };
@@ -699,7 +713,7 @@ export default function App() {
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
           <div style={{ flex: 1, minHeight: 0, overflowY: ["messages", "network", "feed"].includes(view) ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
             {(() => {
-              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox", "profile", "funding"].includes(view);
+              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox", "profile", "funding", "scholarships"].includes(view);
               const hasInternalScroll = ["messages", "network", "feed"].includes(view);
               return (
                 <div key={view} className="rs-page-in" style={{ display: hasInternalScroll ? "flex" : "block", flexDirection: "column", width: isFullWidth ? "100%" : "auto", maxWidth: isFullWidth ? "none" : 640, margin: isFullWidth ? 0 : "0 auto", flex: hasInternalScroll ? 1 : "auto", overflow: hasInternalScroll ? "hidden" : "visible" }}>

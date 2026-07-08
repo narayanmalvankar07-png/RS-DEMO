@@ -36,6 +36,12 @@ export const sbAuth = {
       headers: H,
       body: JSON.stringify({ refresh_token: refreshToken }),
     }).then(r => r.ok ? r.json() : null),
+  updateUser: (token, body) =>
+    fetch(`${SB_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: { ...H, Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    }).then(r => r.json()),
 };
 
 // ── Local Caching & Delta Syncing Engine ───────────────────────────
