@@ -256,6 +256,16 @@ export default function App() {
     } catch { }
   };
 
+  const markNotifsReadInDB = async () => {
+    if (!me) return;
+    try {
+      await db.patch("rs_notifications", `uid=eq.${me}`, { read: true });
+      setNotifs(ns => ns.map(n => ({ ...n, read: true })));
+    } catch (e) {
+      console.error("Failed to mark notifications read:", e);
+    }
+  };
+
   const seedIfNeeded = async () => {
     // Seeding of mock data disabled for clean launch
   };
@@ -623,7 +633,7 @@ export default function App() {
       case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
       case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} onMarkRead={markNotifsReadInDB} />;
       case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} />;
-      case "funding": return <FundingView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} />;
+      case "funding": return <FundingView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} onNavigate={navTo} />;
       case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} myProfile={myProfile} onProfile={openProfile} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }

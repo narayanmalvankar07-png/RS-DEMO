@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { 
+import {
   PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, ChevronDown, Lock, Key, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2,
-  Rocket, Code, CircleDollarSign, Handshake, Terminal, Palette, Award, Crown, Shield, User, ListTodo, FolderOpen, Activity, Camera, Compass, BookOpen
+  Rocket, Code, CircleDollarSign, Handshake, Terminal, Palette, Award, Crown, Shield, User, ListTodo, FolderOpen, Activity, Camera, Compass, BookOpen,
+  CreditCard, Smartphone, Wallet, Star, Sparkles
 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
@@ -33,18 +34,18 @@ function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
   const gradient = `linear-gradient(135deg, hsl(${baseHue}, 75%, 55%), hsl(${(baseHue + 35) % 360}, 80%, 45%))`;
 
   return (
-    <div style={{ 
-      width: size, 
-      height: size, 
-      borderRadius: radius, 
-      background: gradient, 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center", 
-      fontSize: initials ? fontSize : fontSize * 0.8, 
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: radius,
+      background: gradient,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: initials ? fontSize : fontSize * 0.8,
       fontWeight: 800,
-      color: "#fff", 
-      flexShrink: 0, 
+      color: "#fff",
+      flexShrink: 0,
       overflow: "hidden",
       boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
       textShadow: "0 1px 3px rgba(0,0,0,0.2)"
@@ -193,12 +194,12 @@ function ColabGlassSelect({ value, onChange, options, dk, th }) {
         }}
       >
         <span>{selectedOpt?.label || value}</span>
-        <span style={{ 
-          transform: open ? "rotate(180deg)" : "rotate(0)", 
-          transition: "transform 0.2s", 
-          fontSize: 8, 
-          color: th.txt3, 
-          display: "inline-block" 
+        <span style={{
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+          transition: "transform 0.2s",
+          fontSize: 8,
+          color: th.txt3,
+          display: "inline-block"
         }}>
           ▼
         </span>
@@ -360,8 +361,8 @@ function GlassDropdown({ value, onChange, options, dk, style = {}, width = "100%
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  background: isSelected 
-                    ? (dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)") 
+                  background: isSelected
+                    ? (dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)")
                     : "transparent",
                   border: "none",
                   borderRadius: 9,
@@ -1081,7 +1082,7 @@ function ComingSoonMeetings({ dk, addNotif }) {
   const handleNotify = () => {
     try {
       localStorage.setItem("rs_notify_meetings", "true");
-    } catch {}
+    } catch { }
     setSubscribed(true);
     if (addNotif) {
       addNotif({ type: "success", msg: "🚀 Subscribed to Meetings integration updates!" });
@@ -1389,13 +1390,13 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
   const [phonePrefix, setPhonePrefix] = useState(parsedPrefix);
   const [phoneNum, setPhoneNum] = useState(parsedNum);
 
-  const [form, setForm] = useState({ 
-    name: existing?.name || "", 
-    logo: existing?.logo || "🚀", 
-    description: existing?.description || "", 
-    website: existing?.website || "", 
-    github_link: existing?.github_link || "", 
-    twitter: existing?.social_links?.twitter || "", 
+  const [form, setForm] = useState({
+    name: existing?.name || "",
+    logo: existing?.logo || "🚀",
+    description: existing?.description || "",
+    website: existing?.website || "",
+    github_link: existing?.github_link || "",
+    twitter: existing?.social_links?.twitter || "",
     linkedin: existing?.social_links?.linkedin || "",
     location: existing?.location || ""
   });
@@ -1593,10 +1594,10 @@ function CreateStartupModal({ me, existing, onClose, onSave, dk }) {
                       value: c.code,
                       label: (
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <img 
-                            src={`https://flagcdn.com/w20/${c.iso}.png`} 
-                            style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
-                            alt="" 
+                          <img
+                            src={`https://flagcdn.com/w20/${c.iso}.png`}
+                            style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }}
+                            alt=""
                           />
                           {c.code}
                         </span>
@@ -2061,11 +2062,11 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
   const assignMemberPage = (userId, pageId) => {
     const alreadyHas = pageMembers.find(m => m.page_id === pageId && m.user_id === userId);
     let mems;
-    if (alreadyHas) { 
-      mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId)); 
+    if (alreadyHas) {
+      mems = pageMembers.filter(m => !(m.page_id === pageId && m.user_id === userId));
       db.del("rs_page_members", `page_id=eq.${pageId}&user_id=eq.${userId}`);
-    } else { 
-      mems = [...pageMembers, { page_id: pageId, user_id: userId }]; 
+    } else {
+      mems = [...pageMembers, { page_id: pageId, user_id: userId }];
       db.upsert("rs_page_members", { startup_id: startup.id, page_id: pageId, user_id: userId, created_by: me, created_at: new Date().toISOString() });
     }
     setPageMembers(mems); ls.set(PG_MEM_KEY, mems);
@@ -2561,7 +2562,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                 return (
                   <div key={req.id} style={{ background: th.surf, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: "16px", marginBottom: 10, animation: "fadeUp 0.2s ease both" }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                       <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
+                      <div onClick={() => setViewingProfile(req.user_id)} style={{ cursor: "pointer", flexShrink: 0 }}>
                         <Av profile={prof} size={46} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -2726,10 +2727,10 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
                   const assignedRoles = memberRoles[m.user_id] || [];
                   const isExpandedM = expandedMember === `m_${m.user_id}`;
                   const ROLE_OPTS = [
-                    { id: "developer", icon: Terminal, c: "#3b82f6", label: "Dev" }, 
-                    { id: "designer", icon: Palette, c: "#ec4899", label: "Design" }, 
-                    { id: "marketer", icon: Megaphone, c: "#f97316", label: "Marketing" }, 
-                    { id: "advisor", icon: Award, c: "#8b5cf6", label: "Advisor" }, 
+                    { id: "developer", icon: Terminal, c: "#3b82f6", label: "Dev" },
+                    { id: "designer", icon: Palette, c: "#ec4899", label: "Design" },
+                    { id: "marketer", icon: Megaphone, c: "#f97316", label: "Marketing" },
+                    { id: "advisor", icon: Award, c: "#8b5cf6", label: "Advisor" },
                     { id: "investor", icon: CircleDollarSign, c: "#10b981", label: "Investor" }
                   ];
                   return (
@@ -2864,6 +2865,762 @@ function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onSt
   return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} isMobile={isMobile} initialTab={initialTab} />;
 }
 
+// ─── Membership Modal Component ─────────────────────────────────────
+function MembershipModal({ dk, onClose, isMobile, onSelectPlan }) {
+  const th = T(dk);
+  const [activeFaq, setActiveFaq] = useState(null);
+  const [step, setStep] = useState('pricing'); // 'pricing' | 'checkout'
+  const [selectedPlan, setSelectedPlan] = useState(null); // 'starter' | 'growth'
+
+  // Checkout Form State
+  const [paymentMethod, setPaymentMethod] = useState("card"); // 'card' | 'paypal' | 'gpay'
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const faqs = [
+    {
+      q: "Can I access Fundraising without a subscription?",
+      a: "No. Fundraising is available only to verified startup members to maintain a trusted ecosystem for founders and investors."
+    },
+    {
+      q: "Why is there a subscription?",
+      a: "The subscription helps us verify startups, reduce spam, maintain quality deal flow, and ensure investors receive only genuine opportunities."
+    },
+    {
+      q: "Does subscribing guarantee funding?",
+      a: "No. RightSignal provides access to fundraising opportunities, investor discovery, and application tools. Investment decisions are made solely by investors and funding partners."
+    },
+    {
+      q: "Can anyone view my startup?",
+      a: "Yes. Your startup profile can be discovered through the Collab section, helping you gain visibility among founders, customers, collaborators, and investors."
+    }
+  ];
+
+  const handleSelectPlan = (plan) => {
+    setSelectedPlan(plan);
+    setStep('checkout');
+  };
+
+  const simulatePayment = async (isDemo = false) => {
+    setIsProcessing(true);
+    // Simulate short loader delay for premium UX
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsProcessing(false);
+    onSelectPlan(selectedPlan);
+  };
+
+  const getPlanDetails = () => {
+    if (selectedPlan === 'growth') {
+      return { name: "Growth Membership", price: "₹1,299/mo", desc: "For growth-stage & fundraising-ready startups." };
+    }
+    return { name: "Starter Membership", price: "₹499/mo", desc: "For early-stage startups building credibility." };
+  };
+
+  return createPortal(
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0, 0, 0, 0.8)",
+      backdropFilter: "blur(12px)",
+      WebkitBackdropFilter: "blur(12px)",
+      zIndex: 99999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: isMobile ? "10px" : "30px 20px",
+      boxSizing: "border-box"
+    }} onClick={onClose}>
+      <div style={{
+        background: dk ? "rgba(13, 20, 38, 0.96)" : "#ffffff",
+        border: `1px solid ${th.bdr}`,
+        borderRadius: 24,
+        width: "100%",
+        maxWidth: 820,
+        maxHeight: "92vh",
+        overflowY: "auto",
+        boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.6)",
+        animation: "fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both",
+        position: "relative",
+        boxSizing: "border-box"
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Sticky Header */}
+        <div style={{
+          position: "sticky",
+          top: 0,
+          background: dk ? "rgba(13, 20, 38, 0.98)" : "#ffffff",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderBottom: `1px solid ${th.bdr}`,
+          padding: "16px 24px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          zIndex: 100
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {step === 'checkout' && (
+              <button
+                onClick={() => setStep('pricing')}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: th.txt2,
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: 13,
+                  fontWeight: 700
+                }}
+              >
+                ← Back
+              </button>
+            )}
+            <Crown size={20} color="#f59e0b" />
+            <span style={{ fontSize: 15, fontWeight: 800, color: th.txt, letterSpacing: "-0.3px" }}>
+              {step === 'checkout' ? "COMPLETE CHECKOUT" : "RIGHTSIGNAL MEMBERSHIP"}
+            </span>
+          </div>
+          <button onClick={onClose} style={{
+            background: dk ? "rgba(255, 255, 255, 0.08)" : "#f1f5f9",
+            border: "none",
+            borderRadius: "50%",
+            width: 32,
+            height: 32,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: th.txt2,
+            transition: "all 0.2s"
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "rotate(90deg)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "rotate(0)"; }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div style={{ padding: isMobile ? "20px 16px" : "28px 24px" }}>
+
+          {step === 'pricing' ? (
+            <>
+              {/* Hero Section */}
+              <div style={{ textAlign: "center", marginBottom: 36 }}>
+                <h1 style={{
+                  fontSize: isMobile ? 24 : 32,
+                  fontWeight: 900,
+                  color: th.txt,
+                  margin: "0 0 12px 0",
+                  background: "linear-gradient(135deg, #6366f1, #a855f7)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  letterSpacing: "-0.5px"
+                }}>
+                  Build. Showcase. Raise Capital.
+                </h1>
+                <p style={{
+                  fontSize: 14,
+                  color: th.txt2,
+                  maxWidth: 580,
+                  margin: "0 auto 18px",
+                  lineHeight: 1.6
+                }}>
+                  Access the private startup ecosystem on RightSignal.
+                </p>
+                <p style={{
+                  fontSize: 14,
+                  color: th.txt2,
+                  maxWidth: 580,
+                  margin: "0 auto 18px",
+                  lineHeight: 1.6
+                }}>
+                  Create your startup profile, showcase your products, connect with customers, and unlock fundraising opportunities through our verified founder network.
+                </p>
+
+                {/* ALERT */}
+                <div style={{
+                  background: dk ? "rgba(99, 102, 241, 0.1)" : "rgba(99, 102, 241, 0.05)",
+                  border: "1px solid rgba(99, 102, 241, 0.25)",
+                  borderRadius: 12,
+                  padding: "10px 16px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#6366f1",
+                  textAlign: "left"
+                }}>
+                  <Shield size={14} style={{ flexShrink: 0 }} /> Only verified startup members can access the Fundraising section.
+                </div>
+              </div>
+
+              {/* PRICING PLANS */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: 24,
+                marginBottom: 36
+              }}>
+
+                {/* Starter Plan */}
+                <div style={{
+                  background: dk ? "rgba(30, 41, 59, 0.4)" : "#f8fafc",
+                  border: `1px solid ${th.bdr}`,
+                  borderRadius: 20,
+                  padding: 24,
+                  display: "flex",
+                  flexDirection: "column",
+                  position: "relative",
+                  transition: "all 0.3s ease"
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 6 }}>Starter Plan</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>₹499</span>
+                    <span style={{ fontSize: 13, color: th.txt3 }}>(3 Months Access)</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700, marginBottom: 16 }}>
+                    Launch Offer: Only for the first 1,000 founders
+                  </div>
+
+                  <div style={{ borderTop: `1px solid ${th.bdr}`, paddingTop: 16, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, textTransform: "uppercase", marginBottom: 12 }}>Includes</div>
+                    <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Founder Networking</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Team Management (Up to 3 Members)</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Events & Meetings</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Document Storage (100MB)</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Notifications & Reminders</li>
+                    </ul>
+
+                    <div style={{ borderTop: `1px dashed ${th.bdr}`, paddingTop: 16, marginBottom: 20 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", marginBottom: 12 }}>Unlock with Pro</div>
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8, opacity: 0.6 }}>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> CRM</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> AI Investor Connect</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> AI Client Discovery</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> AI Business Matchmaking</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> Deal Pipeline</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> Analytics</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> Mentor Network</li>
+                        <li style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 8 }}><Lock size={11} style={{ color: th.txt3, flexShrink: 0 }} /> Gmail, LinkedIn & Calendar Sync</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button onClick={() => handleSelectPlan('starter')} style={{
+                    background: "linear-gradient(135deg, #3b82f6, #4f46e5)",
+                    border: "none",
+                    borderRadius: 12,
+                    padding: "12px 24px",
+                    color: "#ffffff",
+                    fontWeight: 800,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    marginTop: 24,
+                    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.25)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "transform 0.2s"
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.02)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}
+                  >
+                    Get Started →
+                  </button>
+                </div>
+
+                {/* Pro Plan */}
+                <div style={{
+                  background: dk ? "linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(99, 102, 241, 0.08))" : "linear-gradient(135deg, #ffffff, rgba(99, 102, 241, 0.03))",
+                  border: "2px solid #6366f1",
+                  borderRadius: 20,
+                  padding: 24,
+                  display: "flex",
+                  flexDirection: "column",
+                  position: "relative",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 10px 25px -5px rgba(99, 102, 241, 0.2)"
+                }}>
+                  {/* Recommended Tag */}
+                  <div style={{
+                    position: "absolute",
+                    top: -12,
+                    right: 20,
+                    background: "linear-gradient(135deg, #a855f7, #6366f1)",
+                    color: "#ffffff",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: "4px 12px",
+                    borderRadius: 20,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    boxShadow: "0 4px 10px rgba(99, 102, 241, 0.3)"
+                  }}>
+                    Recommended
+                  </div>
+
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#6366f1", marginTop: 6, marginBottom: 4 }}>Pro Plan (Recommended)</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 16 }}>
+                    <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>₹1,299</span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>/ Month</span>
+                  </div>
+
+                  <div style={{ borderTop: `1px solid ${th.bdr}`, paddingTop: 16, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, textTransform: "uppercase", marginBottom: 12 }}>Everything in Starter, plus:</div>
+                    <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px 0", display: "flex", flexDirection: "column", gap: 9 }}>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> CRM for Leads, Investors & Clients</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> AI Investor Matching</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> AI Client Discovery</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> AI Business Matchmaking</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> AI Outreach Assistant</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> Deal Pipeline</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> Analytics Dashboard</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> Gmail, LinkedIn & Calendar Integration</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> Mentor & Advisor Network</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> Unlimited Document Storage</li>
+                      <li style={{ fontSize: 12, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}><Star size={13} style={{ color: "#a855f7", flexShrink: 0 }} /> Priority Support</li>
+                    </ul>
+
+                    <div style={{ borderTop: `1px dashed ${th.bdr}`, paddingTop: 12, marginTop: 12, marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase", marginBottom: 6 }}>Exclusive</div>
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <li style={{ fontSize: 11, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}>✨ Warm Investor Introductions</li>
+                        <li style={{ fontSize: 11, color: th.txt2, display: "flex", alignItems: "center", gap: 8 }}>✨ Access to Private Funding Networks</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button onClick={() => handleSelectPlan('growth')} style={{
+                    background: "linear-gradient(135deg, #6366f1, #a855f7)",
+                    border: "none",
+                    borderRadius: 12,
+                    padding: "12px 24px",
+                    color: "#ffffff",
+                    fontWeight: 800,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    marginTop: 24,
+                    boxShadow: "0 4px 12px rgba(168, 85, 247, 0.25)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "transform 0.2s"
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.02)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}
+                  >
+                    Get Started →
+                  </button>
+                </div>
+
+              </div>
+
+              {/* WHY IS FUNDRAISING PRIVATE */}
+              <div style={{
+                background: dk ? "rgba(30, 41, 59, 0.3)" : "#f8fafc",
+                border: `1px solid ${th.bdr}`,
+                borderRadius: 20,
+                padding: 24,
+                marginBottom: 36
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: "rgba(99, 102, 241, 0.15)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <Shield size={16} color="#6366f1" />
+                  </div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, color: th.txt, margin: 0 }}>Why is Fundraising Private?</h3>
+                </div>
+                <p style={{ fontSize: 13, color: th.txt2, margin: "0 0 16px 0", lineHeight: 1.6 }}>
+                  Every investor, venture partner, family office, and strategic funding partner on RightSignal receives startup applications from our platform. To protect their time and maintain a high-quality ecosystem, we only allow verified startup members to submit fundraising applications.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  <div style={{ display: "flex", gap: 8, fontSize: 13, color: th.txt2, alignItems: "center" }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Genuine founders only</div>
+                  <div style={{ display: "flex", gap: 8, fontSize: 13, color: th.txt2, alignItems: "center" }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Better quality deal flow for investors</div>
+                  <div style={{ display: "flex", gap: 8, fontSize: 13, color: th.txt2, alignItems: "center" }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Less spam and duplicate applications</div>
+                  <div style={{ display: "flex", gap: 8, fontSize: 13, color: th.txt2, alignItems: "center" }}><Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> Higher trust within the ecosystem</div>
+                </div>
+                <div style={{ borderTop: `1px solid ${th.bdr}`, marginTop: 16, paddingTop: 16, fontSize: 12, color: th.txt3, fontStyle: "italic", textAlign: "center" }}>
+                  This is not a pay-to-pitch model. It's a quality control system that keeps the ecosystem valuable for founders and investors alike.
+                </div>
+              </div>
+
+              {/* HOW IT WORKS */}
+              <div style={{ marginBottom: 36 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: th.txt, textAlign: "center", marginBottom: 24 }}>How It Works</h3>
+                <div style={{
+                  display: "flex",
+                  flexDirection: isMobile ? "column" : "row",
+                  justifyContent: "space-between",
+                  alignItems: isMobile ? "center" : "flex-start",
+                  gap: 20
+                }}>
+                  {[
+                    { s: "1", t: "Create Startup", d: "Create your startup profile." },
+                    { s: "2", t: "Verify Startup", d: "Complete founder verification." },
+                    { s: "3", t: "Showcase Products", d: "List your products and showcase your business." },
+                    { s: "4", t: "Access Fundraising", d: "Access the Fundraising section." },
+                    { s: "5", t: "Connect with Investors", d: "Apply to relevant investors and funding opportunities." }
+                  ].map((step, idx) => (
+                    <div key={idx} style={{ flex: 1, minWidth: 120, textAlign: "center", position: "relative" }}>
+                      <div style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, #6366f1, #a855f7)",
+                        color: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 800,
+                        fontSize: 14,
+                        margin: "0 auto 12px"
+                      }}>{step.s}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: th.txt, marginBottom: 4 }}>{step.t}</div>
+                      <div style={{ fontSize: 11, color: th.txt3, lineHeight: 1.4 }}>{step.d}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* INCLUDED WITH EVERY MEMBERSHIP */}
+              <div style={{
+                background: dk ? "rgba(99, 102, 241, 0.03)" : "#f8fafc",
+                border: `1px solid ${th.bdr}`,
+                borderRadius: 20,
+                padding: 24,
+                marginBottom: 36
+              }}>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: th.txt, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 16, textAlign: "center" }}>
+                  Included with Every Membership
+                </h3>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                  gap: 12
+                }}>
+                  {[
+                    "Startup page on RightSignal", "Founder profile", "Product showcase",
+                    "Investor-ready company profile", "Startup discovery", "Collaboration workspace",
+                    "Team members", "Startup updates", "Fundraising eligibility", "Community exposure"
+                  ].map((inc, idx) => (
+                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: th.txt2 }}>
+                      <Check size={14} style={{ color: "#10b981", flexShrink: 0 }} /> {inc}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* FAQ SECTION */}
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: th.txt, marginBottom: 16 }}>Frequently Asked Questions</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {faqs.map((faq, idx) => {
+                    const isOpen = activeFaq === idx;
+                    return (
+                      <div key={idx} style={{
+                        background: dk ? "rgba(255, 255, 255, 0.03)" : "#f8fafc",
+                        border: `1px solid ${th.bdr}`,
+                        borderRadius: 12,
+                        overflow: "hidden"
+                      }}>
+                        <button
+                          onClick={() => setActiveFaq(isOpen ? null : idx)}
+                          style={{
+                            width: "100%",
+                            background: "none",
+                            border: "none",
+                            padding: "16px 20px",
+                            textAlign: "left",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            cursor: "pointer",
+                            color: th.txt,
+                            fontWeight: 700,
+                            fontSize: 13,
+                            outline: "none"
+                          }}
+                        >
+                          <span>{faq.q}</span>
+                          <ChevronDown size={16} color={th.txt3} style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                        </button>
+                        {isOpen && (
+                          <div style={{
+                            padding: "0 20px 16px 20px",
+                            fontSize: 13,
+                            color: th.txt2,
+                            lineHeight: 1.6
+                          }}>
+                            {faq.a}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Additional Inquiry Email Link */}
+                <div style={{ marginTop: 24, textAlign: 'center', fontSize: 13, color: th.txt3 }}>
+                  If you have more queries, connect with <a href="mailto:hello@rightsignal.social" style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 700 }}>hello@rightsignal.social</a>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* CHECKOUT STEP VIEW */
+            <div style={{ display: "flex", flexDirection: "column", gap: 24, animation: "fadeUp 0.2s ease both" }}>
+
+              {/* Selected Plan Banner */}
+              <div style={{
+                background: dk ? "rgba(99, 102, 241, 0.08)" : "rgba(99, 102, 241, 0.03)",
+                border: "1px solid rgba(99, 102, 241, 0.2)",
+                borderRadius: 16,
+                padding: "16px 20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12
+              }}>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, color: th.txt, margin: "0 0 4px" }}>{getPlanDetails().name}</h3>
+                  <p style={{ fontSize: 13, color: th.txt2, margin: 0 }}>{getPlanDetails().desc}</p>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: "#6366f1" }}>{getPlanDetails().price}</div>
+              </div>
+
+              {/* Payment Methods Selection Tab */}
+              <div style={{ display: "flex", gap: 10, overflowX: "auto" }}>
+                {[
+                  { id: "card", label: "Credit/Debit Card", icon: <CreditCard size={14} /> },
+                  { id: "paypal", label: "PayPal", icon: <Wallet size={14} /> },
+                  { id: "gpay", label: "Google Pay", icon: <Smartphone size={14} /> }
+                ].map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setPaymentMethod(m.id)}
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      background: paymentMethod === m.id ? (dk ? "rgba(99, 102, 241, 0.15)" : "rgba(99, 102, 241, 0.06)") : th.surf2,
+                      border: `1px solid ${paymentMethod === m.id ? "#6366f1" : th.bdr}`,
+                      color: paymentMethod === m.id ? "#6366f1" : th.txt2,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    {m.icon} {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Dynamic Payment Method View */}
+              {paymentMethod === 'card' && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 16, padding: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>Card Information</div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>Cardholder Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={cardName}
+                      onChange={e => setCardName(e.target.value)}
+                      style={{ background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "10px 14px", color: th.txt, outline: "none", fontSize: 13 }}
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>Card Number</label>
+                    <input
+                      type="text"
+                      placeholder="•••• •••• •••• ••••"
+                      value={cardNumber}
+                      onChange={e => setCardNumber(e.target.value)}
+                      style={{ background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "10px 14px", color: th.txt, outline: "none", fontSize: 13 }}
+                    />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>Expiration Date</label>
+                      <input
+                        type="text"
+                        placeholder="MM / YY"
+                        value={cardExpiry}
+                        onChange={e => setCardExpiry(e.target.value)}
+                        style={{ background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "10px 14px", color: th.txt, outline: "none", fontSize: 13 }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>CVC / CVV</label>
+                      <input
+                        type="text"
+                        placeholder="123"
+                        value={cardCvc}
+                        onChange={e => setCardCvc(e.target.value)}
+                        style={{ background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "10px 14px", color: th.txt, outline: "none", fontSize: 13 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'paypal' && (
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  background: th.surf2,
+                  border: `1px solid ${th.bdr}`,
+                  borderRadius: 16,
+                  padding: "30px 20px",
+                  textAlign: "center"
+                }}>
+                  <Wallet size={36} color="#6366f1" />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: th.txt }}>PayPal International Checkout</div>
+                  <p style={{ fontSize: 12, color: th.txt2, margin: 0, maxWidth: 320 }}>
+                    You will be redirected to PayPal's secure gateway to authorize your international payment.
+                  </p>
+                </div>
+              )}
+
+              {paymentMethod === 'gpay' && (
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  background: th.surf2,
+                  border: `1px solid ${th.bdr}`,
+                  borderRadius: 16,
+                  padding: "30px 20px",
+                  textAlign: "center"
+                }}>
+                  <Smartphone size={36} color="#6366f1" />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: th.txt }}>Google Pay Checkout</div>
+                  <p style={{ fontSize: 12, color: th.txt2, margin: 0, maxWidth: 320 }}>
+                    Pay swiftly using your cards saved in your Google Account.
+                  </p>
+                </div>
+              )}
+
+              {/* DEMO / TEST BYPASS SECTION */}
+              <div style={{
+                background: dk ? "rgba(245, 158, 11, 0.08)" : "rgba(245, 158, 11, 0.04)",
+                border: "1px solid rgba(245, 158, 11, 0.25)",
+                borderRadius: 16,
+                padding: "16px 20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+                  <Sparkles size={14} color="#f59e0b" /> DEMO ACCOUNT PENETRATION
+                </div>
+                <p style={{ fontSize: 12, color: th.txt2, margin: 0, lineHeight: 1.4 }}>
+                  Use our verified demo payment account to instantly penetrate checkout security and simulate payment approvals.
+                </p>
+
+                <button
+                  onClick={() => simulatePayment(true)}
+                  disabled={isProcessing}
+                  style={{
+                    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "10px 18px",
+                    color: "#ffffff",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    boxShadow: "0 4px 12px rgba(245, 158, 11, 0.2)",
+                    alignSelf: "flex-start"
+                  }}
+                >
+                  <CreditCard size={14} /> Pay with Demo Account
+                </button>
+              </div>
+
+              {/* SUBMIT / PAY BUTTON */}
+              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+                <button
+                  onClick={() => setStep('pricing')}
+                  disabled={isProcessing}
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    border: `1px solid ${th.bdr}`,
+                    borderRadius: 12,
+                    padding: "12px 24px",
+                    color: th.txt2,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => simulatePayment(false)}
+                  disabled={isProcessing}
+                  style={{
+                    flex: 2,
+                    background: "linear-gradient(135deg, #6366f1, #a855f7)",
+                    border: "none",
+                    borderRadius: 12,
+                    padding: "12px 24px",
+                    color: "#ffffff",
+                    fontWeight: 800,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 14px rgba(99, 102, 241, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                >
+                  {isProcessing ? "Processing Security Gateway..." : `Pay ${getPlanDetails().price}`}
+                </button>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ─── Main ColabView ────────────────────────────────────────────────
 export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif, isMobile = false }) {
   const th = T(dk);
@@ -2876,6 +3633,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   const [initialTab, setInitialTab] = useState("overview");
   const [showCreate, setShowCreate] = useState(false);
   const [showJoinCode, setShowJoinCode] = useState(false);
+  const [showMembership, setShowMembership] = useState(false);
   const [latestUpdates, setLatestUpdates] = useState({});
 
   const load = useCallback(async () => {
@@ -2919,8 +3677,14 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
 
   const myStartups = startups.filter(s => s.created_by === me || (s.founders || []).includes(me));
 
+  const handleSelectPlan = (plan) => {
+    setShowMembership(false);
+    setShowCreate(true);
+  };
+
   return (
     <div>
+      {showMembership && <MembershipModal dk={dk} onClose={() => setShowMembership(false)} isMobile={isMobile} onSelectPlan={handleSelectPlan} />}
       {showCreate && <CreateStartupModal me={me} dk={dk} onClose={() => setShowCreate(false)} onSave={s => { if (s) setStartups(prev => { const ex = prev.find(x => x.id === s.id); return ex ? prev.map(x => x.id === s.id ? s : x) : [s, ...prev]; }); addNotif?.({ type: "success", msg: "Startup launched! 🚀" }); }} />}
       {showJoinCode && <JoinCodeModal me={me} dk={dk} onClose={() => setShowJoinCode(false)} onJoined={s => { setSelected(s); setInitialTab("pages"); }} isMobile={isMobile} />}
 
@@ -2935,7 +3699,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
           <button onClick={() => setShowJoinCode(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 14px", color: th.txt2, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             <Key size={13} color={th.txt2} /> Enter Code
           </button>
-          <button onClick={() => setShowCreate(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><PlusCircle size={14} /> Create Startup</button>
+          <button onClick={() => setShowMembership(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><PlusCircle size={14} /> Create Startup</button>
         </div>
       </div>
 

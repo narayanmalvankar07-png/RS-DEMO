@@ -653,10 +653,11 @@ const INITIAL_FORM = {
   appliedInvestors: [] // Track investor IDs applied to
 };
 
-export default function FundingView({ me, dk, addNotif, isMobile, profiles, onProfile }) {
+export default function FundingView({ me, dk, addNotif, isMobile, profiles, onProfile, onNavigate }) {
   const th = T(dk);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [hasStartup, setHasStartup] = useState(false);
 
   // Db application records
   const [myApplication, setMyApplication] = useState(null);
@@ -708,6 +709,11 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         setMyApplication(null);
         setForm(INITIAL_FORM);
       }
+
+      // 3. Check if user has created a startup profile in collab
+      const startupRows = await db.get("rs_startups");
+      const userHasStartup = (startupRows || []).some(s => s.created_by === me || (s.founders || []).includes(me));
+      setHasStartup(userHasStartup);
 
     } catch (e) {
       console.error("Failed to load funding data:", e);
@@ -1084,6 +1090,87 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
     return matchesSearch && matchesType && matchesSector && stageOk && sizeOk && locOk && ftOk;
   });
+
+  if (!hasStartup) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: th.txt, letterSpacing: "-0.5px", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ background: "linear-gradient(135deg, #10b981, #6366f1)", width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                <DollarSign size={18} />
+              </span>
+              Funding
+            </h2>
+            <p style={{ margin: 0, color: th.txt2, fontSize: 13, marginTop: 4 }}>Apply directly to diverse funding sources and view firm details</p>
+          </div>
+        </div>
+
+        {/* Restricted Card */}
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "80px 40px",
+          background: th.surf,
+          backdropFilter: th.blur,
+          WebkitBackdropFilter: th.blur,
+          border: `1px solid ${th.bdr}`,
+          borderRadius: 24,
+          textAlign: "center",
+          gap: 16,
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)",
+          marginTop: 20
+        }}>
+          <div style={{
+            width: 72,
+            height: 72,
+            borderRadius: "50%",
+            background: dk ? "rgba(99, 102, 241, 0.12)" : "rgba(99, 102, 241, 0.06)",
+            border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: dk ? "0 0 30px rgba(99, 102, 241, 0.2)" : "0 0 30px rgba(99, 102, 241, 0.05)",
+            marginBottom: 8
+          }}>
+            <Lock size={32} color="#6366f1" />
+          </div>
+          <h3 style={{ fontSize: 20, fontWeight: 800, color: th.txt, margin: 0 }}>Access Restricted</h3>
+          <p style={{ fontSize: 14, color: th.txt2, maxWidth: 540, margin: "0 auto 8px", lineHeight: 1.6, fontWeight: 600 }}>
+            Create the startup profile inside Collab to get access to funding.
+          </p>
+          <p style={{ fontSize: 13, color: th.txt3, maxWidth: 540, margin: "0 auto 8px", lineHeight: 1.6 }}>
+            Every investor, venture partner, family office, and strategic funding partner on RightSignal receives startup applications from our platform.
+          </p>
+          <p style={{ fontSize: 13, color: th.txt3, maxWidth: 540, margin: "0 auto 16px", lineHeight: 1.6 }}>
+            To protect their time and maintain a high-quality ecosystem, we only allow verified startup members to submit fundraising applications.
+          </p>
+          <button
+            onClick={() => onNavigate?.("colab")}
+            style={{
+              background: "linear-gradient(135deg, #6366f1, #a855f7)",
+              border: "none",
+              borderRadius: 12,
+              padding: "12px 28px",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: "0 4px 14px rgba(99, 102, 241, 0.3)",
+              transition: "transform 0.2s"
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.03)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}
+          >
+            Create Startup Profile inside Collab
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
