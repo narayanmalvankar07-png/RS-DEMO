@@ -3529,7 +3529,7 @@ function MembershipModal({ dk, onClose, isMobile, onSelectPlan }) {
               )}
 
               {/* DEMO / TEST BYPASS SECTION */}
-              <div style={{
+              {/* <div style={{
                 background: dk ? "rgba(245, 158, 11, 0.08)" : "rgba(245, 158, 11, 0.04)",
                 border: "1px solid rgba(245, 158, 11, 0.25)",
                 borderRadius: 16,
@@ -3537,8 +3537,8 @@ function MembershipModal({ dk, onClose, isMobile, onSelectPlan }) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 10
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+              }}> */}
+              {/* <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
                   <Sparkles size={14} color="#f59e0b" /> DEMO ACCOUNT PENETRATION
                 </div>
                 <p style={{ fontSize: 12, color: th.txt2, margin: 0, lineHeight: 1.4 }}>
@@ -3567,7 +3567,7 @@ function MembershipModal({ dk, onClose, isMobile, onSelectPlan }) {
                 >
                   <CreditCard size={14} /> Pay with Demo Account
                 </button>
-              </div>
+              </div> */}
 
               {/* SUBMIT / PAY BUTTON */}
               <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
