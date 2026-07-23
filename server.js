@@ -966,11 +966,13 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 // ── Cashfree Payment Integration ────────────────────────────────────
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || process.env.CASHFREE_PROD_APP_ID || "";
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || process.env.CASHFREE_PROD_SECRET_KEY || "";
+const isProductionEnv = process.env.NODE_ENV === "production" || process.env.RENDER === "true" || process.env.CASHFREE_ENV === "production";
+
+const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || (isProductionEnv ? process.env.CASHFREE_PROD_APP_ID : process.env.CASHFREE_TEST_APP_ID) || process.env.CASHFREE_PROD_APP_ID || "";
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || (isProductionEnv ? process.env.CASHFREE_PROD_SECRET_KEY : process.env.CASHFREE_TEST_SECRET_KEY) || process.env.CASHFREE_PROD_SECRET_KEY || "";
 
 const isTestKey = (CASHFREE_SECRET_KEY || "").startsWith("cfsk_ma_test_") || (CASHFREE_APP_ID || "").startsWith("TEST");
-const isSandbox = process.env.CASHFREE_ENV === "sandbox" || isTestKey;
+const isSandbox = process.env.CASHFREE_ENV === "sandbox" || (!isProductionEnv && isTestKey) || isTestKey;
 const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
 
 app.post("/api/cashfree/create-order", async (req, res) => {
