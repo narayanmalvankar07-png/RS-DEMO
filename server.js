@@ -977,23 +977,33 @@ const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https
 
 app.post("/api/cashfree/create-order", async (req, res) => {
   const userId = getUser(req) || req.body.userId;
-  const { planId, customerEmail, customerPhone, customerName, returnUrl, currency } = req.body;
+  const { planId, customerEmail, customerPhone, customerName, returnUrl, currency, billingCycle } = req.body;
 
   if (!planId || !["starter", "growth"].includes(planId)) {
     return res.status(400).json({ error: "Invalid or missing planId. Options: starter, growth" });
   }
 
   const isUSD = String(currency).toUpperCase() === "USD";
+  const isYearly = String(billingCycle).toLowerCase() === "yearly";
   const orderCurrency = isUSD ? "USD" : "INR";
 
   let amount;
-  if (isUSD) {
-    amount = planId === "starter" ? 9.99 : 24.99;
+  if (isYearly) {
+    if (isUSD) {
+      amount = planId === "starter" ? 59.99 : 149.99;
+    } else {
+      amount = planId === "starter" ? 4999.00 : 12999.00;
+    }
   } else {
-    amount = planId === "starter" ? 499.00 : 1299.00;
+    if (isUSD) {
+      amount = planId === "starter" ? 5.99 : 14.99;
+    } else {
+      amount = planId === "starter" ? 499.00 : 1299.00;
+    }
   }
 
-  const orderId = `rs_sub_${planId}_${orderCurrency.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const cycleTag = isYearly ? "yearly" : "monthly";
+  const orderId = `rs_sub_${planId}_${cycleTag}_${orderCurrency.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
     let finalReturnUrl = returnUrl || `https://www.rightsignal.social/?cf_order_id={order_id}&plan=${planId}`;
@@ -1003,6 +1013,9 @@ app.post("/api/cashfree/create-order", async (req, res) => {
         finalReturnUrl = `https://${finalReturnUrl}`;
       }
     }
+
+    const priceLabel = isUSD ? `$${amount}` : `₹${amount.toLocaleString()}`;
+    const periodLabel = isYearly ? "/yr" : "/mo";
 
     const cfResponse = await fetch(`${CASHFREE_BASE_URL}/orders`, {
       method: "POST",
@@ -1025,7 +1038,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
         order_meta: {
           return_url: finalReturnUrl,
         },
-        order_note: `RightSignal ${planId === "starter" ? "Founder Starter" : "Founder Growth"} Subscription (${isUSD ? `$${amount}` : `₹${amount}`}/mo)`,
+        order_note: `RightSignal ${planId === "starter" ? "Founder Starter" : "Founder Growth"} (${cycleTag}) (${priceLabel}${periodLabel})`,
       }),
     });
 
@@ -1043,6 +1056,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
       payment_link: data.payment_link || (data.payments?.url),
       amount,
       currency: orderCurrency,
+      billingCycle: cycleTag,
       planId,
       mode: isSandbox ? "sandbox" : "production",
     });
@@ -1070,9 +1084,11 @@ app.post("/api/cashfree/verify-payment", async (req, res) => {
     const orderData = await cfResponse.json();
 
     if (orderData.order_status === "PAID" || orderData.order_status === "ACTIVE" || orderData.order_status === "SUCCESS") {
-      const activePlan = planId || (orderData.order_amount >= 20 || orderData.order_amount >= 1200 ? "growth" : "starter");
+      const activePlan = planId || (orderData.order_amount >= 1200 || orderData.order_amount >= 14 ? "growth" : "starter");
+      const isYearlyOrder = String(orderId).includes("_yearly_") || orderData.order_amount >= 4000 || (orderData.order_amount >= 50 && orderData.order_amount < 200);
+      const durationMs = isYearlyOrder ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + durationMs).toISOString();
 
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
       if (userId) {
         try {

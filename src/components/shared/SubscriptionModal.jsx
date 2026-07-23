@@ -25,6 +25,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
   const [loadingPlan, setLoadingPlan] = useState(null);
   const [activeTab, setActiveTab] = useState("plans");
   const [selectedCurrency, setSelectedCurrency] = useState("INR");
+  const [billingCycle, setBillingCycle] = useState("monthly");
 
   if (!isOpen) return null;
 
@@ -42,6 +43,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         body: JSON.stringify({
           planId,
           currency: selectedCurrency,
+          billingCycle,
           userId: me,
           customerEmail: myProfile?.email || "founder@rightsignal.co",
           customerName: myProfile?.name || "Founder Member",
@@ -49,6 +51,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
           returnUrl: `${window.location.origin}/?cf_order_id={order_id}&plan=${planId}`,
         }),
       });
+
 
 
       const contentType = res.headers.get("content-type") || "";
@@ -198,8 +201,57 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
           {activeTab === "plans" ? (
             <div>
-              {/* Currency Selector Bar */}
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              {/* Billing Cycle & Currency Selector Bar */}
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+                {/* Billing Cycle Switcher */}
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  background: dk ? "rgba(255,255,255,0.06)" : "#f1f5f9",
+                  padding: 4,
+                  borderRadius: 14,
+                  border: `1px solid ${th.bdr}`,
+                  gap: 4
+                }}>
+                  <button
+                    onClick={() => setBillingCycle("monthly")}
+                    style={{
+                      padding: "7px 16px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: billingCycle === "monthly" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "transparent",
+                      color: billingCycle === "monthly" ? "#fff" : th.txt2,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    Monthly Billing
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle("yearly")}
+                    style={{
+                      padding: "7px 16px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: billingCycle === "yearly" ? "linear-gradient(135deg, #f59e0b, #d97706)" : "transparent",
+                      color: billingCycle === "yearly" ? "#fff" : th.txt2,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <span>Yearly Billing</span>
+                    <span style={{ fontSize: 10, background: "#10b981", color: "#fff", padding: "1px 6px", borderRadius: 99, fontWeight: 800 }}>SAVE ~20%</span>
+                  </button>
+                </div>
+
+                {/* Currency Switcher */}
                 <div style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -212,7 +264,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                   <button
                     onClick={() => setSelectedCurrency("INR")}
                     style={{
-                      padding: "7px 18px",
+                      padding: "7px 16px",
                       borderRadius: 10,
                       border: "none",
                       background: selectedCurrency === "INR" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "transparent",
@@ -222,16 +274,15 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      boxShadow: selectedCurrency === "INR" ? "0 2px 8px rgba(99,102,241,0.3)" : "none"
+                      gap: 6
                     }}
                   >
-                    🇮🇳 INR (₹) India
+                    🇮🇳 INR (₹)
                   </button>
                   <button
                     onClick={() => setSelectedCurrency("USD")}
                     style={{
-                      padding: "7px 18px",
+                      padding: "7px 16px",
                       borderRadius: 10,
                       border: "none",
                       background: selectedCurrency === "USD" ? "linear-gradient(135deg, #10b981, #059669)" : "transparent",
@@ -241,11 +292,10 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      boxShadow: selectedCurrency === "USD" ? "0 2px 8px rgba(16,185,129,0.3)" : "none"
+                      gap: 6
                     }}
                   >
-                    🌐 USD ($) Int'l (PayPal &amp; Cards)
+                    🌐 USD ($)
                   </button>
                 </div>
               </div>
@@ -267,7 +317,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
               )}
 
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
-                {/* Starter */}
+                {/* Starter Card */}
                 <div
                   style={{
                     background: currentPlan === "starter" ? (dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.05)") : th.surf,
@@ -289,12 +339,20 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                     <Rocket size={20} color="#6366f1" />
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Starter</h3>
                   </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
                     <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>
-                      {selectedCurrency === "USD" ? "$9.99" : "₹499"}
+                      {selectedCurrency === "USD"
+                        ? (billingCycle === "yearly" ? "$59.99" : "$5.99")
+                        : (billingCycle === "yearly" ? "₹4,999" : "₹499")}
                     </span>
-                    <span style={{ fontSize: 14, color: th.txt3 }}>/ month</span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>{billingCycle === "yearly" ? "/ year" : "/ month"}</span>
                   </div>
+                  {billingCycle === "yearly" && (
+                    <div style={{ fontSize: 11, color: "#10b981", fontWeight: 700, marginBottom: 10 }}>
+                      Equivalent to {selectedCurrency === "USD" ? "$4.99/mo" : "₹416/mo"} (Save 2 months!)
+                    </div>
+                  )}
+                  {billingCycle === "monthly" && <div style={{ marginBottom: 14 }} />}
 
                   <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
                     Essential tools to launch 1 startup, access funding, handle investor outreach, and manage products.
@@ -336,11 +394,11 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
                     }}
                   >
-                    {loadingPlan === "starter" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "starter" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? "$9.99" : "₹499"} <ArrowRight size={16} /></>}
+                    {loadingPlan === "starter" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "starter" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$59.99/yr" : "$5.99/mo") : (billingCycle === "yearly" ? "₹4,999/yr" : "₹499/mo")} <ArrowRight size={16} /></>}
                   </button>
                 </div>
 
-                {/* Growth */}
+                {/* Growth Card */}
                 <div
                   style={{
                     background: currentPlan === "growth" ? (dk ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.05)") : th.surf,
@@ -354,19 +412,27 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                   }}
                 >
                   <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg,#8b5cf6,#ec4899)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(139,92,246,0.4)" }}>
-                    POPULAR &amp; UNLIMITED
+                    POPULAR
                   </span>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <Crown size={20} color="#8b5cf6" />
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Growth</h3>
                   </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
                     <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>
-                      {selectedCurrency === "USD" ? "$24.99" : "₹1,299"}
+                      {selectedCurrency === "USD"
+                        ? (billingCycle === "yearly" ? "$149.99" : "$14.99")
+                        : (billingCycle === "yearly" ? "₹12,999" : "₹1,299")}
                     </span>
-                    <span style={{ fontSize: 14, color: th.txt3 }}>/ month</span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>{billingCycle === "yearly" ? "/ year" : "/ month"}</span>
                   </div>
+                  {billingCycle === "yearly" && (
+                    <div style={{ fontSize: 11, color: "#10b981", fontWeight: 700, marginBottom: 10 }}>
+                      Equivalent to {selectedCurrency === "USD" ? "$12.49/mo" : "₹1,083/mo"} (Save 2 months!)
+                    </div>
+                  )}
+                  {billingCycle === "monthly" && <div style={{ marginBottom: 14 }} />}
 
                   <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
                     Full power startup acceleration with unlimited funding applications, 10 products, and AI matchmaking.
@@ -409,7 +475,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
                     }}
                   >
-                    {loadingPlan === "growth" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "growth" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? "$24.99" : "₹1,299"} <ArrowRight size={16} /></>}
+                    {loadingPlan === "growth" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "growth" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$149.99/yr" : "$14.99/mo") : (billingCycle === "yearly" ? "₹12,999/yr" : "₹1,299/mo")} <ArrowRight size={16} /></>}
                   </button>
                 </div>
               </div>
@@ -422,10 +488,15 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                   <tr style={{ borderBottom: `2px solid ${th.bdr}` }}>
                     <th style={{ padding: "12px 16px", textAlign: "left", color: th.txt3, fontWeight: 700 }}>Platform Feature</th>
                     <th style={{ padding: "12px 16px", textAlign: "center", color: th.txt3, fontWeight: 700 }}>Free User</th>
-                    <th style={{ padding: "12px 16px", textAlign: "center", color: "#6366f1", fontWeight: 700 }}>₹499 Starter</th>
-                    <th style={{ padding: "12px 16px", textAlign: "center", color: "#8b5cf6", fontWeight: 700 }}>₹1,299 Growth</th>
+                    <th style={{ padding: "12px 16px", textAlign: "center", color: "#6366f1", fontWeight: 700 }}>
+                      {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$59.99/yr Starter" : "$5.99/mo Starter") : (billingCycle === "yearly" ? "₹4,999/yr Starter" : "₹499 Starter")}
+                    </th>
+                    <th style={{ padding: "12px 16px", textAlign: "center", color: "#8b5cf6", fontWeight: 700 }}>
+                      {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$149.99/yr Growth" : "$14.99/mo Growth") : (billingCycle === "yearly" ? "₹12,999/yr Growth" : "₹1,299 Growth")}
+                    </th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {FEATURE_MATRIX.map((row, idx) => (
                     <tr key={row.feature} style={{ borderBottom: `1px solid ${th.bdr}`, background: idx % 2 === 0 ? "transparent" : (dk ? "rgba(255,255,255,0.01)" : "rgba(0,0,0,0.01)") }}>
