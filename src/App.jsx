@@ -181,6 +181,7 @@ export default function App() {
         .then(res => res.json())
         .then(data => {
           if (data.success) {
+            toast.success(`🎉 Payment verified! Your ${data.plan === "growth" ? "Founder Growth" : "Founder Starter"} plan is now active!`);
             handleProfileUpdate(me, {
               subscription_plan: data.plan,
               subscription_status: "active",
@@ -191,14 +192,20 @@ export default function App() {
               orderId: cfOrderId,
               expiresAt: data.expires_at,
             });
+          } else {
+            toast.error(`⚠️ Payment not completed (${data.order_status || "UNPAID"}). Your plan was not upgraded.`);
           }
         })
-        .catch(err => console.error("Cashfree return verification failed:", err))
+        .catch(err => {
+          console.error("Cashfree return verification failed:", err);
+          toast.error("Failed to verify payment status.");
+        })
         .finally(() => {
           window.history.replaceState({}, "", window.location.pathname);
         });
     }
   }, [me, handleProfileUpdate]);
+
 
   const [notifs, setNotifs] = useState([{ id: "n0", type: "token", msg: "Welcome to RightSignal!", ts: Date.now() - 60000, read: false }]);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);

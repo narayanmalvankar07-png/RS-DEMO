@@ -1083,12 +1083,14 @@ app.post("/api/cashfree/verify-payment", async (req, res) => {
 
     const orderData = await cfResponse.json();
 
-    if (orderData.order_status === "PAID" || orderData.order_status === "ACTIVE" || orderData.order_status === "SUCCESS") {
+    console.log(`[Cashfree Verify] Order ID: ${orderId}, Status: ${orderData.order_status}, Amount: ${orderData.order_amount}`);
+
+    // ONLY activate subscription plan if Cashfree order status is strictly PAID!
+    if (orderData.order_status === "PAID") {
       const activePlan = planId || (orderData.order_amount >= 1200 || orderData.order_amount >= 14 ? "growth" : "starter");
       const isYearlyOrder = String(orderId).includes("_yearly_") || orderData.order_amount >= 4000 || (orderData.order_amount >= 50 && orderData.order_amount < 200);
       const durationMs = isYearlyOrder ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
       const expiresAt = new Date(Date.now() + durationMs).toISOString();
-
 
       if (userId) {
         try {
@@ -1133,16 +1135,18 @@ app.post("/api/cashfree/verify-payment", async (req, res) => {
       });
     }
 
-    res.json({
+    // Payment not completed, failed, or cancelled/dropped
+    return res.json({
       success: false,
-      order_status: orderData.order_status || "PENDING",
-      message: "Payment has not been completed",
+      order_status: orderData.order_status || "UNPAID",
+      message: `Payment status is ${orderData.order_status || "UNPAID"}. Subscription plan was not activated.`,
     });
   } catch (err) {
     console.error("[Cashfree] Verify Payment Error:", err);
     res.status(500).json({ error: "Failed to verify payment status" });
   }
 });
+
 
 app.post("/api/cashfree/webhook", async (req, res) => {
   try {
