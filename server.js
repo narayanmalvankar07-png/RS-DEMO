@@ -943,10 +943,11 @@ process.on("unhandledRejection", (reason, promise) => {
 });
 
 // ── Cashfree Payment Integration ────────────────────────────────────
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
+const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || process.env.CASHFREE_PROD_APP_ID || "";
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY || process.env.CASHFREE_PROD_SECRET_KEY || "";
 
-const isSandbox = (CASHFREE_SECRET_KEY || "").startsWith("cfsk_ma_test_") || (CASHFREE_APP_ID || "").startsWith("TEST") || process.env.NODE_ENV !== "production";
+const isTestKey = (CASHFREE_SECRET_KEY || "").startsWith("cfsk_ma_test_") || (CASHFREE_APP_ID || "").startsWith("TEST");
+const isSandbox = process.env.CASHFREE_ENV === "sandbox" || isTestKey;
 const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
 
 app.post("/api/cashfree/create-order", async (req, res) => {

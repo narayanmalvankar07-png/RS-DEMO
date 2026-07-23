@@ -81,15 +81,12 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
           const cashfree = CashfreeSDK({ mode: checkoutMode });
           cashfree.checkout({ paymentSessionId: data.payment_session_id });
         } else {
-          activatePlanLocally(planId, data.order_id);
+          toast.error("Failed to load Cashfree Payment SDK. Please refresh and try again.");
         }
       }
     } catch (err) {
       console.error("[Subscription] Payment launch error:", err);
       toast.error(err.message || "Payment initiation failed. Please try again.");
-      if (confirm(`Cashfree Notice: Activate ${planId.toUpperCase()} plan for testing?`)) {
-        activatePlanLocally(planId, `test_${Date.now()}`);
-      }
     } finally {
       setLoadingPlan(null);
     }
