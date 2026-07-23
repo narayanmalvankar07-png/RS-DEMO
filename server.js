@@ -6,6 +6,29 @@ import { WebSocket, WebSocketServer } from "ws";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import crypto from "crypto";
+import fs from "fs";
+
+// Safely load .env locally without crashing if file does not exist in production
+if (fs.existsSync(".env")) {
+  try {
+    const envLines = fs.readFileSync(".env", "utf8").split(/\r?\n/);
+    for (const line of envLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) process.env[key] = val;
+      }
+    }
+  } catch (e) {
+    console.warn("Could not parse local .env file:", e.message);
+  }
+}
 
 const app = express();
 app.use(cors());
