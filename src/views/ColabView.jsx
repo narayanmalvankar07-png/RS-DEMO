@@ -4370,7 +4370,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
       </div>
 
       {/* Active Plan Banner (matching FundingView) */}
-      {isSubscribed && (
+      {isSubscribed ? (
         <div style={{
           background: dk ? "rgba(16,185,129,0.06)" : "#f0fdf4",
           border: "1px solid rgba(16,185,129,0.2)",
@@ -4393,24 +4393,102 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
             </button>
           )}
         </div>
+      ) : (
+        myStartups.length > 0 && (
+          <div style={{
+            background: dk ? "rgba(239, 68, 68, 0.12)" : "#fef2f2",
+            border: `1px solid ${dk ? "rgba(239, 68, 68, 0.35)" : "#fca5a5"}`,
+            borderRadius: 16,
+            padding: "14px 18px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 260 }}>
+              <ShieldAlert size={22} color="#ef4444" style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: dk ? "#fca5a5" : "#991b1b" }}>
+                  ⚠️ Your Startups are Delisted &amp; Hidden from Other Users
+                </div>
+                <div style={{ fontSize: 12, color: dk ? "rgba(255,255,255,0.75)" : "#7f1d1d", marginTop: 2 }}>
+                  Your subscription plan is inactive or expired. Other users cannot see your startups or listed products. Upgrade your plan to make them visible again!
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={openSubscriptionModal}
+              style={{
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                padding: "9px 16px",
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
+                flexShrink: 0
+              }}
+            >
+              <Crown size={14} /> Upgrade to Publish Startups
+            </button>
+          </div>
+        )
       )}
 
       {myStartups.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>My Startups</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: th.txt3, letterSpacing: 0.5, textTransform: "uppercase" }}>
+              My Startups {!isSubscribed && <span style={{ color: "#ef4444", textTransform: "none" }}>(Delisted - Inactive Plan)</span>}
+            </div>
+            {!isSubscribed && (
+              <button
+                onClick={openSubscriptionModal}
+                style={{ background: "transparent", border: "none", color: "#6366f1", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+              >
+                Upgrade to Publish All →
+              </button>
+            )}
+          </div>
           <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
             {myStartups.map(s => (
-              <button key={s.id} onClick={() => { setSelected(s); setInitialTab("overview"); }} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer" }}>
+              <button
+                key={s.id}
+                onClick={() => { setSelected(s); setInitialTab("overview"); }}
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: !isSubscribed ? (dk ? "rgba(239,68,68,0.08)" : "#fff5f5") : th.surf2,
+                  border: `1px solid ${!isSubscribed ? "rgba(239,68,68,0.3)" : th.bdr}`,
+                  borderRadius: 12,
+                  padding: "8px 12px",
+                  cursor: "pointer"
+                }}
+              >
                 <Logo name={s.name} src={s.logo} size={28} radius={8} fontSize={16} />
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>{s.referral_code}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: th.txt, display: "flex", alignItems: "center", gap: 4 }}>
+                    {s.name} {!isSubscribed && <span style={{ fontSize: 10 }} title="Hidden from public">🔒</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: !isSubscribed ? "#ef4444" : "#f59e0b", fontWeight: 600 }}>
+                    {!isSubscribed ? "Delisted" : s.referral_code}
+                  </div>
                 </div>
               </button>
             ))}
           </div>
         </div>
       )}
+
 
       {/* Search & Filter Bar */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -4492,9 +4570,14 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
                       <div style={{ fontWeight: 800, fontSize: 16, color: th.txt }}>{s.name}</div>
-                      <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                      <div style={{ display: "flex", gap: 5, flexShrink: 0, flexWrap: "wrap", alignItems: "center" }}>
                         {isSaved && <span style={{ fontSize: 12, color: "#6366f1" }}>🔖</span>}
                         {isOwner && <span style={{ background: "#f59e0b18", color: "#f59e0b", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, border: "1px solid #f59e0b40" }}>OWNER</span>}
+                        {isOwner && !isSubscribed && (
+                          <span style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 99, border: "1px solid rgba(239,68,68,0.4)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            🔒 DELISTED FROM PUBLIC
+                          </span>
+                        )}
                       </div>
                     </div>
                     <p style={{ margin: "0 0 8px", fontSize: 13, color: th.txt2, lineHeight: 1.55 }}>{s.description?.slice(0, 120)}{s.description?.length > 120 ? "…" : ""}</p>
@@ -4518,8 +4601,45 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
                     <div style={{ fontSize: 12, color: th.txt2, lineHeight: 1.5 }}>{latestUpd.content?.slice(0, 130)}{latestUpd.content?.length > 130 ? "…" : ""}</div>
                   </div>
                 )}
+                {isOwner && !isSubscribed && (
+                  <div style={{
+                    background: dk ? "rgba(239, 68, 68, 0.12)" : "#fef2f2",
+                    border: `1px solid ${dk ? "rgba(239, 68, 68, 0.3)" : "#fca5a5"}`,
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    marginTop: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    flexWrap: "wrap"
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: dk ? "#fca5a5" : "#991b1b", display: "flex", alignItems: "center", gap: 5 }}>
+                      <ShieldAlert size={14} color="#ef4444" /> Delisted: Hidden from other users until plan upgrade
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openSubscriptionModal?.(); }}
+                      style={{
+                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "4px 10px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4
+                      }}
+                    >
+                      <Crown size={12} /> Upgrade to Publish
+                    </button>
+                  </div>
+                )}
               </div>
               <div style={{ borderTop: `1px solid ${th.bdr}`, marginTop: 12, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, color: th.txt3 }}>{s.created_at ? ago(new Date(s.created_at).getTime()) + " ago" : ""}</span>
                   <button onClick={e => { e.stopPropagation(); toggleSave(s.id); }} style={{ background: isSaved ? "rgba(99,102,241,0.1)" : "none", border: isSaved ? "1px solid #6366f140" : "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: isSaved ? "#6366f1" : th.txt3, fontSize: 10, display: "flex", alignItems: "center" }}><Bookmark/></button>
