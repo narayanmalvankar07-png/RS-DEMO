@@ -17,7 +17,7 @@ export const connectWebSocket = (userId) => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     wsUrl = `${protocol}//${window.location.host}/ws`;
   } else {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://rs-demo-qpf9.onrender.com";
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://rs-demo-6m55.onrender.com";
     wsUrl = backendUrl.replace(/^http/, "ws") + "/ws";
   }
 
