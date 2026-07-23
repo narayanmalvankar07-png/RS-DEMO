@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from "lucide-react";
 import { sbAuth } from "../services/supabase.js";
+import { getPasswordStrength } from "../utils/helpers.js";
 
 const darkBg = [
   "radial-gradient(ellipse 80% 70% at 15% 10%, rgba(99,102,241,0.20) 0%, transparent 55%)",
@@ -26,87 +27,27 @@ export default function AuthScreen({ onAuth, resetToken, onClearResetToken }) {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
 
-  useEffect(() => {
-    if (resetToken) {
-      setMode("reset-password");
-      setError("");
-      setSuccessMsg("");
-    }
-  }, [resetToken]);
-
-  const getPasswordStrength = (pwd) => {
-    if (!pwd) return { score: 0, label: "", color: "transparent" };
-    let score = 0;
-    if (pwd.length >= 8) score++;
-    if (/[A-Z]/.test(pwd)) score++;
-    if (/[a-z]/.test(pwd)) score++;
-    if (/[0-9]/.test(pwd)) score++;
-    if (/[^A-Za-z0-9]/.test(pwd)) score++;
-
-    let label = "Very Weak";
-    let color = "#ef4444";
-    if (score === 2) { label = "Weak"; color = "#f97316"; }
-    else if (score === 3) { label = "Medium"; color = "#eab308"; }
-    else if (score === 4) { label = "Strong"; color = "#3b82f6"; }
-    else if (score === 5) { label = "Very Strong"; color = "#22c55e"; }
-
-    return { score, label, color };
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) { setError("Email address is required."); return; }
-    setError(""); setBusy(true);
-    try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setError("");
-        setSuccessMsg("Password reset email sent successfully. Please check your inbox.");
-      } else {
-        setError(data.error || "Failed to request password reset.");
-      }
-    } catch {
-      setError("Something went wrong. Please try again later.");
-    }
-    setBusy(false);
-  };
-
-  const handleResetPassword = async () => {
-    if (!password || !confirmPassword) { setError("All password fields are required."); return; }
-    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
-    
-    const pwdStrength = getPasswordStrength(password);
-    if (pwdStrength.score < 5) {
-      setError("Password does not meet complexity requirements.");
+  const resendVerification = async () => {
+    if (!email) {
+      setError("Please enter your email address to resend verification.");
       return;
     }
-
-    setError(""); setBusy(true);
+    setResending(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: resetToken, password })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSuccessMsg("Password reset completed successfully. You can now sign in.");
-        setPassword("");
-        setConfirmPassword("");
-        if (onClearResetToken) onClearResetToken();
+      const res = await sbAuth.resendVerification(email.trim());
+      if (res?.error_description || res?.msg) {
+        setError(res?.error_description || res?.msg);
       } else {
-        setError(data.error || "Failed to reset password.");
+        setError("Verification link resent! Please check your email inbox.");
       }
     } catch {
-      setError("Something went wrong. Please try again later.");
+      setError("Failed to resend verification link.");
     }
-    setBusy(false);
+    setResending(false);
   };
+
 
   const submit = async () => {
     if (!email || !password) { setError("Email and password are required."); return; }
@@ -120,15 +61,24 @@ export default function AuthScreen({ onAuth, resetToken, onClearResetToken }) {
           return;
         }
         const res = await sbAuth.signUp(email.trim(), password, name.trim() || "New User");
-        if (res?.user) { setMode("login"); setError("Signup successful. Please sign in."); }
-        else setError(res?.error_description || res?.msg || "Signup failed.");
+        if (res?.user) {
+          setMode("login");
+          setError("Signup successful! 📩 A verification link has been sent to your email. Please verify before logging in.");
+        } else setError(res?.error_description || res?.msg || "Signup failed.");
       } else {
         const res = await sbAuth.signIn(email.trim(), password);
         if (res?.access_token) {
           const user = await sbAuth.getUser(res.access_token);
           if (user) { onAuth(res, user, false, name.trim()); return; }
           setError("Unable to load user details.");
-        } else setError(res?.error_description || res?.msg || "Login failed.");
+        } else {
+          const errMsg = res?.error_description || res?.msg || "Login failed.";
+          if (errMsg.toLowerCase().includes("email not confirmed") || errMsg.toLowerCase().includes("not verified")) {
+            setError("Email not verified yet. Please check your inbox or click below to resend the verification link.");
+          } else {
+            setError(errMsg);
+          }
+        }
       }
     } catch { setError("Authentication failed. Please try again."); }
     setBusy(false);
@@ -284,40 +234,23 @@ export default function AuthScreen({ onAuth, resetToken, onClearResetToken }) {
           )}
 
           {error && (
-            <div style={{ marginBottom: 14, color: error.startsWith("Signup successful") || error.startsWith("Password reset") ? "#34d399" : "#fca5a5", fontSize: 13, textAlign: "center" }}>
+            <div style={{ marginBottom: 14, color: error.startsWith("Signup successful") ? "#34d399" : "#fca5a5", fontSize: 13, textAlign: "center" }}>
               {error}
+              {error.toLowerCase().includes("verify") && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={resendVerification} disabled={resending} style={{ background: "rgba(99,102,241,0.2)", border: "1px solid rgba(99,102,241,0.4)", color: "#a5b4fc", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                    {resending ? "Sending…" : "Resend Verification Email 📩"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {mode === "forgot" ? (
-            <button onClick={handleForgotPassword} disabled={busy} className="rs-btn-spring"
-              style={{ width: "100%", padding: "13px", borderRadius: 16, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy ? 0.7 : 1, boxShadow: "0 8px 28px rgba(99,102,241,0.35)" }}>
-              {busy ? "Working…" : "Send Reset Link"}
-              {!busy && <ArrowRight size={16} />}
-            </button>
-          ) : mode === "reset-password" ? (
-            <button onClick={handleResetPassword} disabled={busy} className="rs-btn-spring"
-              style={{ width: "100%", padding: "13px", borderRadius: 16, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy ? 0.7 : 1, boxShadow: "0 8px 28px rgba(99,102,241,0.35)" }}>
-              {busy ? "Updating…" : "Update Password"}
-              {!busy && <ArrowRight size={16} />}
-            </button>
-          ) : (
-            <button onClick={submit} disabled={busy} className="rs-btn-spring"
-              style={{ width: "100%", padding: "13px", borderRadius: 16, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy ? 0.7 : 1, boxShadow: "0 8px 28px rgba(99,102,241,0.35)" }}>
-              {busy ? "Working…" : mode === "login" ? "Sign In" : "Create Account"}
-              {!busy && <ArrowRight size={16} />}
-            </button>
-          )}
-
-          {(mode === "forgot" || mode === "reset-password") && (
-            <div style={{ textAlign: "center", marginTop: 16 }}>
-              <button onClick={() => { setMode("login"); setError(""); if (onClearResetToken) onClearResetToken(); }}
-                style={{ border: "none", background: "none", color: "rgba(180,205,255,0.55)", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>
-                Back to Sign In
-              </button>
-            </div>
-          )}
-
+          <button onClick={submit} disabled={busy} className="rs-btn-spring"
+            style={{ width: "100%", padding: "13px", borderRadius: 16, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: busy ? 0.7 : 1, boxShadow: "0 8px 28px rgba(99,102,241,0.35)" }}>
+            {busy ? "Working…" : mode === "login" ? "Sign In" : "Create Account"}
+            {!busy && <ArrowRight size={16} />}
+          </button>
         </div>
       </div>
     </div>

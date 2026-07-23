@@ -1,6 +1,6 @@
 // src/components/shared/PostCard.jsx
 import { useState, useRef, useEffect } from "react";
-import { Heart, MessageCircle, Repeat2, Share2, Bookmark, ChevronLeft, ChevronRight, Mic, Send, MoreHorizontal, Pencil, Trash2, Check, X, Link, Flag } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Share2, Bookmark, ChevronLeft, ChevronRight, Mic, Send, MoreHorizontal, Pencil, Trash2, Check, X, Link, Flag, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { T, ROLES } from '../../config/constants.js';
 import { ago, fmt } from '../../utils/helpers.js';
@@ -127,7 +127,16 @@ const displayText = shouldTruncate && !expanded ? (post.text?.slice(0,500) + "â€
           <div onClick={() => onProfile(displayUid)} style={{ cursor: "pointer" }}><Av profile={auth} bal={bal} /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-              <span onClick={() => onProfile(displayUid)} style={{ fontWeight: 700, fontSize: 14, color: th.txt, cursor: "pointer" }}>{auth.name}</span>
+              <span onClick={() => onProfile(displayUid)} style={{ fontWeight: 700, fontSize: 14, color: th.txt, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span>{auth.name}</span>
+                {auth.subscription_status === "active" && (
+                  auth.subscription_plan === "growth" ? (
+                    <Crown size={12} style={{ color: "#f59e0b", fill: "#f59e0b", flexShrink: 0 }} title="Founder Growth Member" />
+                  ) : auth.subscription_plan === "starter" ? (
+                    <Crown size={12} style={{ color: "#6366f1", fill: "#6366f1", flexShrink: 0 }} title="Founder Starter Member" />
+                  ) : null
+                )}
+              </span>
               {auth.verified && <span style={{ color: "#3b82f6", fontSize: 11 }}>âœ“</span>}
               {auth.system_role && auth.system_role !== "user" && (
                 <span style={{ color: th.txt3, fontSize: 10, background: dk ? "rgba(59,130,246,.12)" : "#eff6ff", padding: "1px 6px", borderRadius: 99, fontWeight: 600 }}>{ROLES[auth.system_role] || auth.system_role}</span>
@@ -242,7 +251,16 @@ const displayText = shouldTruncate && !expanded ? (post.text?.slice(0,500) + "â€
                     <div key={c.id} style={{ display: "flex", gap: 7, marginBottom: 6, borderRadius: 8, padding: isFocused ? 3 : 0, background: isFocused ? "rgba(59,130,246,0.08)" : "transparent", border: isFocused ? "1px solid rgba(59,130,246,0.18)" : "none" }}>
                       <div onClick={() => onProfile(c.uid)} style={{ cursor: "pointer" }}><Av profile={cp} size={22} /></div>
                       <div style={{ flex: 1, background: th.surf, borderRadius: 8, padding: "5px 10px", border: `1px solid ${th.bdr}` }}>
-                        <span onClick={() => onProfile(c.uid)} style={{ fontWeight: 600, fontSize: 12, color: th.txt, cursor: "pointer" }}>{cp.name} </span>
+                        <span onClick={() => onProfile(c.uid)} style={{ fontWeight: 600, fontSize: 12, color: th.txt, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <span>{cp.name}</span>
+                          {cp.subscription_status === "active" && (
+                            cp.subscription_plan === "growth" ? (
+                              <Crown size={10} style={{ color: "#f59e0b", fill: "#f59e0b", flexShrink: 0 }} title="Founder Growth Member" />
+                            ) : cp.subscription_plan === "starter" ? (
+                              <Crown size={10} style={{ color: "#6366f1", fill: "#6366f1", flexShrink: 0 }} title="Founder Starter Member" />
+                            ) : null
+                          )}
+                        </span>
                         <span style={{ fontSize: 12, color: th.txt2 }}>{c.text}</span>
                       </div>
                     </div>

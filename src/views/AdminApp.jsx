@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { ShieldCheck, Users, Activity, LayoutDashboard, FileText, Settings, LogOut, Sun, Moon, GraduationCap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ShieldCheck, Users, Activity, LayoutDashboard, FileText, Settings, LogOut, Sun, Moon, GraduationCap, PlusCircle, Trash2 } from "lucide-react";
 import { T, ROLES } from "../config/constants.js";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import SGN from "../components/ui/SGN.jsx";
+import { db } from "../services/supabase.js";
+import { toast } from "sonner";
 import AdminScholarshipsView from "./AdminScholarshipsView.jsx";
 
 export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onSignOut }) {
@@ -13,12 +15,71 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
   const tokenTotal = Object.values(bals).reduce((sum, v) => sum + (v || 0), 0);
   const roleLabel = ROLES[myProfile?.system_role] || "Admin";
 
+  const [scholarships, setScholarships] = useState([]);
+  const [loadingSch, setLoadingSch] = useState(false);
+  const [showAddSch, setShowAddSch] = useState(false);
+  const [schForm, setSchForm] = useState({
+    title: "", provider: "RightSignal", amount: "₹50,000", category: "Startup Grant",
+    deadline: "2026-12-31", description: "", eligibility: "", benefits: "", apply_url: ""
+  });
+  const [submittingSch, setSubmittingSch] = useState(false);
+
   const tabs = [
     { id: "overview", icon: LayoutDashboard, label: "Overview" },
     { id: "users", icon: Users, label: "Members" },
     { id: "scholarships", icon: GraduationCap, label: "Scholarships" },
     { id: "settings", icon: Settings, label: "Settings" },
   ];
+
+  useEffect(() => {
+    if (tab === "scholarships") {
+      (async () => {
+        setLoadingSch(true);
+        try {
+          const res = await db.get("rs_scholarships", "order=created_at.desc");
+          setScholarships(res || []);
+        } catch { }
+        setLoadingSch(false);
+      })();
+    }
+  }, [tab]);
+
+  const handleCreateScholarship = async () => {
+    if (!schForm.title.trim() || !schForm.amount.trim()) return;
+    setSubmittingSch(true);
+    try {
+      const payload = {
+        title: schForm.title.trim(),
+        provider: schForm.provider.trim() || "RightSignal Labs",
+        amount: schForm.amount.trim(),
+        category: schForm.category || "Grant",
+        deadline: schForm.deadline || "2026-12-31",
+        description: schForm.description.trim(),
+        eligibility: schForm.eligibility.trim(),
+        benefits: schForm.benefits.trim(),
+        apply_url: schForm.apply_url.trim(),
+        created_at: new Date().toISOString()
+      };
+      const saved = await db.post("rs_scholarships", payload);
+      const newSch = saved || { id: `sch_${Date.now()}`, ...payload };
+      setScholarships(prev => [newSch, ...prev]);
+      toast.success("Scholarship added!");
+      setShowAddSch(false);
+      setSchForm({ title: "", provider: "RightSignal", amount: "₹50,000", category: "Startup Grant", deadline: "2026-12-31", description: "", eligibility: "", benefits: "", apply_url: "" });
+    } catch {
+      toast.error("Failed to add scholarship.");
+    } finally {
+      setSubmittingSch(false);
+    }
+  };
+
+  const handleDeleteScholarship = async (id) => {
+    try {
+      await db.del("rs_scholarships", `id=eq.${id}`);
+      setScholarships(prev => prev.filter(s => s.id !== id));
+      toast.success("Scholarship deleted.");
+    } catch { }
+  };
 
   const allUsers = Object.values(profiles);
 
@@ -155,7 +216,94 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
           )}
 
           {tab === "scholarships" && (
-            <AdminScholarshipsView dk={dk} addNotif={() => {}} />
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: th.txt }}>Scholarships &amp; Grants Management</h2>
+                  <p style={{ margin: 0, fontSize: 13, color: th.txt3 }}>Add and manage global scholarships displayed in the Events section</p>
+                </div>
+                <button onClick={() => setShowAddSch(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #10b981, #059669)", border: "none", borderRadius: 10, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  <PlusCircle size={15} /> Add Scholarship
+                </button>
+              </div>
+
+              {showAddSch && (
+                <Card dk={dk} style={{ marginBottom: 20, padding: 20 }}>
+                  <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 800, color: th.txt }}>Create New Scholarship</h3>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Title *</label>
+                        <input value={schForm.title} onChange={e => setSchForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. AI Founder Grant" style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Provider</label>
+                        <input value={schForm.provider} onChange={e => setSchForm(f => ({ ...f, provider: e.target.value }))} placeholder="e.g. RightSignal Labs" style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Amount / Grant *</label>
+                        <input value={schForm.amount} onChange={e => setSchForm(f => ({ ...f, amount: e.target.value }))} placeholder="e.g. ₹1,00,000" style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Category</label>
+                        <select value={schForm.category} onChange={e => setSchForm(f => ({ ...f, category: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}>
+                          {["Startup Grant", "Fellowship", "Developer Scholarship", "Research Grant"].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Deadline</label>
+                        <input type="date" value={schForm.deadline} onChange={e => setSchForm(f => ({ ...f, deadline: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Description</label>
+                      <textarea value={schForm.description} onChange={e => setSchForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief summary of the grant..." rows={2} style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Eligibility Criteria</label>
+                      <input value={schForm.eligibility} onChange={e => setSchForm(f => ({ ...f, eligibility: e.target.value }))} placeholder="Who is eligible?" style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 }}>
+                    <button onClick={() => setShowAddSch(false)} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${th.bdr}`, background: "transparent", color: th.txt2, fontSize: 13 }}>Cancel</button>
+                    <button onClick={handleCreateScholarship} disabled={submittingSch || !schForm.title.trim()} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "#10b981", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                      {submittingSch ? "Saving…" : "Publish Scholarship"}
+                    </button>
+                  </div>
+                </Card>
+              )}
+
+              {scholarships.length === 0 ? (
+                <Card dk={dk} style={{ padding: 36, textAlign: "center", color: th.txt3 }}>
+                  <GraduationCap size={32} style={{ opacity: 0.4, margin: "0 auto 8px" }} />
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>No scholarships added yet.</p>
+                </Card>
+              ) : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {scholarships.map(sch => (
+                    <Card dk={dk} key={sch.id} style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14 }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontSize: 10, background: "#10b98118", color: "#10b981", padding: "2px 7px", borderRadius: 99, fontWeight: 700 }}>{sch.category}</span>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: "#10b981" }}>{sch.amount}</span>
+                        </div>
+                        <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: th.txt }}>{sch.title}</h4>
+                        <div style={{ fontSize: 12, color: th.txt3, marginTop: 2 }}>{sch.description}</div>
+                      </div>
+                      <button onClick={() => handleDeleteScholarship(sch.id)} style={{ background: "#ef444418", border: "1px solid #ef444430", color: "#ef4444", borderRadius: 8, padding: "6px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600 }}>
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {tab === "settings" && (
@@ -186,3 +334,4 @@ export default function AdminApp({ me, myProfile, bals, profiles, dk, setDk, onS
     </div>
   );
 }
+

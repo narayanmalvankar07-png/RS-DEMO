@@ -21,15 +21,14 @@ const anthropic = new Anthropic({
 });
 
 // ── Resend client ───────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_dummy_key_for_testing");
 
 // ── Supabase client ─────────────────────────────────────────────────
 // Pass ws as transport so Supabase realtime works on Node.js 20
 const supabaseKey =
+  process.env.VITE_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY;
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -413,7 +412,7 @@ app.post("/api/send-application", async (req, res) => {
                   <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Company Profile</h3>
                   <p style="margin: 4px 0;"><strong>Industry:</strong> ${formData.industry || 'N/A'}</p>
                   <p style="margin: 4px 0;"><strong>Website:</strong> <a href="${formData.websiteUrl || '#'}" style="color: #6366f1;">${formData.websiteUrl || 'N/A'}</a></p>
-                  <p style="margin: 4px 0;"><strong>Status:</strong> ${formData.registrationStatus || 'N/A'} ${formData.entityType ? '('+formData.entityType+')' : ''}</p>
+                  <p style="margin: 4px 0;"><strong>Status:</strong> ${formData.registrationStatus || 'N/A'} ${formData.entityType ? '(' + formData.entityType + ')' : ''}</p>
                   <p style="margin: 4px 0;"><strong>Incorporated:</strong> ${formData.incorporationDate || 'N/A'} in ${formData.registrationCountry || 'N/A'}</p>
                 </td>
               </tr>
@@ -545,7 +544,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  
+
   if (!checkRateLimit(normalizedEmail)) {
     return res.status(429).json({ error: "Password reset request rate limit exceeded. Please wait 60 seconds." });
   }
@@ -943,6 +942,158 @@ process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
 
+// ── Cashfree Payment Integration ────────────────────────────────────
+const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
+
+const isSandbox = (CASHFREE_SECRET_KEY || "").startsWith("cfsk_ma_test_") || (CASHFREE_APP_ID || "").startsWith("TEST") || process.env.NODE_ENV !== "production";
+const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
+
+app.post("/api/cashfree/create-order", async (req, res) => {
+  const userId = getUser(req) || req.body.userId;
+  const { planId, customerEmail, customerPhone, customerName, returnUrl } = req.body;
+
+  if (!planId || !["starter", "growth"].includes(planId)) {
+    return res.status(400).json({ error: "Invalid or missing planId. Options: starter, growth" });
+  }
+
+  const amount = planId === "starter" ? 499.00 : 1299.00;
+  const orderId = `rs_sub_${planId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  try {
+    const cfResponse = await fetch(`${CASHFREE_BASE_URL}/orders`, {
+      method: "POST",
+      headers: {
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        order_amount: amount,
+        order_currency: "INR",
+        order_id: orderId,
+        customer_details: {
+          customer_id: (userId || "user_guest").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40),
+          customer_name: customerName || "RightSignal Member",
+          customer_email: customerEmail || "member@rightsignal.co",
+          customer_phone: (customerPhone || "9999999999").replace(/[^0-9]/g, "").slice(-10) || "9999999999",
+        },
+        order_meta: {
+          return_url: returnUrl || `http://localhost:5173/?cf_order_id={order_id}&plan=${planId}`,
+        },
+        order_note: `RightSignal ${planId === "starter" ? "Founder Starter (₹499/mo)" : "Founder Growth (₹1,299/mo)"} Subscription`,
+      }),
+    });
+
+    const data = await cfResponse.json();
+
+    if (!cfResponse.ok) {
+      console.error("[Cashfree] Create Order Error:", data);
+      return res.status(cfResponse.status).json({ error: data.message || "Cashfree order creation failed", details: data });
+    }
+
+    res.json({
+      order_id: data.order_id,
+      payment_session_id: data.payment_session_id,
+      cf_order_id: data.cf_order_id,
+      payment_link: data.payment_link || (data.payments?.url),
+      amount,
+      planId,
+      mode: isSandbox ? "sandbox" : "production",
+    });
+  } catch (err) {
+    console.error("[Cashfree] Express endpoint exception:", err);
+    res.status(500).json({ error: "Failed to connect to payment gateway" });
+  }
+});
+
+app.post("/api/cashfree/verify-payment", async (req, res) => {
+  const userId = getUser(req) || req.body.userId;
+  const { orderId, planId } = req.body;
+
+  if (!orderId) return res.status(400).json({ error: "orderId required" });
+
+  try {
+    const cfResponse = await fetch(`${CASHFREE_BASE_URL}/orders/${orderId}`, {
+      headers: {
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET_KEY,
+        "x-api-version": "2023-08-01",
+      },
+    });
+
+    const orderData = await cfResponse.json();
+
+    if (orderData.order_status === "PAID" || orderData.order_status === "ACTIVE" || orderData.order_status === "SUCCESS") {
+      const activePlan = planId || (orderData.order_amount >= 1200 ? "growth" : "starter");
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      if (userId) {
+        try {
+          const { data: profData } = await supabase.from("rs_user_profiles").select("social_links").eq("id", userId).single();
+          const currentSocials = profData?.social_links || {};
+          const updatedSocials = {
+            ...currentSocials,
+            _subscription: { plan: activePlan, status: "active", expires_at: expiresAt }
+          };
+
+          const { error: dbErr } = await supabase
+            .from("rs_user_profiles")
+            .update({
+              subscription_plan: activePlan,
+              subscription_status: "active",
+              subscription_expires_at: expiresAt,
+              social_links: updatedSocials,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", userId);
+
+          if (dbErr) {
+            console.warn("[verify-payment] Direct column update notice, persisting to social_links JSON fallback:", dbErr.message);
+            await supabase
+              .from("rs_user_profiles")
+              .update({
+                social_links: updatedSocials,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", userId);
+          }
+        } catch (e) {
+          console.error("[verify-payment] Database update exception:", e);
+        }
+      }
+
+      return res.json({
+        success: true,
+        order_status: "PAID",
+        plan: activePlan,
+        expires_at: expiresAt,
+      });
+    }
+
+    res.json({
+      success: false,
+      order_status: orderData.order_status || "PENDING",
+      message: "Payment has not been completed",
+    });
+  } catch (err) {
+    console.error("[Cashfree] Verify Payment Error:", err);
+    res.status(500).json({ error: "Failed to verify payment status" });
+  }
+});
+
+app.post("/api/cashfree/webhook", async (req, res) => {
+  try {
+    const event = req.body;
+    console.log("[Cashfree Webhook Received]", event?.type);
+    res.json({ status: "OK" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`API server running on port ${PORT}`);
 });
+

@@ -4,12 +4,13 @@ import { createPortal } from "react-dom";
 import { 
   Briefcase, DollarSign, Users, MapPin, Globe, CheckCircle2, ChevronRight, 
   ChevronLeft, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText, 
-  TrendingUp, BarChart3, AlertCircle, Building2, HelpCircle, Edit2
+  TrendingUp, BarChart3, AlertCircle, Building2, HelpCircle, Edit2, Mail, Copy
 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
 import Card from "../components/ui/Card.jsx";
 import Spin from '../components/ui/Spin.jsx';
+
 
 // ─── Logo renderer ─────────────────────────────────────────────────
 function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
@@ -653,11 +654,15 @@ const INITIAL_FORM = {
   appliedInvestors: [] // Track investor IDs applied to
 };
 
-export default function FundingView({ me, dk, addNotif, isMobile, profiles, onProfile, onNavigate }) {
+export default function FundingView({ me, dk, addNotif, isMobile, profiles, onProfile, myProfile, openSubscriptionModal, onNavigate }) {
   const th = T(dk);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [hasStartup, setHasStartup] = useState(false);
+
+  const subPlan = myProfile?.subscription_plan || "free";
+  const isSubscribed = subPlan === "starter" || subPlan === "growth";
+
 
   // Db application records
   const [myApplication, setMyApplication] = useState(null);
@@ -920,22 +925,35 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // ─── APPLYING TO INVESTOR FLOW ─────────────────────────────────────
   const handleApplyToVC = async (investorId) => {
+    // 1. Subscription Check
+    if (!isSubscribed) {
+      addNotif?.({ type: "warning", msg: "🔒 A paid subscription (Starter or Growth) is required to access Funding Applications." });
+      openSubscriptionModal?.();
+      return;
+    }
+
+    const currentApplied = form.appliedInvestors || [];
+
+    // 2. Limit Check for Starter plan (max 30 funding applications)
+    if (subPlan === "starter" && currentApplied.length >= 30) {
+      addNotif?.({ type: "warning", msg: "⚠️ You have reached your monthly limit of 30 funding applications on Founder Starter. Upgrade to Growth for unlimited applications!" });
+      openSubscriptionModal?.();
+      return;
+    }
+
     const isCompleted = myApplication !== null;
 
     if (!isCompleted) {
-      // First time - prompt to fill out the form
       addNotif?.({ type: "info", msg: "Please fill out the funding application to apply." });
       handleOpenForm(investorId);
       return;
     }
 
-    const currentApplied = form.appliedInvestors || [];
     if (currentApplied.includes(investorId)) {
       addNotif?.({ type: "info", msg: "You have already applied to this VC." });
       return;
     }
 
-    // Pre-populate form, set target VC, and open wizard for review & submit
     setPendingVCId(investorId);
     setActiveStep(0);
     setFormErrors({});
@@ -1237,13 +1255,77 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f59e0b", display: "inline-block", animation: "pulseLive 1.5s infinite" }} />
           Soon
         </span>
-
-        {/* Minimal Description */}
-        <div style={{ fontSize: 13, color: th.txt2, lineHeight: 1.4, flex: 1 }}>
-          <strong style={{ color: th.txt, marginRight: 6 }}>Direct Investor Portal:</strong>
-          We are integrating direct VC applications, Investor Discovery, and Funding Matchmaking. Launching soon.
-        </div>
       </div>
+
+      {/* Subscription Status Banner */}
+
+      {!isSubscribed ? (
+        <div style={{
+          background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
+          border: "1px solid rgba(99,102,241,0.3)",
+          borderRadius: 20,
+          padding: "16px 20px",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>
+              <Lock size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: th.txt }}>Unlock Funding & Investor Matchmaking</div>
+              <div style={{ fontSize: 12, color: th.txt2 }}>Subscribe to Founder Starter (₹499/mo) or Founder Growth (₹1,299/mo) to submit funding applications and access investor details.</div>
+            </div>
+          </div>
+          <button
+            onClick={openSubscriptionModal}
+            style={{
+              padding: "10px 20px",
+              borderRadius: 12,
+              border: "none",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "#fff",
+              fontWeight: 800,
+              fontSize: 13,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
+            }}
+          >
+            <Sparkles size={14} /> Upgrade to Colab & Funding
+          </button>
+        </div>
+      ) : (
+        <div style={{
+          background: "rgba(16,185,129,0.08)",
+          border: "1px solid rgba(16,185,129,0.2)",
+          borderRadius: 16,
+          padding: "12px 18px",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          fontSize: 12,
+          color: th.txt,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckCircle2 size={16} color="#10b981" />
+            <span>Active Plan: <strong>{subPlan === "growth" ? "Founder Growth (₹1,299/mo - Unlimited Applications)" : "Founder Starter (₹499/mo - Up to 30 Applications)"}</strong></span>
+          </div>
+          {subPlan === "starter" && (
+            <button onClick={openSubscriptionModal} style={{ background: "transparent", border: "1px solid #6366f1", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              Upgrade to Unlimited
+            </button>
+          )}
+        </div>
+      )}
+
 
       {/* ─── SEARCH & FILTERS CONTAINER (MYTABLON STYLE) ─── */}
       <div style={{
@@ -1429,8 +1511,15 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.txt }}>{vc.name}</h3>
                       <span style={{ fontSize: 10, background: dk ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.06)", color: "#f59e0b", padding: "2px 8px", borderRadius: 99, fontWeight: 600 }}>{vc.type || "VCs"}</span>
                     </div>
+                    {vc.email && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: 11, color: th.txt3 }}>
+                        <Mail size={11} color="#6366f1" />
+                        <span>{vc.email}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
+
 
                 {/* Structured Details Grid */}
                 <div style={{ 
@@ -2571,6 +2660,39 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#8b5cf6" }}>{getFundingType(selectedVC)}</div>
                 </div>
               </div>
+
+              {/* Email Contact Card */}
+              {selectedVC.email && (
+                <div style={{ background: dk ? "rgba(99, 102, 241, 0.08)" : "rgba(99, 102, 241, 0.04)", padding: 14, borderRadius: 14, border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                      <Mail size={18} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>Direct Contact Email</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>{selectedVC.email}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedVC.email);
+                        addNotif?.({ type: "success", msg: "📋 Email copied to clipboard!" });
+                      }}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${th.bdr}`, background: th.surf, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                    >
+                      <Copy size={12} /> Copy
+                    </button>
+                    <a
+                      href={`mailto:${selectedVC.email}`}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                    >
+                      <Mail size={12} /> Mail
+                    </a>
+                  </div>
+                </div>
+              )}
+
 
               {/* Description */}
               <div>

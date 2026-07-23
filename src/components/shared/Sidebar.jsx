@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign, Award, Settings } from "lucide-react";
+import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign, Crown, Award, Settings } from "lucide-react";
 import { T } from "../../config/constants.js";
 import { canManageAds, hasRole } from "../../utils/helpers.js";
 import Av from "../ui/Av.jsx";
@@ -11,8 +11,9 @@ const NAV_LINKS = [
   { id: "notifications", icon: Bell, label: "Notifications" },
   { id: "messages", icon: MessageCircle, label: "Messages" },
   { id: "colab", icon: Lightbulb, label: "Colab" },
-  { id: "funding", icon: DollarSign, label: "Funding", comingSoon: true },
+  { id: "funding", icon: DollarSign, label: "Funding" },
   { id: "events", icon: Calendar, label: "Events" },
+
   { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
   // Admin‑only navigation item
   { id: "user-management", icon: Settings, label: "User Management", adminOnly: true },
@@ -177,7 +178,16 @@ export default function Sidebar({ view, setView, me, dk, bals, myProfile, open, 
         >
           <Av profile={myProfile || {}} size={30} bal={bal} />
           <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: th.txt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{myProfile?.name || "User"}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: th.txt, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{myProfile?.name || "User"}</span>
+              {myProfile?.subscription_status === "active" && (
+                myProfile.subscription_plan === "growth" ? (
+                  <Crown size={12} style={{ color: "#f59e0b", fill: "#f59e0b", flexShrink: 0 }} />
+                ) : myProfile.subscription_plan === "starter" ? (
+                  <Crown size={12} style={{ color: "#6366f1", fill: "#6366f1", flexShrink: 0 }} />
+                ) : null
+              )}
+            </div>
             <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700 }}>◈ {bal} SGN</div>
           </div>
         </button>

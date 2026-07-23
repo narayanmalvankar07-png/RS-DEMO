@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
-  PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, X, Send, FileText, Edit2, Trash2, ChevronRight, ChevronDown, Lock, Key, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2,
+  PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, CheckCircle2, X, Send, FileText, Edit2, Trash2, ChevronRight, ChevronDown, Lock, Key, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2,
   Rocket, Code, CircleDollarSign, Handshake, Terminal, Palette, Award, Crown, Shield, User, ListTodo, FolderOpen, Activity, Camera, Compass, BookOpen,
-  CreditCard, Smartphone, Wallet, Star, Sparkles
+  Bookmark, CreditCard, Smartphone, Wallet, Star, Sparkles
 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
@@ -1675,8 +1675,584 @@ function JoinCodeModal({ me, onClose, onJoined, dk, isMobile = false }) {
   );
 }
 
+// ─── Liquid Glass Select Dropdown Component ─────────────────────────────
+function LiquidGlassSelect({ value, onChange, options, dk, th }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative", width: "100%" }}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          padding: "10px 14px",
+          borderRadius: 12,
+          border: open ? "1px solid #6366f1" : `1px solid ${th.inpB}`,
+          background: dk
+            ? "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.75))"
+            : "linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(241, 245, 249, 0.95))",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          color: th.txt,
+          fontSize: 13,
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          boxShadow: open
+            ? "0 0 18px rgba(99, 102, 241, 0.35)"
+            : "0 2px 8px rgba(0,0,0,0.08)",
+          transition: "all 0.2s ease",
+          textAlign: "left",
+          boxSizing: "border-box"
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#6366f1", boxShadow: "0 0 8px #6366f1" }} />
+          {value || options[0]}
+        </span>
+        <ChevronDown size={14} color={th.txt2} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: dk
+              ? "rgba(10, 16, 30, 0.92)"
+              : "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: `1px solid ${dk ? "rgba(99, 102, 241, 0.35)" : "rgba(99, 102, 241, 0.25)"}`,
+            borderRadius: 14,
+            padding: 6,
+            boxShadow: dk
+              ? "0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(99, 102, 241, 0.25)"
+              : "0 16px 40px rgba(99, 102, 241, 0.18), 0 4px 14px rgba(0, 0, 0, 0.08)",
+            animation: "fadeUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
+          {options.map((opt) => {
+            const selected = value === opt;
+            return (
+              <div
+                key={opt}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                style={{
+                  padding: "9px 12px",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: selected ? 700 : 500,
+                  color: selected ? "#6366f1" : th.txt,
+                  background: selected
+                    ? "rgba(99, 102, 241, 0.16)"
+                    : "transparent",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected) e.currentTarget.style.background = dk ? "rgba(255, 255, 255, 0.08)" : "rgba(99, 102, 241, 0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!selected) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span>{opt}</span>
+                {selected && <Check size={14} color="#6366f1" />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Products & Services Section Component ─────────────────────────────
+function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfile, openSubscriptionModal }) {
+  const th = T(dk);
+  const PROD_KEY = `rs_prods_${startup.id}`;
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingProd, setEditingProd] = useState(null);
+  const [form, setForm] = useState({ title: "", description: "", price: "499", currency: "₹", category: "SaaS", demo_url: "", image_url: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const subPlan = myProfile?.subscription_plan || "free";
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        let prods = [];
+
+        // 1. Try fetching from standalone DB table rs_startup_products
+        try {
+          const remote = await db.get("rs_startup_products", `startup_id=eq.${startup.id}&order=created_at.desc`);
+          if (Array.isArray(remote) && remote.length > 0) {
+            prods = remote;
+          }
+        } catch (e) {
+          // Table rs_startup_products may not exist in DB
+        }
+
+        // 2. Check startup object's products array (persisted in rs_startups table)
+        if (!prods.length && startup.products && Array.isArray(startup.products) && startup.products.length > 0) {
+          prods = startup.products;
+        }
+
+        // 3. Check local storage cache
+        if (!prods.length) {
+          const localProds = ls.get(PROD_KEY, []);
+          if (localProds.length > 0) {
+            prods = localProds;
+          }
+        }
+
+        setProducts(prods);
+        ls.set(PROD_KEY, prods);
+
+        // 4. Auto-sync: If founder has local products, persist them to rs_startups and rs_startup_products in Supabase so ALL users can see them
+        if (isFounder && prods.length > 0) {
+          try {
+            await db.patch("rs_startups", `id=eq.${startup.id}`, { products: prods });
+            startup.products = prods;
+
+            // Upload any local products (with temporary prod_ or local_ IDs) to rs_startup_products DB table
+            let updatedList = [...prods];
+            let modified = false;
+            for (let i = 0; i < updatedList.length; i++) {
+              const p = updatedList[i];
+              if (!p.id || String(p.id).startsWith("prod_") || String(p.id).startsWith("local_")) {
+                try {
+                  const payload = {
+                    startup_id: startup.id,
+                    created_by: me,
+                    title: p.title || "Untitled Product",
+                    description: p.description || "",
+                    price: p.price || "Free",
+                    category: p.category || "SaaS",
+                    demo_url: p.demo_url || "",
+                    image_url: p.image_url || "",
+                    updated_at: new Date().toISOString(),
+                  };
+                  const saved = await db.post("rs_startup_products", payload);
+                  if (saved && saved.id) {
+                    updatedList[i] = { ...p, ...saved };
+                    modified = true;
+                  }
+                } catch (err) {}
+              }
+            }
+            if (modified) {
+              setProducts(updatedList);
+              ls.set(PROD_KEY, updatedList);
+              await db.patch("rs_startups", `id=eq.${startup.id}`, { products: updatedList });
+              startup.products = updatedList;
+            }
+          } catch (err) {
+            console.warn("Auto-sync local products warning:", err);
+          }
+        }
+      } catch (e) {
+        console.error("Products fetch error:", e);
+        const fallback = ls.get(PROD_KEY, startup.products || []);
+        setProducts(fallback);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [startup.id, isFounder, me]);
+
+  const parsePriceAndCurrency = (str = "") => {
+    if (!str || str === "Free") return { currency: "Free", price: "" };
+    if (str.startsWith("₹")) return { currency: "₹", price: str.slice(1).trim() };
+    if (str.startsWith("$")) return { currency: "$", price: str.slice(1).trim() };
+    if (str.startsWith("€")) return { currency: "€", price: str.slice(1).trim() };
+    if (str.startsWith("£")) return { currency: "£", price: str.slice(1).trim() };
+    return { currency: "Custom", price: str };
+  };
+
+  const handleOpenAdd = () => {
+    const maxAllowed = subPlan === "growth" ? 10 : subPlan === "starter" ? 3 : 0;
+    if (products.length >= maxAllowed) {
+      if (subPlan === "free") {
+        addNotif?.({ type: "warning", msg: "🔒 A paid subscription (Starter or Growth) is required to add products to your startup." });
+      } else if (subPlan === "starter") {
+        addNotif?.({ type: "warning", msg: "⚠️ Founder Starter plan allows up to 3 products. Upgrade to Founder Growth (₹1,299/mo) for up to 10 products!" });
+      } else {
+        addNotif?.({ type: "warning", msg: "⚠️ Maximum limit of 10 products reached." });
+      }
+      openSubscriptionModal?.();
+      return;
+    }
+    setForm({ title: "", description: "", price: "499", currency: "₹", category: "SaaS", demo_url: "", image_url: "" });
+    setEditingProd(null);
+    setShowAdd(true);
+  };
+
+  const handleImageFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const url = await processAndUploadImage(file);
+      setForm(f => ({ ...f, image_url: url }));
+    } catch (err) {
+      addNotif?.({ type: "error", msg: err.message || "Failed to process image." });
+    }
+  };
+
+  const handleSaveProduct = async () => {
+    const isFormValid = Boolean(form.title.trim() && (form.currency === "Free" || form.price.trim()) && form.category.trim() && form.description.trim() && form.image_url.trim());
+    if (!isFormValid) return;
+
+    const formattedPrice = form.currency === "Free" ? "Free" : form.currency === "Custom" ? form.price.trim() : `${form.currency}${form.price.trim()}`;
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        startup_id: startup.id,
+        created_by: me,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        price: formattedPrice,
+        category: form.category || "SaaS",
+        demo_url: form.demo_url.trim(),
+        image_url: form.image_url.trim(),
+        updated_at: new Date().toISOString(),
+      };
+
+      let saved;
+      try {
+        if (editingProd?.id && !editingProd.id.startsWith("local_") && !editingProd.id.startsWith("prod_")) {
+          await db.patch("rs_startup_products", `id=eq.${editingProd.id}`, payload);
+          saved = { ...editingProd, ...payload };
+        } else {
+          saved = await db.post("rs_startup_products", payload);
+        }
+      } catch (e) {}
+
+      const prodObj = saved || { id: editingProd?.id || `prod_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, ...payload, created_at: new Date().toISOString() };
+
+      const nextProds = editingProd ? products.map(p => p.id === prodObj.id ? prodObj : p) : [prodObj, ...products];
+      setProducts(nextProds);
+      ls.set(PROD_KEY, nextProds);
+
+      // Persist directly to rs_startups table in Supabase so every user account can view products
+      startup.products = nextProds;
+      try {
+        await db.patch("rs_startups", `id=eq.${startup.id}`, { products: nextProds });
+      } catch (e) {
+        console.warn("Failed to patch rs_startups products:", e);
+      }
+
+      addNotif?.({ type: "success", msg: editingProd ? "Product updated!" : "Product added successfully! 🚀" });
+      setShowAdd(false);
+      setEditingProd(null);
+    } catch (e) {
+      console.error(e);
+      addNotif?.({ type: "error", msg: "Failed to save product." });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async (prodId) => {
+    try {
+      try {
+        if (!prodId.startsWith("local_") && !prodId.startsWith("prod_")) {
+          await db.del("rs_startup_products", `id=eq.${prodId}`);
+        }
+      } catch (e) {}
+
+      const nextProds = products.filter(p => p.id !== prodId);
+      setProducts(nextProds);
+      ls.set(PROD_KEY, nextProds);
+
+      startup.products = nextProds;
+      try {
+        await db.patch("rs_startups", `id=eq.${startup.id}`, { products: nextProds });
+      } catch (e) {}
+
+      addNotif?.({ type: "info", msg: "Product removed." });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
+            <Rocket size={18} color="#6366f1" /> Products &amp; Services ({products.length})
+          </h3>
+          <p style={{ margin: 0, fontSize: 12, color: th.txt3 }}>
+            {isFounder ? (
+              subPlan === "growth" ? "Founder Growth Plan: Up to 10 products allowed" : subPlan === "starter" ? "Founder Starter Plan: Up to 3 products allowed" : "Subscribe to add products"
+            ) : "Offerings and products by this startup"}
+          </p>
+        </div>
+
+        {isFounder && (
+          <button
+            onClick={handleOpenAdd}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 10,
+              border: "none",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: "0 4px 12px rgba(99,102,241,0.25)",
+            }}
+          >
+            <PlusCircle size={14} /> Add Product / Service
+          </button>
+        )}
+      </div>
+
+      {showAdd && (() => {
+        const isFormValid = Boolean(form.title.trim() && (form.currency === "Free" || form.price.trim()) && form.category.trim() && form.description.trim() && form.image_url.trim());
+        return (
+          <Card dk={dk} style={{ marginBottom: 20, padding: 18, overflow: "visible" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: th.txt, marginBottom: 14 }}>
+              {editingProd ? "Edit Product / Service" : "Add New Product / Service"}
+            </div>
+
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Product Title *</label>
+                <input
+                  value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. AI Content Suite, SaaS Pro, Consulting Package"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Price &amp; Currency *</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ width: 100, flexShrink: 0 }}>
+                      <LiquidGlassSelect
+                        value={form.currency}
+                        onChange={val => setForm(f => ({ ...f, currency: val, price: val === "Free" ? "" : f.price }))}
+                        options={["₹", "$", "€", "£", "Free", "Custom"]}
+                        dk={dk}
+                        th={th}
+                      />
+                    </div>
+                    <input
+                      value={form.price}
+                      onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                      placeholder={form.currency === "Free" ? "Free" : "e.g. 499 / mo"}
+                      disabled={form.currency === "Free"}
+                      style={{
+                        flex: 1,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: `1px solid ${th.inpB}`,
+                        background: form.currency === "Free" ? th.surf2 : th.inp,
+                        color: th.txt,
+                        outline: "none",
+                        fontSize: 13,
+                        boxSizing: "border-box"
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Category *</label>
+                  <LiquidGlassSelect
+                    value={form.category}
+                    onChange={val => setForm(f => ({ ...f, category: val }))}
+                    options={["SaaS", "Product", "Service", "Mobile App", "API", "Consulting", "Other"]}
+                    dk={dk}
+                    th={th}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Description *</label>
+                <textarea
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="What does this product do? What features are included?"
+                  rows={3}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }}
+                />
+              </div>
+
+              {/* Product Image section: Device Upload or Link */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Product Image * (Device Upload or Image Link)</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <label style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.surf2, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <Upload size={14} color="#6366f1" /> Upload Image (Max 2MB)
+                      <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ display: "none" }} />
+                    </label>
+                    <span style={{ fontSize: 11, color: th.txt3 }}>or paste URL below</span>
+                  </div>
+                  <input
+                    value={form.image_url}
+                    onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
+                    placeholder="https://example.com/product-image.jpg or data:image/..."
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                  {form.image_url && (
+                    <div style={{ position: "relative", width: 120, height: 80, borderRadius: 8, overflow: "hidden", border: `1px solid ${th.bdr}`, marginTop: 4 }}>
+                      <img src={form.image_url} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = 'none'; }} />
+                      <button onClick={() => setForm(f => ({ ...f, image_url: "" }))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>✕</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Website / Demo URL (Optional)</label>
+                <input
+                  value={form.demo_url}
+                  onChange={e => setForm(f => ({ ...f, demo_url: e.target.value }))}
+                  placeholder="https://myproduct.com"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <button onClick={() => setShowAdd(false)} style={{ padding: "9px 16px", borderRadius: 10, border: `1px solid ${th.bdr}`, background: "transparent", color: th.txt2, cursor: "pointer", fontSize: 13 }}>Cancel</button>
+              <button
+                onClick={handleSaveProduct}
+                disabled={submitting || !isFormValid}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: isFormValid ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : (dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"),
+                  color: isFormValid ? "#fff" : th.txt3,
+                  cursor: isFormValid && !submitting ? "pointer" : "not-allowed",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  opacity: isFormValid ? 1 : 0.55,
+                  transition: "all 0.2s ease"
+                }}
+              >
+                {submitting ? "Saving…" : "Save Product"}
+              </button>
+            </div>
+          </Card>
+        );
+      })()}
+
+      {loading ? (
+        <Spin dk={dk} msg="Loading products…" />
+      ) : products.length === 0 ? (
+        <Card dk={dk} style={{ textAlign: "center", padding: 36, color: th.txt3 }}>
+          <Rocket size={32} style={{ opacity: 0.4, margin: "0 auto 8px" }} />
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: th.txt }}>No products or services listed yet.</p>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: th.txt3 }}>
+            {isFounder ? "Click 'Add Product / Service' to showcase your offerings to users and investors." : "Check back later for updates."}
+          </p>
+        </Card>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+          {products.map(prod => (
+            <Card key={prod.id} dk={dk} style={{ padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, overflow: "hidden" }}>
+              <div>
+                {prod.image_url && (
+                  <div style={{ width: "100%", height: 140, borderRadius: 10, overflow: "hidden", marginBottom: 12, background: th.surf2, border: `1px solid ${th.bdr}` }}>
+                    <img src={prod.image_url} alt={prod.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = 'none'; }} />
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <span style={{ fontSize: 10, background: "rgba(99,102,241,0.12)", color: "#6366f1", padding: "2px 8px", borderRadius: 99, fontWeight: 700, display: "inline-block", marginBottom: 4 }}>
+                      {prod.category || "Product"}
+                    </span>
+                    <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: th.txt }}>{prod.title}</h4>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 800, background: "#10b98118", color: "#10b981", padding: "3px 9px", borderRadius: 8, flexShrink: 0 }}>
+                    {prod.price || "Free"}
+                  </span>
+                </div>
+
+                <p style={{ margin: 0, fontSize: 12, color: th.txt2, lineHeight: 1.5 }}>
+                  {prod.description || "No description provided."}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: `1px solid ${th.bdr}`, paddingTop: 10, marginTop: 4 }}>
+                {prod.demo_url ? (
+                  <a href={prod.demo_url.startsWith("http") ? prod.demo_url : `https://${prod.demo_url}`} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, color: "#6366f1", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+                    <Globe size={13} /> Visit Product ↗
+                  </a>
+                ) : <span style={{ fontSize: 11, color: th.txt3 }}>Available on request</span>}
+
+                {isFounder && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button
+                      onClick={() => {
+                        const parsed = parsePriceAndCurrency(prod.price);
+                        setForm({ title: prod.title, description: prod.description || "", price: parsed.price, currency: parsed.currency, category: prod.category || "SaaS", demo_url: prod.demo_url || "", image_url: prod.image_url || "" });
+                        setEditingProd(prod);
+                        setShowAdd(true);
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: th.txt3, padding: 4 }}
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(prod.id)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: 4 }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Visitor / Member Detail View ──────────────────────────────────
-function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif, isMobile = false, initialTab = "overview" }) {
+function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, addNotif, isMobile = false, initialTab = "overview", myProfile, openSubscriptionModal }) {
+
   const th = T(dk);
   const [profiles, setProfiles] = useState(initialProfiles);
 
@@ -1834,7 +2410,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
   const founders = (startup.founders || [startup.created_by]).filter(Boolean);
   const teamUids = [...new Set([...founders, ...members.map(m => m.user_id)])];
   const headerBg = dk ? "linear-gradient(135deg,rgba(30,58,138,0.25),rgba(91,33,182,0.2))" : "linear-gradient(135deg,#e0e7ff,#ede9fe)";
-  const TABS = [{ id: "overview", label: "Overview" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
+  const TABS = [{ id: "overview", label: "Overview" }, { id: "products", label: "Products & Services" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
 
   if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} addNotif={addNotif} />;
 
@@ -2003,6 +2579,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
             </div>
           )}
 
+          {tab === "products" && <ProductsServicesSection startup={startup} isFounder={false} me={me} dk={dk} addNotif={addNotif} myProfile={myProfile} openSubscriptionModal={openSubscriptionModal} />}
           {tab === "feedback" && <FeedbackSection startupId={startup.id} me={me} profiles={profiles} dk={dk} />}
         </>
       )}
@@ -2011,7 +2588,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
 }
 
 // ─── Founder Dashboard ─────────────────────────────────────────────
-function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile = false, initialTab = "overview" }) {
+function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile = false, initialTab = "overview", myProfile, openSubscriptionModal }) {
   const th = T(dk);
   const [startup, setStartup] = useState(initialStartup);
   const [profiles, setProfiles] = useState(initialProfiles);
@@ -2346,6 +2923,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
   const TABS = [
     { id: "overview", label: "Overview" },
     { id: "requests", label: `Requests${totalPending ? ` (${totalPending})` : ""}` },
+    { id: "products", label: "Products & Services" },
     { id: "pages", label: "Pages" },
     { id: "members", label: "Members" },
     { id: "meetings", label: "Meetings" },
@@ -2441,7 +3019,10 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
             </div>
           )}
 
+
+
           {tab === "requests" && (
+
             <div>
               {/* ── Summary strip ── */}
               {(() => {
@@ -2851,6 +3432,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
             </div>
           )}
 
+          {tab === "products" && <ProductsServicesSection startup={startup} isFounder={true} me={me} dk={dk} addNotif={addNotif} myProfile={myProfile} openSubscriptionModal={openSubscriptionModal} />}
           {tab === "feedback" && <FeedbackSection startupId={startup.id} me={me} profiles={profiles} dk={dk} />}
         </>
       )}
@@ -2859,10 +3441,10 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
 }
 
 // ─── StartupDetail dispatcher ──────────────────────────────────────
-function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile, initialTab = "overview" }) {
+function StartupDetail({ startup, me, profiles, bals, dk, onBack, addNotif, onStartupUpdated, isMobile, initialTab = "overview", myProfile, openSubscriptionModal }) {
   const isFounder = startup.created_by === me || (startup.founders || []).includes(me);
-  if (isFounder) return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} isMobile={isMobile} initialTab={initialTab} />;
-  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} isMobile={isMobile} initialTab={initialTab} />;
+  if (isFounder) return <FounderDetail startup={startup} me={me} profiles={profiles} bals={bals} dk={dk} onBack={onBack} addNotif={addNotif} onStartupUpdated={onStartupUpdated} isMobile={isMobile} initialTab={initialTab} myProfile={myProfile} openSubscriptionModal={openSubscriptionModal} />;
+  return <VisitorDetail startup={startup} me={me} profiles={profiles} dk={dk} onBack={onBack} addNotif={addNotif} isMobile={isMobile} initialTab={initialTab} myProfile={myProfile} openSubscriptionModal={openSubscriptionModal} />;
 }
 
 // ─── Membership Modal Component ─────────────────────────────────────
@@ -3622,11 +4204,13 @@ function MembershipModal({ dk, onClose, isMobile, onSelectPlan }) {
 }
 
 // ─── Main ColabView ────────────────────────────────────────────────
-export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif, isMobile = false }) {
+export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif, isMobile = false, myProfile, openSubscriptionModal }) {
   const th = T(dk);
   const [startups, setStartups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [selectedStage, setSelectedStage] = useState("All Stages");
   const [savedIds, setSavedIds] = useState([]);
   const [savedOnly, setSavedOnly] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -3635,6 +4219,31 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   const [showJoinCode, setShowJoinCode] = useState(false);
   const [showMembership, setShowMembership] = useState(false);
   const [latestUpdates, setLatestUpdates] = useState({});
+
+  const subPlan = myProfile?.subscription_plan || "free";
+  const isSubscribed = subPlan === "starter" || subPlan === "growth";
+
+  const handleCreateStartupClick = () => {
+    if (!isSubscribed) {
+      addNotif?.({ type: "warning", msg: "🔒 A paid subscription (Starter or Growth) is required to create a startup." });
+      openSubscriptionModal?.();
+      return;
+    }
+
+    const createdCount = myStartups.length;
+    if (subPlan === "starter" && createdCount >= 3) {
+      addNotif?.({ type: "warning", msg: "🔒 Starter plan allows up to 3 startups. Upgrade to Growth for up to 10 startups!" });
+      openSubscriptionModal?.();
+      return;
+    }
+
+    if (subPlan === "growth" && createdCount >= 10) {
+      addNotif?.({ type: "warning", msg: "🔒 You have reached the maximum limit of 10 startups for Founder Growth." });
+      return;
+    }
+
+    setShowCreate(true);
+  };
 
   const load = useCallback(async () => {
     const [rows, savedRows] = await Promise.all([
@@ -3665,15 +4274,22 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   };
 
   if (selected) {
-    return <StartupDetail startup={selected} me={me} profiles={profiles} bals={bals} dk={dk} onBack={() => { setSelected(null); setInitialTab("overview"); load(); }} addNotif={addNotif} onStartupUpdated={s => setStartups(prev => prev.map(x => x.id === s.id ? s : x))} initialTab={initialTab} />;
+    return <StartupDetail startup={selected} me={me} profiles={profiles} bals={bals} dk={dk} onBack={() => { setSelected(null); setInitialTab("overview"); load(); }} addNotif={addNotif} onStartupUpdated={s => setStartups(prev => prev.map(x => x.id === s.id ? s : x))} initialTab={initialTab} myProfile={myProfile} openSubscriptionModal={openSubscriptionModal} />;
   }
 
   const filtered = startups.filter(s => {
     if (savedOnly && !savedIds.includes(s.id)) return false;
+    if (selectedCategory !== "All Categories" && s.category !== selectedCategory && s.industry !== selectedCategory) {
+      if (!s.description?.toLowerCase().includes(selectedCategory.toLowerCase())) return false;
+    }
+    if (selectedStage !== "All Stages" && s.stage !== selectedStage) {
+      if (!s.description?.toLowerCase().includes(selectedStage.toLowerCase())) return false;
+    }
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return s.name?.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q);
   });
+
 
   const myStartups = startups.filter(s => s.created_by === me || (s.founders || []).includes(me));
 
@@ -3699,9 +4315,35 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
           <button onClick={() => setShowJoinCode(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: th.surf2, border: `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 14px", color: th.txt2, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             <Key size={13} color={th.txt2} /> Enter Code
           </button>
-          <button onClick={() => setShowMembership(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><PlusCircle size={14} /> Create Startup</button>
+          <button onClick={handleCreateStartupClick} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><PlusCircle size={14} /> Create Startup</button>
         </div>
       </div>
+
+      {/* Active Plan Banner (matching FundingView) */}
+      {isSubscribed && (
+        <div style={{
+          background: dk ? "rgba(16,185,129,0.06)" : "#f0fdf4",
+          border: "1px solid rgba(16,185,129,0.2)",
+          borderRadius: 16,
+          padding: "12px 18px",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          fontSize: 12,
+          color: th.txt,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckCircle2 size={16} color="#10b981" />
+            <span>Active Plan: <strong>{subPlan === "growth" ? "Founder Growth (₹1,299/mo - Up to 10 Startups)" : "Founder Starter (₹499/mo - Up to 3 Startups)"}</strong></span>
+          </div>
+          {subPlan === "starter" && (
+            <button onClick={openSubscriptionModal} style={{ background: "transparent", border: "1px solid #6366f1", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              Upgrade to 10 Startups
+            </button>
+          )}
+        </div>
+      )}
 
       {myStartups.length > 0 && (
         <div style={{ marginBottom: 16 }}>
@@ -3720,13 +4362,38 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <div style={{ position: "relative", flex: 1 }}>
+      {/* Search & Filter Bar */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: th.txt3 }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search startups…" style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px 9px 34px", fontSize: 13, outline: "none", color: th.txt, boxSizing: "border-box" }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search startups by name or topic…" style={{ width: "100%", background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 10, padding: "9px 12px 9px 34px", fontSize: 13, outline: "none", color: th.txt, boxSizing: "border-box" }} />
         </div>
-        <button onClick={() => setSavedOnly(v => !v)} style={{ background: savedOnly ? "rgba(99,102,241,0.15)" : th.surf2, border: `1px solid ${savedOnly ? "#6366f140" : th.bdr}`, borderRadius: 10, padding: "0 14px", color: savedOnly ? "#6366f1" : th.txt2, cursor: "pointer", flexShrink: 0, fontSize: 12, fontWeight: 600 }}>🔖 {savedOnly ? "All" : "Saved"}</button>
+
+        {/* Category Filter */}
+        <select
+          value={selectedCategory}
+          onChange={e => setSelectedCategory(e.target.value)}
+          style={{ background: th.surf2, border: `1px solid ${th.bdr}`, color: th.txt, padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer" }}
+        >
+          {["All Categories", "SaaS", "AI", "Fintech", "Consumer", "Biotech", "E-commerce", "DeepTech", "HealthTech", "Web3", "Marketplace"].map(cat => (
+            <option key={cat} value={cat} style={{ background: th.side, color: th.txt }}>{cat}</option>
+          ))}
+        </select>
+
+        {/* Stage Filter */}
+        <select
+          value={selectedStage}
+          onChange={e => setSelectedStage(e.target.value)}
+          style={{ background: th.surf2, border: `1px solid ${th.bdr}`, color: th.txt, padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer" }}
+        >
+          {["All Stages", "Idea", "MVP", "Seed", "Growth"].map(stg => (
+            <option key={stg} value={stg} style={{ background: th.side, color: th.txt }}>{stg}</option>
+          ))}
+        </select>
+
+        <button onClick={() => setSavedOnly(v => !v)} style={{ background: savedOnly ? "rgba(99,102,241,0.15)" : th.surf2, border: `1px solid ${savedOnly ? "#6366f140" : th.bdr}`, borderRadius: 10, padding: "8px 14px", color: savedOnly ? "#6366f1" : th.txt2, cursor: "pointer", flexShrink: 0, fontSize: 12, fontWeight: 600 }}>🔖 {savedOnly ? "All" : "Saved"}</button>
       </div>
+
 
       {loading ? <Spin dk={dk} msg="Loading startups…" /> : filtered.length === 0 ? (
         <div style={{
@@ -3805,7 +4472,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
               <div style={{ borderTop: `1px solid ${th.bdr}`, marginTop: 12, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, color: th.txt3 }}>{s.created_at ? ago(new Date(s.created_at).getTime()) + " ago" : ""}</span>
-                  <button onClick={e => { e.stopPropagation(); toggleSave(s.id); }} style={{ background: isSaved ? "rgba(99,102,241,0.1)" : "none", border: isSaved ? "1px solid #6366f140" : "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: isSaved ? "#6366f1" : th.txt3, fontSize: 12, display: "flex", alignItems: "center" }}>🔖</button>
+                  <button onClick={e => { e.stopPropagation(); toggleSave(s.id); }} style={{ background: isSaved ? "rgba(99,102,241,0.1)" : "none", border: isSaved ? "1px solid #6366f140" : "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", color: isSaved ? "#6366f1" : th.txt3, fontSize: 10, display: "flex", alignItems: "center" }}><Bookmark/></button>
                 </div>
                 <button onClick={() => { setSelected(s); setInitialTab(isOwner ? "overview" : "pages"); }} style={{ display: "flex", alignItems: "center", gap: 5, background: isOwner ? "linear-gradient(135deg,#3b82f6,#6366f1)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 10, padding: "7px 18px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }} data-testid={`button-open-${s.id}`}>
                   {isOwner ? "Manage" : "Join"} <ChevronRight size={13} />

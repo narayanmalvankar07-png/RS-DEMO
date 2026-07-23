@@ -34,3 +34,29 @@ export const extractTags = t => (t.match(/#[a-zA-Z0-9_]+/g) || []).map(h => h.to
 export const hasRole = (profile, ...roles) => roles.includes(profile?.system_role) || profile?.is_admin;
 export const isAdmin = p => p?.is_admin || p?.system_role === "admin";
 export const canManageAds = p => isAdmin(p) || ["growth_catalyst", "management"].includes(p?.system_role);
+
+// Password strength calculation
+export const getPasswordStrength = (pwd) => {
+  if (!pwd) return { score: 0, label: "Too Weak", color: "#ef4444" };
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[a-z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+  let label = "Weak";
+  let color = "#ef4444";
+  if (score === 5) {
+    label = "Strong";
+    color = "#22c55e";
+  } else if (score >= 3) {
+    label = "Moderate";
+    color = "#f59e0b";
+  } else if (score >= 1) {
+    label = "Weak";
+    color = "#f87171";
+  }
+
+  return { score, label, color };
+};

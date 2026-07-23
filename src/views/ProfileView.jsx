@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, MessageCircle, Heart, Edit3, Check, X, Rocket, TrendingUp, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Sparkles, Building2, User, Camera, Github, Linkedin, Twitter, FileText } from "lucide-react";
+import { ArrowLeft, MessageCircle, Heart, Edit3, Check, X, Rocket, TrendingUp, Briefcase, Zap, Code2, Palette, Globe, Brain, GraduationCap, Microscope, Sparkles, Building2, User, Camera, Github, Linkedin, Twitter, FileText, Crown } from "lucide-react";
 import { T, ROLES, WHO_OPTS, INT_OPTS, SB_URL, SB_KEY } from "../config/constants.js";
 import { processAndUploadImage } from "../utils/uploadImage.js";
 
@@ -157,7 +157,7 @@ function ProfileGlassSelect({ value, onChange, options, dk, th }) {
   );
 }
 
-export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif, onProfileUpdate, isMobile = false }) {
+export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBals, onMessage, addNotif, onProfileUpdate, isMobile = false, onOpenUpgrade }) {
   const th = T(dk);
   const profile = profiles[uid] || { name: "Unknown", handle: "unknown", bio: "No profile available." };
   const balance = bals[uid] ?? 0;
@@ -778,7 +778,16 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             {editing ? (
               <input value={editName} onChange={e => setEditName(e.target.value)} style={{ fontSize: 22, fontWeight: 800, color: th.txt, background: th.inp, border: `1px solid ${th.inpB}`, borderRadius: 8, padding: "4px 10px", outline: "none", width: "100%", boxSizing: "border-box", marginBottom: 6 }} />
             ) : (
-              <div style={{ fontSize: 22, fontWeight: 800, color: th.txt }}>{profile.name}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>{profile.name}</span>
+                {profile.subscription_status === "active" && (
+                  profile.subscription_plan === "growth" ? (
+                    <Crown size={20} style={{ color: "#f59e0b", fill: "#f59e0b", filter: "drop-shadow(0 0 4px rgba(245,158,11,0.5))" }} title="Founder Growth Member" />
+                  ) : profile.subscription_plan === "starter" ? (
+                    <Crown size={20} style={{ color: "#6366f1", fill: "#6366f1", filter: "drop-shadow(0 0 4px rgba(99,102,241,0.5))" }} title="Founder Starter Member" />
+                  ) : null
+                )}
+              </div>
             )}
             <div style={{ fontSize: 13, color: th.txt3, marginBottom: 4 }}>@{profile.handle || profile.email || uid.slice(0, 8)}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "center" : "flex-start", marginTop: 6, marginBottom: 4 }}>
@@ -1139,6 +1148,137 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
             </div>
           ))}
         </div>
+
+        {/* Subscription Info Card */}
+        {profile.subscription_status === "active" ? (
+          <div style={{
+            marginTop: 16,
+            background: profile.subscription_plan === "growth" 
+              ? "linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(251, 191, 36, 0.05) 100%)" 
+              : "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%)",
+            border: `1px solid ${profile.subscription_plan === "growth" ? "rgba(245, 158, 11, 0.3)" : "rgba(99, 102, 241, 0.3)"}`,
+            borderRadius: 14,
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: profile.subscription_plan === "growth" ? "0 4px 20px rgba(245,158,11,0.05)" : "0 4px 20px rgba(99,102,241,0.05)",
+            width: "100%",
+            boxSizing: "border-box"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: profile.subscription_plan === "growth" ? "#f59e0b" : "#6366f1",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                boxShadow: profile.subscription_plan === "growth" ? "0 4px 10px rgba(245,158,11,0.25)" : "0 4px 10px rgba(99,102,241,0.25)"
+              }}>
+                <Crown size={18} style={{ fill: "#fff" }} />
+              </div>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 6 }}>
+                  {profile.subscription_plan === "growth" ? "Founder Growth Tier" : "Founder Starter Tier"}
+                  <span style={{
+                    fontSize: 10,
+                    background: profile.subscription_plan === "growth" ? "rgba(245, 158, 11, 0.15)" : "rgba(99, 102, 241, 0.15)",
+                    color: profile.subscription_plan === "growth" ? "#f59e0b" : "#6366f1",
+                    padding: "1px 6px",
+                    borderRadius: 99,
+                    fontWeight: 700
+                  }}>
+                    ACTIVE
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>
+                  Expires on: {profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : "N/A"}
+                </div>
+              </div>
+            </div>
+
+            {isOwnProfile && profile.subscription_plan === "starter" && (
+              <button
+                onClick={onOpenUpgrade}
+                style={{
+                  background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                  border: "none",
+                  color: "#fff",
+                  padding: "7px 14px",
+                  borderRadius: 10,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
+                }}
+              >
+                <Crown size={14} style={{ fill: "#fff" }} />
+                <span>Upgrade to Growth</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          isOwnProfile && (
+            <div style={{
+              marginTop: 16,
+              background: dk ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.01)",
+              border: `1px solid ${th.bdr}`,
+              borderRadius: 14,
+              padding: "12px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              boxSizing: "border-box"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: dk ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: th.txt2,
+                }}>
+                  <User size={18} />
+                </div>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>Free Plan</div>
+                  <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>Upgrade to get AI Matchmaking & unlimited access</div>
+                </div>
+              </div>
+              {onOpenUpgrade && (
+                <button
+                  onClick={onOpenUpgrade}
+                  style={{
+                    background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    fontSize: 11,
+                    boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+                >
+                  Upgrade
+                </button>
+              )}
+            </div>
+          )
+        )}
 
         <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap", alignItems: "center" }}>
           {!isOwnProfile && (

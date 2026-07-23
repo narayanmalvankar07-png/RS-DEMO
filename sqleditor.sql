@@ -25,7 +25,10 @@ CREATE TABLE IF NOT EXISTS rs_user_profiles (
   who text,                          -- onboarding persona id e.g. "founder"
   interests jsonb DEFAULT '[]',      -- list of interest ids
   is_admin boolean DEFAULT false,
-  system_role text DEFAULT 'user'    -- user, admin, growth_catalyst, management
+  system_role text DEFAULT 'user',   -- user, admin, growth_catalyst, management
+  subscription_plan text DEFAULT 'free',
+  subscription_status text DEFAULT 'inactive',
+  subscription_expires_at timestamp with time zone
 );
 
 -- ==============================================================================
@@ -62,6 +65,20 @@ CREATE TABLE IF NOT EXISTS rs_startup_feedback (
   user_id uuid references auth.users(id),
   content text,
   created_at timestamp with time zone default now()
+);
+
+CREATE TABLE IF NOT EXISTS rs_startup_products (
+  id uuid primary key default gen_random_uuid(),
+  startup_id uuid references rs_startups(id) on delete cascade,
+  created_by uuid references auth.users(id),
+  title text not null,
+  description text,
+  price text,
+  category text default 'SaaS',
+  demo_url text,
+  image_url text,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
 );
 
 -- ==============================================================================
@@ -426,4 +443,9 @@ ON CONFLICT (name) DO NOTHING;
 -- Ensure startup location and phone columns exist
 ALTER TABLE rs_startups ADD COLUMN IF NOT EXISTS location text;
 ALTER TABLE rs_startups ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE rs_startups ADD COLUMN IF NOT EXISTS products jsonb DEFAULT '[]'::jsonb;
 
+-- Ensure profile subscription columns exist
+ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS subscription_plan text DEFAULT 'free';
+ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS subscription_status text DEFAULT 'inactive';
+ALTER TABLE rs_user_profiles ADD COLUMN IF NOT EXISTS subscription_expires_at timestamp with time zone;

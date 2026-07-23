@@ -22,6 +22,8 @@ export const sbAuth = {
     fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { ...H, Authorization: `Bearer ${token}` } }),
   getUser: token =>
     fetch(`${SB_URL}/auth/v1/user`, { headers: { ...H, Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+  resendVerification: (email) =>
+    fetch(`${SB_URL}/auth/v1/resend`, { method: "POST", headers: H, body: JSON.stringify({ type: "signup", email }) }).then(r => r.json()),
   googleOAuth: () => {
     let redirectTo = window.location.origin;
     if (!window.location.hostname.includes("rightsignal.social")) {

@@ -39,6 +39,8 @@ import ContributeView from "./views/ContributeView";
 import ColabView from "./views/ColabView";
 import NotificationsView from "./views/NotificationsView";
 import FundingView from "./views/FundingView";
+import SubscriptionModal from "./components/shared/SubscriptionModal";
+import PaymentSuccessModal from "./components/shared/PaymentSuccessModal";
 import ScholarshipsView from "./views/ScholarshipsView.jsx";
 
 // ─── OAUTH TOKEN DETECTION (runs before React) ────────────────────
@@ -123,6 +125,12 @@ export default function App() {
 
   const [view, setView] = useState("feed");
   const [profUid, setProfUid] = useState(null);
+  const [subModalOpen, setSubModalOpen] = useState(false);
+
+  const openSubscriptionModal = useCallback(() => {
+    setSubModalOpen(true);
+  }, []);
+
   const [resetToken, setResetToken] = useState(null);
 
   useEffect(() => {
@@ -137,11 +145,61 @@ export default function App() {
     } catch (e) { }
   }, []);
 
-
   const handleProfileUpdate = useCallback((uid, updates) => {
     setProfiles(prev => ({ ...prev, [uid]: { ...prev[uid], ...updates } }));
-    if (uid === me) setMyProfile(prev => ({ ...prev, ...updates }));
+    if (uid === me) {
+      setMyProfile(prev => {
+        const nextProf = { ...prev, ...updates };
+        try {
+          if (nextProf.subscription_plan) {
+            localStorage.setItem(`rs_sub_${uid}`, JSON.stringify({
+              plan: nextProf.subscription_plan,
+              status: nextProf.subscription_status || "active",
+              expiresAt: nextProf.subscription_expires_at,
+            }));
+          }
+        } catch {}
+        return nextProf;
+      });
+    }
   }, [me]);
+
+  const [paymentSuccessData, setPaymentSuccessData] = useState(null);
+
+  // Check for Cashfree return redirect parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cfOrderId = params.get("cf_order_id");
+    const planId = params.get("plan");
+
+    if (cfOrderId && me) {
+      fetch("/api/cashfree/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": me },
+        body: JSON.stringify({ orderId: cfOrderId, planId }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            handleProfileUpdate(me, {
+              subscription_plan: data.plan,
+              subscription_status: "active",
+              subscription_expires_at: data.expires_at,
+            });
+            setPaymentSuccessData({
+              plan: data.plan,
+              orderId: cfOrderId,
+              expiresAt: data.expires_at,
+            });
+          }
+        })
+        .catch(err => console.error("Cashfree return verification failed:", err))
+        .finally(() => {
+          window.history.replaceState({}, "", window.location.pathname);
+        });
+    }
+  }, [me, handleProfileUpdate]);
+
   const [notifs, setNotifs] = useState([{ id: "n0", type: "token", msg: "Welcome to RightSignal!", ts: Date.now() - 60000, read: false }]);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
@@ -211,7 +269,17 @@ export default function App() {
   const loadProfiles = useCallback(async () => {
     const rows = await db.get("rs_user_profiles", "order=created_at.desc");
     const map = {};
-    (rows || []).forEach(r => { map[r.id] = { ...r, hue: strToColor(r.name || "?") }; });
+    (rows || []).forEach(r => {
+      let subData = {};
+      try {
+        const stored = localStorage.getItem(`rs_sub_${r.id}`);
+        if (stored) subData = JSON.parse(stored);
+      } catch {}
+      const subPlan = r.subscription_plan || subData.plan || "free";
+      const subStatus = r.subscription_status || subData.status || (subPlan !== "free" ? "active" : "inactive");
+      const subExpires = r.subscription_expires_at || subData.expiresAt;
+      map[r.id] = { ...r, subscription_plan: subPlan, subscription_status: subStatus, subscription_expires_at: subExpires, hue: strToColor(r.name || "?") };
+    });
     setProfiles(map);
     return map;
   }, []);
@@ -296,7 +364,15 @@ export default function App() {
 
     const prof = await db.get("rs_user_profiles", `id=eq.${authUser.id}`);
     if (prof?.[0]) {
-      const p = { ...prof[0], hue: strToColor(prof[0].name || "?") };
+      let subData = {};
+      try {
+        const stored = localStorage.getItem(`rs_sub_${authUser.id}`);
+        if (stored) subData = JSON.parse(stored);
+      } catch {}
+      const subPlan = prof[0].subscription_plan || subData.plan || "free";
+      const subStatus = prof[0].subscription_status || subData.status || (subPlan !== "free" ? "active" : "inactive");
+      const subExpires = prof[0].subscription_expires_at || subData.expiresAt;
+      const p = { ...prof[0], subscription_plan: subPlan, subscription_status: subStatus, subscription_expires_at: subExpires, hue: strToColor(prof[0].name || "?") };
       setMyProfile(p);
       await Promise.all([loadProfiles(), loadBals(), loadNotifs(authUser.id)]);
       if (p.is_admin || p.system_role === "admin") setScreen("admin");
@@ -623,17 +699,18 @@ export default function App() {
   const renderMain = () => {
     const common = { me, dk, bals, profiles, addNotif, isMobile };
     switch (view) {
-      case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} isMobile={isMobile} />;
+      case "profile": return <ProfileView uid={profUid || me} me={me} dk={dk} bals={bals} profiles={profiles} onBack={() => setView("feed")} setBals={setBals} onMessage={openMessage} addNotif={addNotif} onProfileUpdate={handleProfileUpdate} isMobile={isMobile} onOpenUpgrade={() => setSubModalOpen(true)} />;
       case "wallet": return <WalletView me={me} dk={dk} bals={bals} setBals={setBals} myProfile={myProfile} onProfileUpdate={handleProfileUpdate} addNotif={addNotif} isMobile={isMobile} />;
       case "messages": return <MessengerView me={me} dk={dk} profiles={profiles} initUid={profUid} onProfile={openProfile} isMobile={isMobile} onActiveChatChange={setActiveChat} />;
       case "ads": return <AdsManagerView me={me} dk={dk} myProfile={myProfile} />;
       case "feed": return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
       case "network": return <NetworkView {...common} onProfile={openProfile} />;
-      case "events": return <EventsView dk={dk} addNotif={addNotif} />;
-      case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} />;
+      case "events": return <EventsView dk={dk} addNotif={addNotif} me={me} myProfile={myProfile} profiles={profiles} openSubscriptionModal={openSubscriptionModal} />;
+      case "sandbox": return <SandboxView me={me} dk={dk} myProfile={myProfile} addNotif={addNotif} isMobile={isMobile} />;
+      case "contribute": return <ContributeView me={me} dk={dk} addNotif={addNotif} />;
+      case "colab": return <ColabView me={me} dk={dk} myProfile={myProfile} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} openSubscriptionModal={openSubscriptionModal} />;
+      case "funding": return <FundingView me={me} dk={dk} myProfile={myProfile} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} openSubscriptionModal={openSubscriptionModal} onNavigate={navTo} />;
       case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} onMarkRead={markNotifsReadInDB} />;
-      case "colab": return <ColabView me={me} dk={dk} profiles={profiles} bals={bals} onProfile={openProfile} addNotif={addNotif} isMobile={isMobile} />;
-      case "funding": return <FundingView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} onNavigate={navTo} />;
       case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} myProfile={myProfile} onProfile={openProfile} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }
@@ -744,6 +821,26 @@ export default function App() {
       {isMobile && (
         <BottomNav view={view} setView={sidebarNav} dk={dk} bals={bals} me={me} unreadNotifs={unread} unreadMsgs={unreadMsgCount} />
       )}
+
+      <SubscriptionModal
+        isOpen={subModalOpen}
+        onClose={() => setSubModalOpen(false)}
+        me={me}
+        myProfile={myProfile}
+        dk={dk}
+        onSubscriptionUpdated={(updated) => {
+          handleProfileUpdate(me, updated);
+        }}
+        isMobile={isMobile}
+      />
+
+      <PaymentSuccessModal
+        isOpen={!!paymentSuccessData}
+        onClose={() => setPaymentSuccessData(null)}
+        data={paymentSuccessData}
+        dk={dk}
+        onViewProfile={() => setView("profile")}
+      />
 
       <Toaster
         position="bottom-right"

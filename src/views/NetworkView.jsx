@@ -7,6 +7,7 @@ import Spin from "../components/ui/Spin.jsx";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import SGN from "../components/ui/SGN.jsx";
+import { Crown } from "lucide-react";
 
 function NetworkView({ me, dk, onProfile, bals, profiles, addNotif }) {
   const th = T(dk);
@@ -135,7 +136,16 @@ function NetworkView({ me, dk, onProfile, bals, profiles, addNotif }) {
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span onClick={() => onProfile(req.requester_uid)} style={{ fontWeight: 700, fontSize: 15, color: th.txt, cursor: "pointer" }}>{requester.name}</span>
+                      <span onClick={() => onProfile(req.requester_uid)} style={{ fontWeight: 700, fontSize: 15, color: th.txt, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span>{requester.name}</span>
+                        {requester.subscription_status === "active" && (
+                          requester.subscription_plan === "growth" ? (
+                            <Crown size={12} style={{ color: "#f59e0b", fill: "#f59e0b", flexShrink: 0 }} />
+                          ) : requester.subscription_plan === "starter" ? (
+                            <Crown size={12} style={{ color: "#6366f1", fill: "#6366f1", flexShrink: 0 }} />
+                          ) : null
+                        )}
+                      </span>
                       {requester.verified && <span style={{ color: "#3b82f6", fontSize: 11 }}>✓</span>}
                       {bal > 0 && <SGN n={bal} size="sm" />}
                     </div>
@@ -165,7 +175,16 @@ function NetworkView({ me, dk, onProfile, bals, profiles, addNotif }) {
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span onClick={() => onProfile(u.id)} style={{ fontWeight: 700, fontSize: 15, color: th.txt, cursor: "pointer" }}>{u.name}</span>
+                      <span onClick={() => onProfile(u.id)} style={{ fontWeight: 700, fontSize: 15, color: th.txt, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span>{u.name}</span>
+                        {u.subscription_status === "active" && (
+                          u.subscription_plan === "growth" ? (
+                            <Crown size={12} style={{ color: "#f59e0b", fill: "#f59e0b", flexShrink: 0 }} />
+                          ) : u.subscription_plan === "starter" ? (
+                            <Crown size={12} style={{ color: "#6366f1", fill: "#6366f1", flexShrink: 0 }} />
+                          ) : null
+                        )}
+                      </span>
                       {u.verified && <span style={{ color: "#3b82f6", fontSize: 11 }}>✓</span>}
                       {u.system_role && u.system_role !== "user" && <span style={{ background: dk ? "rgba(59,130,246,.12)" : "#eff6ff", color: "#3b82f6", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 99 }}>{ROLES[u.system_role]}</span>}
                       {bal > 0 && <SGN n={bal} size="sm" />}
