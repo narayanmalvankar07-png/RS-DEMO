@@ -8,8 +8,11 @@ import {
 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
+import { isPlanActive } from "../utils/helpers.js";
 import Card from "../components/ui/Card.jsx";
 import Spin from '../components/ui/Spin.jsx';
+import UpgradeToUnlockCard from "../components/shared/UpgradeToUnlockCard.jsx";
+
 
 
 // ─── Logo renderer ─────────────────────────────────────────────────
@@ -661,7 +664,8 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const [hasStartup, setHasStartup] = useState(false);
 
   const subPlan = myProfile?.subscription_plan || "free";
-  const isSubscribed = subPlan === "starter" || subPlan === "growth";
+  const isSubscribed = isPlanActive(myProfile);
+
 
 
   // Db application records
@@ -1260,48 +1264,16 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       {/* Subscription Status Banner */}
 
       {!isSubscribed ? (
-        <div style={{
-          background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
-          border: "1px solid rgba(99,102,241,0.3)",
-          borderRadius: 20,
-          padding: "16px 20px",
-          marginBottom: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 12,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>
-              <Lock size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: th.txt }}>Unlock Funding & Investor Matchmaking</div>
-              <div style={{ fontSize: 12, color: th.txt2 }}>Subscribe to Founder Starter (₹499/mo) or Founder Growth (₹1,299/mo) to submit funding applications and access investor details.</div>
-            </div>
-          </div>
-          <button
-            onClick={openSubscriptionModal}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 12,
-              border: "none",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff",
-              fontWeight: 800,
-              fontSize: 13,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
-            }}
-          >
-            <Sparkles size={14} /> Upgrade to Colab & Funding
-          </button>
-        </div>
+        <UpgradeToUnlockCard
+          sectionName="Funding Applications & Investor Matching"
+          openSubscriptionModal={openSubscriptionModal}
+          dk={dk}
+          compact={true}
+          badgeText="Plan Inactive / Expired"
+          description="Subscribe to Founder Starter or Growth to submit funding applications, pitch decks, and access investor details."
+        />
       ) : (
+
         <div style={{
           background: "rgba(16,185,129,0.08)",
           border: "1px solid rgba(16,185,129,0.2)",

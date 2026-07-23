@@ -10,7 +10,9 @@ const ROLE_ICON_MAP = {
   researcher: Microscope, creator: Sparkles, executive: Building2,
 };
 import { db } from "../services/supabase.js";
+import { isPlanActive } from "../utils/helpers.js";
 import Av from "../components/ui/Av.jsx";
+
 import SGN from "../components/ui/SGN.jsx";
 import Card from "../components/ui/Card.jsx";
 import Spin from "../components/ui/Spin.jsx";
@@ -1150,7 +1152,8 @@ export default function ProfileView({ uid, me, dk, onBack, bals, profiles, setBa
         </div>
 
         {/* Subscription Info Card */}
-        {profile.subscription_status === "active" ? (
+        {isPlanActive(profile) ? (
+
           <div style={{
             marginTop: 16,
             background: profile.subscription_plan === "growth" 

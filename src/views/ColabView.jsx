@@ -2,17 +2,19 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   PlusCircle, Search, ArrowLeft, Globe, Github, Twitter, Linkedin, Copy, Check, CheckCircle2, X, Send, FileText, Edit2, Trash2, ChevronRight, ChevronDown, Lock, Key, MessageSquare, Megaphone, Calendar, Video, Users, Reply, LogIn, LogOut, Upload, Loader2,
-  Rocket, Code, CircleDollarSign, Handshake, Terminal, Palette, Award, Crown, Shield, User, ListTodo, FolderOpen, Activity, Camera, Compass, BookOpen,
+  Rocket, Code, CircleDollarSign, Handshake, Terminal, Palette, Award, Crown, Shield, ShieldAlert, User, ListTodo, FolderOpen, Activity, Camera, Compass, BookOpen,
   Bookmark, CreditCard, Smartphone, Wallet, Star, Sparkles
 } from "lucide-react";
 import { T } from "../config/constants.js";
 import { db } from "../services/supabase.js";
-import { ago, strColor } from "../utils/helpers.js";
+import { ago, strColor, isPlanActive } from "../utils/helpers.js";
 import { processAndUploadImage } from "../utils/uploadImage.js";
 import Card from "../components/ui/Card.jsx";
 import Av from "../components/ui/Av.jsx";
 import Spin from "../components/ui/Spin.jsx";
 import ProfileView from "./ProfileView.jsx";
+import UpgradeToUnlockCard from "../components/shared/UpgradeToUnlockCard.jsx";
+
 
 // ─── Logo renderer ─────────────────────────────────────────────────
 function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
@@ -1790,7 +1792,7 @@ function LiquidGlassSelect({ value, onChange, options, dk, th }) {
 }
 
 // ─── Products & Services Section Component ─────────────────────────────
-function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfile, openSubscriptionModal }) {
+function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfile, openSubscriptionModal, profiles }) {
   const th = T(dk);
   const PROD_KEY = `rs_prods_${startup.id}`;
   const [products, setProducts] = useState([]);
@@ -1800,7 +1802,9 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
   const [form, setForm] = useState({ title: "", description: "", price: "499", currency: "₹", category: "SaaS", demo_url: "", image_url: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const subPlan = myProfile?.subscription_plan || "free";
+  const founderProfile = isFounder ? myProfile : (profiles ? profiles[startup.created_by] : null);
+  const activePlan = isPlanActive(founderProfile);
+  const subPlan = founderProfile?.subscription_plan || "free";
 
   useEffect(() => {
     (async () => {
@@ -1896,6 +1900,11 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
   };
 
   const handleOpenAdd = () => {
+    if (!activePlan) {
+      addNotif?.({ type: "warning", msg: "🔒 An active subscription plan is required to publish products." });
+      openSubscriptionModal?.();
+      return;
+    }
     const maxAllowed = subPlan === "growth" ? 10 : subPlan === "starter" ? 3 : 0;
     if (products.length >= maxAllowed) {
       if (subPlan === "free") {
@@ -2002,8 +2011,38 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
     }
   };
 
+  if (!isFounder && !activePlan) {
+    return (
+      <div style={{
+        padding: "36px 20px",
+        textAlign: "center",
+        background: dk ? "rgba(255, 255, 255, 0.03)" : "#f8fafc",
+        borderRadius: 16,
+        border: `1px solid ${th.bdr}`,
+        margin: "16px 0"
+      }}>
+        <Lock size={32} color="#6366f1" style={{ marginBottom: 10 }} />
+        <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: th.txt }}>Products Currently Hidden</h4>
+        <p style={{ margin: 0, fontSize: 13, color: th.txt3 }}>
+          The listed products for this startup are hidden because the founder's subscription plan is inactive.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ marginBottom: 24 }}>
+      {isFounder && !activePlan && (
+        <UpgradeToUnlockCard
+          sectionName="Product Listings"
+          openSubscriptionModal={openSubscriptionModal}
+          dk={dk}
+          compact={true}
+          badgeText="Plan Inactive / Expired"
+          description="Your products are hidden from other users. Upgrade your subscription plan to unlock product listings."
+        />
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
@@ -2011,10 +2050,13 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
           </h3>
           <p style={{ margin: 0, fontSize: 12, color: th.txt3 }}>
             {isFounder ? (
-              subPlan === "growth" ? "Founder Growth Plan: Up to 10 products allowed" : subPlan === "starter" ? "Founder Starter Plan: Up to 3 products allowed" : "Subscribe to add products"
+              activePlan
+                ? (subPlan === "growth" ? "Founder Growth Plan: Up to 10 products allowed" : "Founder Starter Plan: Up to 3 products allowed")
+                : "Subscribe to unlock and show products to users"
             ) : "Offerings and products by this startup"}
           </p>
         </div>
+
 
         {isFounder && (
           <button
@@ -4278,7 +4320,15 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
   }
 
   const filtered = startups.filter(s => {
+    // Active plan check for other users: Startups created by users without an active plan are hidden from public listings
+    const isOwner = s.created_by === me || (s.founders || []).includes(me);
+    if (!isOwner) {
+      const creatorProfile = profiles ? profiles[s.created_by] : null;
+      if (!isPlanActive(creatorProfile)) return false;
+    }
+
     if (savedOnly && !savedIds.includes(s.id)) return false;
+
     if (selectedCategory !== "All Categories" && s.category !== selectedCategory && s.industry !== selectedCategory) {
       if (!s.description?.toLowerCase().includes(selectedCategory.toLowerCase())) return false;
     }

@@ -60,3 +60,17 @@ export const getPasswordStrength = (pwd) => {
 
   return { score, label, color };
 };
+
+// Subscription plan active check helper
+export const isPlanActive = (profile) => {
+  if (!profile) return false;
+  const plan = profile.subscription_plan || "free";
+  if (plan === "free") return false;
+  const status = profile.subscription_status || "active";
+  if (status === "inactive" || status === "expired" || status === "cancelled") return false;
+  if (profile.subscription_expires_at) {
+    const exp = new Date(profile.subscription_expires_at).getTime();
+    if (!isNaN(exp) && exp < Date.now()) return false;
+  }
+  return true;
+};
