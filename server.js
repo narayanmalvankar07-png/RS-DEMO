@@ -985,6 +985,14 @@ app.post("/api/cashfree/create-order", async (req, res) => {
   const orderId = `rs_sub_${planId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
+    let finalReturnUrl = returnUrl || `https://www.rightsignal.social/?cf_order_id={order_id}&plan=${planId}`;
+    if (!isSandbox && !finalReturnUrl.startsWith("https://")) {
+      finalReturnUrl = finalReturnUrl.replace(/^http:\/\//i, "https://");
+      if (!finalReturnUrl.startsWith("https://")) {
+        finalReturnUrl = `https://${finalReturnUrl}`;
+      }
+    }
+
     const cfResponse = await fetch(`${CASHFREE_BASE_URL}/orders`, {
       method: "POST",
       headers: {
@@ -1004,7 +1012,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
           customer_phone: (customerPhone || "9999999999").replace(/[^0-9]/g, "").slice(-10) || "9999999999",
         },
         order_meta: {
-          return_url: returnUrl || `http://localhost:5173/?cf_order_id={order_id}&plan=${planId}`,
+          return_url: finalReturnUrl,
         },
         order_note: `RightSignal ${planId === "starter" ? "Founder Starter (₹499/mo)" : "Founder Growth (₹1,299/mo)"} Subscription`,
       }),
