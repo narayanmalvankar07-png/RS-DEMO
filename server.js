@@ -977,14 +977,23 @@ const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https
 
 app.post("/api/cashfree/create-order", async (req, res) => {
   const userId = getUser(req) || req.body.userId;
-  const { planId, customerEmail, customerPhone, customerName, returnUrl } = req.body;
+  const { planId, customerEmail, customerPhone, customerName, returnUrl, currency } = req.body;
 
   if (!planId || !["starter", "growth"].includes(planId)) {
     return res.status(400).json({ error: "Invalid or missing planId. Options: starter, growth" });
   }
 
-  const amount = planId === "starter" ? 499.00 : 1299.00;
-  const orderId = `rs_sub_${planId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const isUSD = String(currency).toUpperCase() === "USD";
+  const orderCurrency = isUSD ? "USD" : "INR";
+
+  let amount;
+  if (isUSD) {
+    amount = planId === "starter" ? 9.99 : 24.99;
+  } else {
+    amount = planId === "starter" ? 499.00 : 1299.00;
+  }
+
+  const orderId = `rs_sub_${planId}_${orderCurrency.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
     let finalReturnUrl = returnUrl || `https://www.rightsignal.social/?cf_order_id={order_id}&plan=${planId}`;
@@ -1005,7 +1014,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
       },
       body: JSON.stringify({
         order_amount: amount,
-        order_currency: "INR",
+        order_currency: orderCurrency,
         order_id: orderId,
         customer_details: {
           customer_id: (userId || "user_guest").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40),
@@ -1016,7 +1025,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
         order_meta: {
           return_url: finalReturnUrl,
         },
-        order_note: `RightSignal ${planId === "starter" ? "Founder Starter (₹499/mo)" : "Founder Growth (₹1,299/mo)"} Subscription`,
+        order_note: `RightSignal ${planId === "starter" ? "Founder Starter" : "Founder Growth"} Subscription (${isUSD ? `$${amount}` : `₹${amount}`}/mo)`,
       }),
     });
 
@@ -1033,6 +1042,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
       cf_order_id: data.cf_order_id,
       payment_link: data.payment_link || (data.payments?.url),
       amount,
+      currency: orderCurrency,
       planId,
       mode: isSandbox ? "sandbox" : "production",
     });
@@ -1060,7 +1070,8 @@ app.post("/api/cashfree/verify-payment", async (req, res) => {
     const orderData = await cfResponse.json();
 
     if (orderData.order_status === "PAID" || orderData.order_status === "ACTIVE" || orderData.order_status === "SUCCESS") {
-      const activePlan = planId || (orderData.order_amount >= 1200 ? "growth" : "starter");
+      const activePlan = planId || (orderData.order_amount >= 20 || orderData.order_amount >= 1200 ? "growth" : "starter");
+
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
       if (userId) {

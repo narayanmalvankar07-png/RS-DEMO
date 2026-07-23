@@ -24,6 +24,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
   const th = T(dk);
   const [loadingPlan, setLoadingPlan] = useState(null);
   const [activeTab, setActiveTab] = useState("plans");
+  const [selectedCurrency, setSelectedCurrency] = useState("INR");
 
   if (!isOpen) return null;
 
@@ -40,6 +41,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         },
         body: JSON.stringify({
           planId,
+          currency: selectedCurrency,
           userId: me,
           customerEmail: myProfile?.email || "founder@rightsignal.co",
           customerName: myProfile?.name || "Founder Member",
@@ -47,6 +49,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
           returnUrl: `${window.location.origin}/?cf_order_id={order_id}&plan=${planId}`,
         }),
       });
+
 
       const contentType = res.headers.get("content-type") || "";
       let data = {};
@@ -194,152 +197,225 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         {/* Content Body */}
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
           {activeTab === "plans" ? (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+            <div>
+              {/* Currency Selector Bar */}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  background: dk ? "rgba(255,255,255,0.06)" : "#f1f5f9",
+                  padding: 4,
+                  borderRadius: 14,
+                  border: `1px solid ${th.bdr}`,
+                  gap: 4
+                }}>
+                  <button
+                    onClick={() => setSelectedCurrency("INR")}
+                    style={{
+                      padding: "7px 18px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: selectedCurrency === "INR" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "transparent",
+                      color: selectedCurrency === "INR" ? "#fff" : th.txt2,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: selectedCurrency === "INR" ? "0 2px 8px rgba(99,102,241,0.3)" : "none"
+                    }}
+                  >
+                    🇮🇳 INR (₹) India
+                  </button>
+                  <button
+                    onClick={() => setSelectedCurrency("USD")}
+                    style={{
+                      padding: "7px 18px",
+                      borderRadius: 10,
+                      border: "none",
+                      background: selectedCurrency === "USD" ? "linear-gradient(135deg, #10b981, #059669)" : "transparent",
+                      color: selectedCurrency === "USD" ? "#fff" : th.txt2,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: selectedCurrency === "USD" ? "0 2px 8px rgba(16,185,129,0.3)" : "none"
+                    }}
+                  >
+                    🌐 USD ($) Int'l (PayPal &amp; Cards)
+                  </button>
+                </div>
+              </div>
 
-              {/* Starter (₹499) */}
-              <div
-                style={{
-                  background: currentPlan === "starter" ? (dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.05)") : th.surf,
-                  border: `2px solid ${currentPlan === "starter" ? "#6366f1" : th.bdr}`,
-                  borderRadius: 20,
-                  padding: 24,
+              {selectedCurrency === "USD" && (
+                <div style={{
+                  textAlign: "center",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#10b981",
+                  marginBottom: 16,
                   display: "flex",
-                  flexDirection: "column",
-                  position: "relative",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-                }}
-              >
-                {currentPlan === "starter" && (
-                  <span style={{ position: "absolute", top: 16, right: 16, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
-                    CURRENT PLAN
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6
+                }}>
+                  <Shield size={14} /> Pay securely in USD via PayPal Checkout or International Cards
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+                {/* Starter */}
+                <div
+                  style={{
+                    background: currentPlan === "starter" ? (dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.05)") : th.surf,
+                    border: `2px solid ${currentPlan === "starter" ? "#6366f1" : th.bdr}`,
+                    borderRadius: 20,
+                    padding: 24,
+                    display: "flex",
+                    flexDirection: "column",
+                    position: "relative",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  {currentPlan === "starter" && (
+                    <span style={{ position: "absolute", top: 16, right: 16, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
+                      CURRENT PLAN
+                    </span>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <Rocket size={20} color="#6366f1" />
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Starter</h3>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 14 }}>
+                    <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>
+                      {selectedCurrency === "USD" ? "$9.99" : "₹499"}
+                    </span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>/ month</span>
+                  </div>
+
+                  <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
+                    Essential tools to launch 1 startup, access funding, handle investor outreach, and manage products.
+                  </p>
+
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                    {[
+                      "Create 1 Startup",
+                      "Founder Dashboard & CRM Access",
+                      "Up to 3 Products / Services",
+                      "Funding Module Access",
+                      "Apply to 30 investors / month",
+                      "Default startup pages management",
+                    ].map((feat) => (
+                      <div key={feat} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: th.txt }}>
+                        <CheckCircle2 size={16} color="#6366f1" style={{ flexShrink: 0 }} />
+                        <span>{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => handleSubscribe("starter")}
+                    disabled={loadingPlan === "starter" || currentPlan === "starter"}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: 14,
+                      border: "none",
+                      background: currentPlan === "starter" ? "rgba(99,102,241,0.2)" : "#6366f1",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: currentPlan === "starter" ? "default" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
+                    }}
+                  >
+                    {loadingPlan === "starter" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "starter" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? "$9.99" : "₹499"} <ArrowRight size={16} /></>}
+                  </button>
+                </div>
+
+                {/* Growth */}
+                <div
+                  style={{
+                    background: currentPlan === "growth" ? (dk ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.05)") : th.surf,
+                    border: `2px solid ${currentPlan === "growth" ? "#8b5cf6" : "#8b5cf6"}`,
+                    borderRadius: 20,
+                    padding: 24,
+                    display: "flex",
+                    flexDirection: "column",
+                    position: "relative",
+                    boxShadow: "0 10px 35px rgba(139,92,246,0.2)",
+                  }}
+                >
+                  <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg,#8b5cf6,#ec4899)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(139,92,246,0.4)" }}>
+                    POPULAR &amp; UNLIMITED
                   </span>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <Rocket size={20} color="#6366f1" />
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Starter</h3>
-                </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 14 }}>
-                  <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>₹499</span>
-                  <span style={{ fontSize: 14, color: th.txt3 }}>/ month</span>
-                </div>
 
-                <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
-                  Essential tools to launch 1 startup, access funding, handle investor outreach, and manage products.
-                </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <Crown size={20} color="#8b5cf6" />
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Growth</h3>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 14 }}>
+                    <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>
+                      {selectedCurrency === "USD" ? "$24.99" : "₹1,299"}
+                    </span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>/ month</span>
+                  </div>
 
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-                  {[
-                    "Create 1 Startup",
-                    "Founder Dashboard & CRM Access",
-                    "Up to 3 Products / Services",
-                    "Funding Module Access",
-                    "Apply to 30 investors / month",
-                    "Default startup pages management",
-                  ].map((feat) => (
-                    <div key={feat} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: th.txt }}>
-                      <CheckCircle2 size={16} color="#6366f1" style={{ flexShrink: 0 }} />
-                      <span>{feat}</span>
-                    </div>
-                  ))}
+                  <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
+                    Full power startup acceleration with unlimited funding applications, 10 products, and AI matchmaking.
+                  </p>
+
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                    {[
+                      "Everything in Starter Plan",
+                      "Up to 10 Products / Services",
+                      "Unlimited Funding Applications",
+                      "AI Investor Recommendations",
+                      "AI Fundraising Matchmaking",
+                      "AI Client Matchmaking",
+                      "Advanced Founder Dashboard & Full Custom Pages",
+                    ].map((feat) => (
+                      <div key={feat} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: th.txt }}>
+                        <CheckCircle2 size={16} color="#8b5cf6" style={{ flexShrink: 0 }} />
+                        <span>{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => handleSubscribe("growth")}
+                    disabled={loadingPlan === "growth" || currentPlan === "growth"}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: 14,
+                      border: "none",
+                      background: currentPlan === "growth" ? "rgba(139,92,246,0.2)" : "linear-gradient(135deg, #8b5cf6, #ec4899)",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: currentPlan === "growth" ? "default" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
+                    }}
+                  >
+                    {loadingPlan === "growth" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "growth" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? "$24.99" : "₹1,299"} <ArrowRight size={16} /></>}
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => handleSubscribe("starter")}
-                  disabled={loadingPlan === "starter" || currentPlan === "starter"}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: 14,
-                    border: "none",
-                    background: currentPlan === "starter" ? "rgba(99,102,241,0.2)" : "#6366f1",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    cursor: currentPlan === "starter" ? "default" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
-                  }}
-                >
-                  {loadingPlan === "starter" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "starter" ? "Active Plan" : <>Upgrade for ₹499 <ArrowRight size={16} /></>}
-                </button>
               </div>
-
-              {/* Growth (₹1,299) */}
-              <div
-                style={{
-                  background: currentPlan === "growth" ? (dk ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.05)") : th.surf,
-                  border: `2px solid ${currentPlan === "growth" ? "#8b5cf6" : "#8b5cf6"}`,
-                  borderRadius: 20,
-                  padding: 24,
-                  display: "flex",
-                  flexDirection: "column",
-                  position: "relative",
-                  boxShadow: "0 10px 35px rgba(139,92,246,0.2)",
-                }}
-              >
-                <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg,#8b5cf6,#ec4899)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(139,92,246,0.4)" }}>
-                  POPULAR & UNLIMITED
-                </span>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <Crown size={20} color="#8b5cf6" />
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Growth</h3>
-                </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 14 }}>
-                  <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>₹1,299</span>
-                  <span style={{ fontSize: 14, color: th.txt3 }}>/ month</span>
-                </div>
-
-                <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
-                  Full power startup acceleration with unlimited funding applications, 10 products, and AI matchmaking.
-                </p>
-
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-                  {[
-                    "Everything in Starter Plan",
-                    "Up to 10 Products / Services",
-                    "Unlimited Funding Applications",
-                    "AI Investor Recommendations",
-                    "AI Fundraising Matchmaking",
-                    "AI Client Matchmaking",
-                    "Advanced Founder Dashboard & Full Custom Pages",
-                  ].map((feat) => (
-                    <div key={feat} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: th.txt }}>
-                      <CheckCircle2 size={16} color="#8b5cf6" style={{ flexShrink: 0 }} />
-                      <span>{feat}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => handleSubscribe("growth")}
-                  disabled={loadingPlan === "growth" || currentPlan === "growth"}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    borderRadius: 14,
-                    border: "none",
-                    background: currentPlan === "growth" ? "rgba(139,92,246,0.2)" : "linear-gradient(135deg, #8b5cf6, #ec4899)",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    cursor: currentPlan === "growth" ? "default" : "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    boxShadow: "0 4px 16px rgba(139,92,246,0.4)",
-                  }}
-                >
-                  {loadingPlan === "growth" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "growth" ? "Active Plan" : <>Upgrade for ₹1,299 <ArrowRight size={16} /></>}
-                </button>
-              </div>
-
             </div>
           ) : (
+
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
