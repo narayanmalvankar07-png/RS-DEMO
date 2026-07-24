@@ -4421,7 +4421,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
           </div>
           {subPlan === "starter" && (
             <button onClick={openSubscriptionModal} style={{ background: "transparent", border: "1px solid #6366f1", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              Upgrade to 10 Startups
+              Upgrade to Founder Growth
             </button>
           )}
         </div>
