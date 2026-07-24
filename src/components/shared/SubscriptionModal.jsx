@@ -8,7 +8,7 @@ import { db } from "../../services/supabase.js";
 const FEATURE_MATRIX = [
   { feature: "Browse Collab", free: "✅", starter: "✅", growth: "✅" },
   { feature: "Join Existing Startup", free: "✅", starter: "✅", growth: "✅" },
-  { feature: "Create Startup", free: "❌", starter: "✅", growth: "✅" },
+  { feature: "Create Startup", free: "❌", starter: "1 Startup", growth: "Up to 2 Startups" },
   { feature: "Founder Dashboard", free: "❌", starter: "✅", growth: "✅" },
   { feature: "CRM Access", free: "❌", starter: "✅", growth: "✅" },
   { feature: "Product Listings", free: "❌", starter: "Up to 3", growth: "Up to 10" },
@@ -446,7 +446,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
                     {[
                       "3 Months Full Access (2 Months FREE!)",
-                      "Everything in Starter Plan",
+                      "Create Up to 2 Startups",
                       "Up to 10 Products / Services",
                       "Unlimited Funding Applications",
                       "AI Investor Recommendations",

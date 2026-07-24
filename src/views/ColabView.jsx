@@ -4305,14 +4305,14 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
     }
 
     const createdCount = myStartups.length;
-    if (subPlan === "starter" && createdCount >= 3) {
-      addNotif?.({ type: "warning", msg: "🔒 Starter plan allows up to 3 startups. Upgrade to Growth for up to 10 startups!" });
+    if (subPlan === "starter" && createdCount >= 1) {
+      addNotif?.({ type: "warning", msg: "🔒 Founder Starter plan allows creating 1 startup. Upgrade to Founder Growth to launch up to 2 startups!" });
       openSubscriptionModal?.();
       return;
     }
 
-    if (subPlan === "growth" && createdCount >= 10) {
-      addNotif?.({ type: "warning", msg: "🔒 You have reached the maximum limit of 10 startups for Founder Growth." });
+    if (subPlan === "growth" && createdCount >= 2) {
+      addNotif?.({ type: "warning", msg: "🔒 You have reached the maximum limit of 2 startups for Founder Growth." });
       return;
     }
 
@@ -4417,7 +4417,7 @@ export default function ColabView({ me, dk, profiles, bals, onProfile, addNotif,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <CheckCircle2 size={16} color="#10b981" />
-            <span>Active Plan: <strong>{subPlan === "growth" ? "Founder Growth (₹1,299/mo - Up to 10 Startups)" : "Founder Starter (₹499/mo - Up to 3 Startups)"}</strong></span>
+            <span>Active Plan: <strong>{subPlan === "growth" ? "Founder Growth (₹1,299/mo - Up to 2 Startups)" : "Founder Starter (₹499/mo - 1 Startup Allowed)"}</strong></span>
           </div>
           {subPlan === "starter" && (
             <button onClick={openSubscriptionModal} style={{ background: "transparent", border: "1px solid #6366f1", color: "#6366f1", padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
