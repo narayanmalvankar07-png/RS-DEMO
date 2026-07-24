@@ -2159,12 +2159,9 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
 
               {/* Product Image section: Device Upload or Link */}
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3 }}>Product Image * (Device Upload or Image Link)</label>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "rgba(99,102,241,0.12)", padding: "3px 9px", borderRadius: 99, border: "1px solid rgba(99,102,241,0.25)", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    📏 Recommended: 16:9 (1200 × 675 px)
-                  </span>
-                </div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>
+                  Product Image * (Device Upload or Image Link) <span style={{ fontWeight: 400, color: th.txt3 }}>— Recommended 16:9 ratio (1200×675 px)</span>
+                </label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <label style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.surf2, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -2172,9 +2169,6 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
                       <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ display: "none" }} />
                     </label>
                     <span style={{ fontSize: 11, color: th.txt3 }}>or paste URL below</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 4 }}>
-                    💡 <span style={{ fontStyle: "italic" }}>Use 16:9 landscape aspect ratio (e.g. 1200×675 px or 800×450 px) so your image doesn't get cropped.</span>
                   </div>
                   <input
                     value={form.image_url}
