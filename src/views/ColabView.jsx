@@ -2046,12 +2046,12 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
-            <Rocket size={18} color="#6366f1" /> Products &amp; Services ({products.length})
+            <Rocket size={18} color="#6366f1" /> Showcase ({products.length})
           </h3>
           <p style={{ margin: 0, fontSize: 12, color: th.txt3 }}>
             {isFounder ? (
               activePlan
-                ? (subPlan === "growth" ? "Founder Growth Plan: Up to 10 products allowed" : "Founder Starter Plan: Up to 3 products allowed")
+                ? (subPlan === "growth" ? "Founder Growth Plan: Up to 10 showcase items allowed" : "Founder Starter Plan: Up to 3 showcase items allowed")
                 : "Subscribe to unlock and show products to users"
             ) : "Offerings and products by this startup"}
           </p>
@@ -2453,7 +2453,7 @@ function VisitorDetail({ startup, me, profiles: initialProfiles, dk, onBack, add
   const founders = (startup.founders || [startup.created_by]).filter(Boolean);
   const teamUids = [...new Set([...founders, ...members.map(m => m.user_id)])];
   const headerBg = dk ? "linear-gradient(135deg,rgba(30,58,138,0.25),rgba(91,33,182,0.2))" : "linear-gradient(135deg,#e0e7ff,#ede9fe)";
-  const TABS = [{ id: "overview", label: "Overview" }, { id: "products", label: "Products & Services" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
+  const TABS = [{ id: "overview", label: "Overview" }, { id: "products", label: "Showcase" }, { id: "pages", label: "Pages" }, { id: "updates", label: "Updates" }, { id: "feedback", label: "Feedback" }];
 
   if (activePage) return <PageChatView page={activePage} startup={startup} me={me} profiles={profiles} pageMembers={pageMembers} allMembers={members} isFounder={false} dk={dk} onBack={() => setActivePage(null)} onAddPageMember={(pageId, userId) => { const mems = [...pageMembers, { page_id: pageId, user_id: userId }]; setPageMembers(mems); ls.set(PG_MEM_KEY, mems); }} addNotif={addNotif} />;
 
@@ -2982,7 +2982,7 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
   const TABS = [
     { id: "overview", label: "Overview" },
     { id: "requests", label: `Requests${totalPending ? ` (${totalPending})` : ""}` },
-    { id: "products", label: "Products & Services" },
+    { id: "products", label: "Showcase" },
     { id: "pages", label: "Pages" },
     { id: "members", label: "Members" },
     { id: "meetings", label: "Meetings" },
