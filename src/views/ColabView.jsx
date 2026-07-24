@@ -2100,11 +2100,11 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Price &amp; Currency *</label>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ width: 100, flexShrink: 0 }}>
+                    <div style={{ width: 90, flexShrink: 0 }}>
                       <LiquidGlassSelect
                         value={form.currency}
                         onChange={val => setForm(f => ({ ...f, currency: val, price: val === "Free" ? "" : f.price }))}
@@ -2120,6 +2120,7 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
                       disabled={form.currency === "Free"}
                       style={{
                         flex: 1,
+                        minWidth: 0,
                         padding: "10px 12px",
                         borderRadius: 12,
                         border: `1px solid ${th.inpB}`,
@@ -2160,8 +2161,8 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
               <div>
                 <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Product Image * (Device Upload or Image Link)</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <label style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.surf2, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <label style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.surf2, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <Upload size={14} color="#6366f1" /> Upload Image (Max 2MB)
                       <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ display: "none" }} />
                     </label>
@@ -2934,7 +2935,23 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
     setUpdates(us => us.filter(u => u.id !== id));
   };
 
+  const isGrowthPlan = myProfile?.subscription_plan === "growth";
+
+  const handleToggleAddPage = () => {
+    if (!isGrowthPlan) {
+      addNotif?.({ type: "warning", msg: "🔒 Custom page creation requires Founder Growth plan. Upgrade to Founder Growth to add custom pages!" });
+      openSubscriptionModal?.();
+      return;
+    }
+    setShowAddPage(v => !v);
+  };
+
   const addPage = async () => {
+    if (!isGrowthPlan) {
+      addNotif?.({ type: "warning", msg: "🔒 Custom page creation requires Founder Growth plan. Upgrade to Founder Growth to add custom pages!" });
+      openSubscriptionModal?.();
+      return;
+    }
     if (!newPageName.trim()) return;
     const pt = PAGE_TYPES.find(p => p.id === newPageType) || PAGE_TYPES[0];
     const saved = await db.post("rs_startup_pages", { startup_id: startup.id, name: newPageName.trim(), description: pt.desc, type_id: newPageType, created_by: me });
@@ -3236,8 +3253,23 @@ function FounderDetail({ startup: initialStartup, me, profiles: initialProfiles,
 
           {tab === "pages" && (
             <div>
+              {!isGrowthPlan && (
+                <div style={{ background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.05)", border: `1px solid ${th.bdr}`, borderRadius: 14, padding: "12px 16px", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: th.txt, display: "flex", alignItems: "center", gap: 6 }}>
+                      📌 Founder Starter Plan: Default Pages Only
+                    </div>
+                    <div style={{ fontSize: 11, color: th.txt3, marginTop: 2 }}>You can manage default pages. Custom page creation is available on Founder Growth plan.</div>
+                  </div>
+                  <button onClick={openSubscriptionModal} style={{ background: "linear-gradient(135deg, #8b5cf6, #ec4899)", border: "none", borderRadius: 10, padding: "6px 14px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 3px 10px rgba(139,92,246,0.3)" }}>
+                    <Crown size={14} /> Upgrade to Growth
+                  </button>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-                <button onClick={() => setShowAddPage(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "#3b82f6", border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}><PlusCircle size={14} /> Add Page</button>
+                <button onClick={handleToggleAddPage} style={{ display: "flex", alignItems: "center", gap: 6, background: isGrowthPlan ? "#3b82f6" : "rgba(99,102,241,0.15)", border: isGrowthPlan ? "none" : `1px solid ${th.bdr}`, borderRadius: 10, padding: "8px 14px", color: isGrowthPlan ? "#fff" : th.txt2, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {!isGrowthPlan && <Lock size={13} color="#f59e0b" />} <PlusCircle size={14} /> Add Page
+                </button>
               </div>
               {showAddPage && (
                 <Card dk={dk} anim={false} style={{ marginBottom: 12, position: "relative", zIndex: 50 }}>

@@ -206,46 +206,46 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         }}
       >
         {/* Header */}
-        <div style={{ padding: "20px 24px", borderBottom: `1px solid ${th.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.04)" }}>
+        <div style={{ padding: isMobile ? "14px 16px" : "20px 24px", borderBottom: `1px solid ${th.bdr}`, display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.04)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", boxShadow: "0 4px 14px rgba(99,102,241,0.3)" }}>
-              <Sparkles size={22} />
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0, boxShadow: "0 4px 14px rgba(99,102,241,0.3)" }}>
+              <Sparkles size={20} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 18, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 RightSignal Subscription
                 <span style={{ fontSize: 10, background: selectedCurrency === "USD" ? "rgba(16,185,129,0.15)" : "rgba(99,102,241,0.15)", color: selectedCurrency === "USD" ? "#10b981" : "#6366f1", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>
                   {selectedCurrency === "USD" ? "PayPal PG" : "Cashfree PG"}
                 </span>
               </h2>
-              <p style={{ margin: 0, fontSize: 12, color: th.txt3 }}>Unlock Funding, Collab Startup Creation, Founder CRM & AI Matchmaking</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: th.txt3 }}>Unlock Funding, Collab Startup Creation, Founder CRM &amp; AI Matchmaking</p>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, width: isMobile ? "100%" : "auto", justifyContent: "space-between" }}>
             <div style={{ display: "flex", background: dk ? "rgba(255,255,255,0.06)" : "#f1f5f9", padding: 3, borderRadius: 12, border: `1px solid ${th.bdr}` }}>
               <button
                 onClick={() => setActiveTab("plans")}
-                style={{ padding: "6px 14px", borderRadius: 9, border: "none", background: activeTab === "plans" ? "#6366f1" : "transparent", color: activeTab === "plans" ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
+                style={{ padding: "6px 12px", borderRadius: 9, border: "none", background: activeTab === "plans" ? "#6366f1" : "transparent", color: activeTab === "plans" ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
               >
                 Plans
               </button>
               <button
                 onClick={() => setActiveTab("matrix")}
-                style={{ padding: "6px 14px", borderRadius: 9, border: "none", background: activeTab === "matrix" ? "#6366f1" : "transparent", color: activeTab === "matrix" ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
+                style={{ padding: "6px 12px", borderRadius: 9, border: "none", background: activeTab === "matrix" ? "#6366f1" : "transparent", color: activeTab === "matrix" ? "#fff" : th.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
               >
                 Feature Matrix
               </button>
             </div>
 
-            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: 8, cursor: "pointer", color: th.txt2, display: "flex" }}>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 10, padding: 7, cursor: "pointer", color: th.txt2, display: "flex" }}>
               <X size={18} />
             </button>
           </div>
         </div>
 
         {/* Content Body */}
-        <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
+        <div style={{ flex: 1, padding: isMobile ? 14 : 24, overflowY: "auto" }}>
           {activeTab === "plans" ? (
             <div>
               {/* Currency Selector Bar */}
@@ -322,22 +322,25 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                     background: currentPlan === "starter" ? (dk ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.05)") : th.surf,
                     border: `2px solid ${currentPlan === "starter" ? "#6366f1" : th.bdr}`,
                     borderRadius: 20,
-                    padding: 24,
+                    padding: isMobile ? 18 : 24,
                     display: "flex",
                     flexDirection: "column",
                     position: "relative",
                     boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
                   }}
                 >
-                  <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(16,185,129,0.4)" }}>
-                    30-DAY FREE TRIAL
-                  </span>
-
-                  {currentPlan === "starter" && (
-                    <span style={{ position: "absolute", top: 16, right: 16, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
-                      CURRENT PLAN
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                    <span style={{ background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 10px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(16,185,129,0.3)" }}>
+                      30-DAY FREE TRIAL
                     </span>
-                  )}
+
+                    {currentPlan === "starter" && (
+                      <span style={{ background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
+                        CURRENT PLAN
+                      </span>
+                    )}
+                  </div>
+
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <Rocket size={20} color="#6366f1" />
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Starter</h3>
@@ -403,22 +406,24 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                     background: currentPlan === "growth" ? (dk ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.05)") : th.surf,
                     border: `2px solid ${currentPlan === "growth" ? "#8b5cf6" : "#8b5cf6"}`,
                     borderRadius: 20,
-                    padding: 24,
+                    padding: isMobile ? 18 : 24,
                     display: "flex",
                     flexDirection: "column",
                     position: "relative",
                     boxShadow: "0 10px 35px rgba(139,92,246,0.2)",
                   }}
                 >
-                  <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg,#8b5cf6,#ec4899)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(139,92,246,0.4)" }}>
-                    3-MONTH BUNDLE (2 MONTHS FREE!)
-                  </span>
-
-                  {currentPlan === "growth" && (
-                    <span style={{ position: "absolute", top: 16, right: 16, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
-                      CURRENT PLAN
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                    <span style={{ background: "linear-gradient(135deg,#8b5cf6,#ec4899)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 10px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(139,92,246,0.3)" }}>
+                      3-MONTH BUNDLE (2 MONTHS FREE!)
                     </span>
-                  )}
+
+                    {currentPlan === "growth" && (
+                      <span style={{ background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
+                        CURRENT PLAN
+                      </span>
+                    )}
+                  </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <Crown size={20} color="#8b5cf6" />
