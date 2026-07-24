@@ -166,10 +166,11 @@ export default function App() {
 
   const [paymentSuccessData, setPaymentSuccessData] = useState(null);
 
-  // Check for Cashfree return redirect parameters
+  // Check for Cashfree & PayPal return redirect parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cfOrderId = params.get("cf_order_id");
+    const paypalOrderId = params.get("paypal_order_id") || params.get("token");
     const planId = params.get("plan");
 
     if (cfOrderId && me) {
@@ -199,6 +200,37 @@ export default function App() {
         .catch(err => {
           console.error("Cashfree return verification failed:", err);
           toast.error("Failed to verify payment status.");
+        })
+        .finally(() => {
+          window.history.replaceState({}, "", window.location.pathname);
+        });
+    } else if (paypalOrderId && paypalOrderId !== "CANCELLED" && me) {
+      fetch("/api/paypal/capture-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": me },
+        body: JSON.stringify({ orderId: paypalOrderId, planId }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            toast.success(`🎉 PayPal Payment verified! Your ${data.plan === "growth" ? "Founder Growth" : "Founder Starter"} plan is now active!`);
+            handleProfileUpdate(me, {
+              subscription_plan: data.plan,
+              subscription_status: "active",
+              subscription_expires_at: data.expires_at,
+            });
+            setPaymentSuccessData({
+              plan: data.plan,
+              orderId: paypalOrderId,
+              expiresAt: data.expires_at,
+            });
+          } else {
+            toast.error(`⚠️ PayPal Payment not completed (${data.order_status || "UNPAID"}). Plan was not upgraded.`);
+          }
+        })
+        .catch(err => {
+          console.error("PayPal return verification failed:", err);
+          toast.error("Failed to verify PayPal payment status.");
         })
         .finally(() => {
           window.history.replaceState({}, "", window.location.pathname);

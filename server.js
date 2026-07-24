@@ -975,35 +975,49 @@ const isTestKey = (CASHFREE_SECRET_KEY || "").startsWith("cfsk_ma_test_") || (CA
 const isSandbox = process.env.CASHFREE_ENV === "sandbox" || (!isProductionEnv && isTestKey) || isTestKey;
 const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https://api.cashfree.com/pg";
 
+// ── PayPal Payment Integration ──────────────────────────────────────
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || (isProductionEnv ? process.env.PAYPAL_PROD_CLIENT_ID : process.env.PAYPAL_TEST_CLIENT_ID) || process.env.PAYPAL_PROD_CLIENT_ID || "";
+const PAYPAL_SECRET = process.env.PAYPAL_SECRET || (isProductionEnv ? process.env.PAYPAL_PROD_SECRET : process.env.PAYPAL_TEST_SECRET) || process.env.PAYPAL_PROD_SECRET || "";
+
+const isPayPalSandbox = process.env.PAYPAL_ENV === "sandbox" || (!isProductionEnv && (PAYPAL_CLIENT_ID || "").startsWith("AfSQ")) || (PAYPAL_CLIENT_ID || "").startsWith("AfSQ");
+const PAYPAL_BASE_URL = isPayPalSandbox ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
+
+async function getPayPalAccessToken() {
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString("base64");
+  const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error_description || data.message || "Failed to authenticate with PayPal");
+  }
+  return data.access_token;
+}
+
 app.post("/api/cashfree/create-order", async (req, res) => {
   const userId = getUser(req) || req.body.userId;
-  const { planId, customerEmail, customerPhone, customerName, returnUrl, currency, billingCycle } = req.body;
+  const { planId, customerEmail, customerPhone, customerName, returnUrl, currency } = req.body;
 
   if (!planId || !["starter", "growth"].includes(planId)) {
     return res.status(400).json({ error: "Invalid or missing planId. Options: starter, growth" });
   }
 
   const isUSD = String(currency).toUpperCase() === "USD";
-  const isYearly = String(billingCycle).toLowerCase() === "yearly";
   const orderCurrency = isUSD ? "USD" : "INR";
 
   let amount;
-  if (isYearly) {
-    if (isUSD) {
-      amount = planId === "starter" ? 59.99 : 149.99;
-    } else {
-      amount = planId === "starter" ? 4999.00 : 12999.00;
-    }
+  if (isUSD) {
+    amount = planId === "starter" ? 5.99 : 14.99;
   } else {
-    if (isUSD) {
-      amount = planId === "starter" ? 5.99 : 14.99;
-    } else {
-      amount = planId === "starter" ? 499.00 : 1299.00;
-    }
+    amount = planId === "starter" ? 499.00 : 1299.00;
   }
 
-  const cycleTag = isYearly ? "yearly" : "monthly";
-  const orderId = `rs_sub_${planId}_${cycleTag}_${orderCurrency.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const orderId = `rs_sub_${planId}_${orderCurrency.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
     let finalReturnUrl = returnUrl || `https://www.rightsignal.social/?cf_order_id={order_id}&plan=${planId}`;
@@ -1088,8 +1102,8 @@ app.post("/api/cashfree/verify-payment", async (req, res) => {
     // ONLY activate subscription plan if Cashfree order status is strictly PAID!
     if (orderData.order_status === "PAID") {
       const activePlan = planId || (orderData.order_amount >= 1200 || orderData.order_amount >= 14 ? "growth" : "starter");
-      const isYearlyOrder = String(orderId).includes("_yearly_") || orderData.order_amount >= 4000 || (orderData.order_amount >= 50 && orderData.order_amount < 200);
-      const durationMs = isYearlyOrder ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+      // Growth plan grants 3 Months (90 days) bundled access! Starter grants 30 days.
+      const durationMs = activePlan === "growth" ? 90 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
       const expiresAt = new Date(Date.now() + durationMs).toISOString();
 
       if (userId) {
@@ -1155,6 +1169,162 @@ app.post("/api/cashfree/webhook", async (req, res) => {
     res.json({ status: "OK" });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── PayPal Endpoints ────────────────────────────────────────────────
+app.get("/api/paypal/config", (req, res) => {
+  res.json({
+    clientId: PAYPAL_CLIENT_ID,
+    mode: isPayPalSandbox ? "sandbox" : "production",
+  });
+});
+
+app.post("/api/paypal/create-order", async (req, res) => {
+  const userId = getUser(req) || req.body.userId;
+  const { planId, returnUrl } = req.body;
+
+  if (!planId || !["starter", "growth"].includes(planId)) {
+    return res.status(400).json({ error: "Invalid or missing planId. Options: starter, growth" });
+  }
+
+  const amount = planId === "starter" ? "5.99" : "14.99";
+
+  try {
+    const accessToken = await getPayPalAccessToken();
+
+    let finalReturnUrl = returnUrl || `https://www.rightsignal.social/?paypal_order_id={order_id}&plan=${planId}`;
+
+    const orderPayload = {
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          amount: {
+            currency_code: "USD",
+            value: amount,
+          },
+          description: `RightSignal ${planId === "starter" ? "Founder Starter" : "Founder Growth (3-Month Bundle)"} ($${amount})`,
+        },
+      ],
+      application_context: {
+        brand_name: "RightSignal Social",
+        landing_page: "LOGIN",
+        user_action: "PAY_NOW",
+        return_url: finalReturnUrl.replace("{order_id}", "PAYPAL_RETURN"),
+        cancel_url: finalReturnUrl.replace("{order_id}", "CANCELLED"),
+      },
+    };
+
+    const ppResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(orderPayload),
+    });
+
+    const data = await ppResponse.json();
+
+    if (!ppResponse.ok) {
+      console.error("[PayPal] Create Order Error:", data);
+      return res.status(ppResponse.status).json({ error: data.message || "PayPal order creation failed", details: data });
+    }
+
+    const approveLink = data.links?.find((l) => l.rel === "approve")?.href;
+
+    res.json({
+      id: data.id,
+      order_id: data.id,
+      payment_link: approveLink,
+      approval_url: approveLink,
+      amount,
+      currency: "USD",
+      planId,
+      mode: isPayPalSandbox ? "sandbox" : "production",
+    });
+  } catch (err) {
+    console.error("[PayPal] Express endpoint exception:", err);
+    res.status(500).json({ error: err.message || "Failed to connect to PayPal API" });
+  }
+});
+
+app.post("/api/paypal/capture-order", async (req, res) => {
+  const userId = getUser(req) || req.body.userId;
+  const { orderId, planId } = req.body;
+
+  if (!orderId) return res.status(400).json({ error: "orderId required" });
+
+  try {
+    const accessToken = await getPayPalAccessToken();
+    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const orderData = await response.json();
+    console.log(`[PayPal Capture] Order ID: ${orderId}, Status: ${orderData.status}`);
+
+    if (orderData.status === "COMPLETED") {
+      const activePlan = planId || "starter";
+      // Growth plan grants 3 Months (90 days) bundled access! Starter grants 30 days.
+      const durationMs = activePlan === "growth" ? 90 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + durationMs).toISOString();
+
+      if (userId) {
+        try {
+          const { data: profData } = await supabase.from("rs_user_profiles").select("social_links").eq("id", userId).single();
+          const currentSocials = profData?.social_links || {};
+          const updatedSocials = {
+            ...currentSocials,
+            _subscription: { plan: activePlan, status: "active", expires_at: expiresAt }
+          };
+
+          const { error: dbErr } = await supabase
+            .from("rs_user_profiles")
+            .update({
+              subscription_plan: activePlan,
+              subscription_status: "active",
+              subscription_expires_at: expiresAt,
+              social_links: updatedSocials,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", userId);
+
+          if (dbErr) {
+            console.warn("[PayPal capture-order] Direct column update notice, persisting to social_links JSON fallback:", dbErr.message);
+            await supabase
+              .from("rs_user_profiles")
+              .update({
+                social_links: updatedSocials,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", userId);
+          }
+        } catch (e) {
+          console.error("[PayPal capture-order] Database update exception:", e);
+        }
+      }
+
+      return res.json({
+        success: true,
+        order_status: "COMPLETED",
+        plan: activePlan,
+        expires_at: expiresAt,
+      });
+    }
+
+    return res.json({
+      success: false,
+      order_status: orderData.status || "UNPAID",
+      message: `Payment status is ${orderData.status || "UNPAID"}. Subscription plan was not activated.`,
+    });
+  } catch (err) {
+    console.error("[PayPal] Capture Order Error:", err);
+    res.status(500).json({ error: "Failed to verify PayPal payment status" });
   }
 });
 

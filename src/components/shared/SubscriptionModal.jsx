@@ -25,88 +25,14 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
   const [loadingPlan, setLoadingPlan] = useState(null);
   const [activeTab, setActiveTab] = useState("plans");
   const [selectedCurrency, setSelectedCurrency] = useState("INR");
-  const [billingCycle, setBillingCycle] = useState("monthly");
 
   if (!isOpen) return null;
 
   const currentPlan = myProfile?.subscription_plan || "free";
 
-  const handleSubscribe = async (planId) => {
-    setLoadingPlan(planId);
+  const activatePlanLocally = async (planId, durationDays = 30) => {
     try {
-      const res = await fetch("/api/cashfree/create-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": me || "",
-        },
-        body: JSON.stringify({
-          planId,
-          currency: selectedCurrency,
-          billingCycle,
-          userId: me,
-          customerEmail: myProfile?.email || "founder@rightsignal.co",
-          customerName: myProfile?.name || "Founder Member",
-          customerPhone: myProfile?.phone || "9999999999",
-          returnUrl: `${window.location.origin}/?cf_order_id={order_id}&plan=${planId}`,
-        }),
-      });
-
-
-
-      const contentType = res.headers.get("content-type") || "";
-      let data = {};
-      if (contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        throw new Error(`Payment service returned non-JSON response (${res.status}). Server may be restarting.`);
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to create payment session");
-      }
-
-      toast.success(`Redirecting to Cashfree checkout for ${planId === "starter" ? "Founder Starter" : "Founder Growth"}…`);
-
-      if (data.payment_link) {
-        window.location.href = data.payment_link;
-        return;
-      }
-
-      if (data.payment_session_id) {
-        let CashfreeSDK = window.Cashfree;
-        if (!CashfreeSDK) {
-          await new Promise((resolve) => {
-            const script = document.createElement("script");
-            script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
-            script.onload = () => resolve(window.Cashfree);
-            script.onerror = () => resolve(null);
-            document.head.appendChild(script);
-          });
-          CashfreeSDK = window.Cashfree;
-        }
-
-        const isLocal = window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1");
-        const checkoutMode = data.mode || (isLocal ? "sandbox" : "production");
-
-        if (CashfreeSDK) {
-          const cashfree = CashfreeSDK({ mode: checkoutMode });
-          cashfree.checkout({ paymentSessionId: data.payment_session_id });
-        } else {
-          toast.error("Failed to load Cashfree Payment SDK. Please refresh and try again.");
-        }
-      }
-    } catch (err) {
-      console.error("[Subscription] Payment launch error:", err);
-      toast.error(err.message || "Payment initiation failed. Please try again.");
-    } finally {
-      setLoadingPlan(null);
-    }
-  };
-
-  const activatePlanLocally = async (planId, orderId) => {
-    try {
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
       const currentSocials = myProfile?.social_links || {};
       const updatedSocials = {
         ...currentSocials,
@@ -130,11 +56,123 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
       }
 
       onSubscriptionUpdated?.({ ...myProfile, ...updates });
-      toast.success(`🎉 Upgrade Successful! Active Plan: ${planId === "starter" ? "Founder Starter (₹499/mo)" : "Founder Growth (₹1,299/mo)"}`);
+      toast.success(`🎉 30-Day Free Trial Activated! Active Plan: Founder Starter`);
       onClose();
     } catch (e) {
       console.error("Failed to update subscription locally:", e);
-      toast.error("Failed to update subscription.");
+      toast.error("Failed to activate free trial.");
+    }
+  };
+
+  const handleSubscribe = async (planId) => {
+    setLoadingPlan(planId);
+    try {
+      if (planId === "starter" && currentPlan !== "starter") {
+        // Starter Plan is a 30-Day Free Trial!
+        await activatePlanLocally("starter", 30);
+        return;
+      }
+
+      if (selectedCurrency === "USD") {
+        const res = await fetch("/api/paypal/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": me || "",
+          },
+          body: JSON.stringify({
+            planId,
+            userId: me,
+            returnUrl: `${window.location.origin}/?paypal_order_id={order_id}&plan=${planId}`,
+          }),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        let data = {};
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          throw new Error(`PayPal service returned non-JSON response (${res.status}). Server may be restarting.`);
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to create PayPal payment session");
+        }
+
+        toast.success(`Redirecting to PayPal Checkout for Founder Growth…`);
+
+        if (data.approval_url || data.payment_link) {
+          window.location.href = data.approval_url || data.payment_link;
+          return;
+        } else {
+          throw new Error("PayPal did not return an approval URL. Please try again.");
+        }
+      } else {
+        const res = await fetch("/api/cashfree/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": me || "",
+          },
+          body: JSON.stringify({
+            planId,
+            currency: selectedCurrency,
+            userId: me,
+            customerEmail: myProfile?.email || "founder@rightsignal.co",
+            customerName: myProfile?.name || "Founder Member",
+            customerPhone: myProfile?.phone || "9999999999",
+            returnUrl: `${window.location.origin}/?cf_order_id={order_id}&plan=${planId}`,
+          }),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        let data = {};
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          throw new Error(`Payment service returned non-JSON response (${res.status}). Server may be restarting.`);
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to create payment session");
+        }
+
+        toast.success(`Redirecting to Cashfree checkout for Founder Growth…`);
+
+        if (data.payment_link) {
+          window.location.href = data.payment_link;
+          return;
+        }
+
+        if (data.payment_session_id) {
+          let CashfreeSDK = window.Cashfree;
+          if (!CashfreeSDK) {
+            await new Promise((resolve) => {
+              const script = document.createElement("script");
+              script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+              script.onload = () => resolve(window.Cashfree);
+              script.onerror = () => resolve(null);
+              document.head.appendChild(script);
+            });
+            CashfreeSDK = window.Cashfree;
+          }
+
+          const isLocal = window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1");
+          const checkoutMode = data.mode || (isLocal ? "sandbox" : "production");
+
+          if (CashfreeSDK) {
+            const cashfree = CashfreeSDK({ mode: checkoutMode });
+            cashfree.checkout({ paymentSessionId: data.payment_session_id });
+          } else {
+            toast.error("Failed to load Cashfree Payment SDK. Please refresh and try again.");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Subscription] Payment launch error:", err);
+      toast.error(err.message || "Payment initiation failed. Please try again.");
+    } finally {
+      setLoadingPlan(null);
     }
   };
 
@@ -169,7 +207,9 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8 }}>
                 RightSignal Subscription
-                <span style={{ fontSize: 10, background: "rgba(99,102,241,0.15)", color: "#6366f1", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>Cashfree PG</span>
+                <span style={{ fontSize: 10, background: selectedCurrency === "USD" ? "rgba(16,185,129,0.15)" : "rgba(99,102,241,0.15)", color: selectedCurrency === "USD" ? "#10b981" : "#6366f1", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>
+                  {selectedCurrency === "USD" ? "PayPal PG" : "Cashfree PG"}
+                </span>
               </h2>
               <p style={{ margin: 0, fontSize: 12, color: th.txt3 }}>Unlock Funding, Collab Startup Creation, Founder CRM & AI Matchmaking</p>
             </div>
@@ -201,56 +241,8 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
           {activeTab === "plans" ? (
             <div>
-              {/* Billing Cycle & Currency Selector Bar */}
+              {/* Currency Selector Bar */}
               <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-                {/* Billing Cycle Switcher */}
-                <div style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  background: dk ? "rgba(255,255,255,0.06)" : "#f1f5f9",
-                  padding: 4,
-                  borderRadius: 14,
-                  border: `1px solid ${th.bdr}`,
-                  gap: 4
-                }}>
-                  <button
-                    onClick={() => setBillingCycle("monthly")}
-                    style={{
-                      padding: "7px 16px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: billingCycle === "monthly" ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "transparent",
-                      color: billingCycle === "monthly" ? "#fff" : th.txt2,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      transition: "all 0.2s"
-                    }}
-                  >
-                    Monthly Billing
-                  </button>
-                  <button
-                    onClick={() => setBillingCycle("yearly")}
-                    style={{
-                      padding: "7px 16px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: billingCycle === "yearly" ? "linear-gradient(135deg, #f59e0b, #d97706)" : "transparent",
-                      color: billingCycle === "yearly" ? "#fff" : th.txt2,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      transition: "all 0.2s"
-                    }}
-                  >
-                    <span>Yearly Billing</span>
-                    <span style={{ fontSize: 10, background: "#10b981", color: "#fff", padding: "1px 6px", borderRadius: 99, fontWeight: 800 }}>SAVE ~20%</span>
-                  </button>
-                </div>
-
                 {/* Currency Switcher */}
                 <div style={{
                   display: "inline-flex",
@@ -330,6 +322,10 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                     boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
                   }}
                 >
+                  <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(16,185,129,0.4)" }}>
+                    30-DAY FREE TRIAL
+                  </span>
+
                   {currentPlan === "starter" && (
                     <span style={{ position: "absolute", top: 16, right: 16, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
                       CURRENT PLAN
@@ -340,19 +336,14 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: th.txt }}>Founder Starter</h3>
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-                    <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>
-                      {selectedCurrency === "USD"
-                        ? (billingCycle === "yearly" ? "$59.99" : "$5.99")
-                        : (billingCycle === "yearly" ? "₹4,999" : "₹499")}
+                    <span style={{ fontSize: 32, fontWeight: 900, color: "#10b981" }}>
+                      FREE
                     </span>
-                    <span style={{ fontSize: 14, color: th.txt3 }}>{billingCycle === "yearly" ? "/ year" : "/ month"}</span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>/ 30 Days</span>
                   </div>
-                  {billingCycle === "yearly" && (
-                    <div style={{ fontSize: 11, color: "#10b981", fontWeight: 700, marginBottom: 10 }}>
-                      Equivalent to {selectedCurrency === "USD" ? "$4.99/mo" : "₹416/mo"} (Save 2 months!)
-                    </div>
-                  )}
-                  {billingCycle === "monthly" && <div style={{ marginBottom: 14 }} />}
+                  <div style={{ fontSize: 11, color: th.txt3, fontWeight: 600, marginBottom: 14 }}>
+                    Then {selectedCurrency === "USD" ? "$5.99/month" : "₹499/month"} after 30 days
+                  </div>
 
                   <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
                     Essential tools to launch 1 startup, access funding, handle investor outreach, and manage products.
@@ -360,6 +351,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
 
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
                     {[
+                      "30 Days Full Access for FREE",
                       "Create 1 Startup",
                       "Founder Dashboard & CRM Access",
                       "Up to 3 Products / Services",
@@ -382,7 +374,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       padding: "12px",
                       borderRadius: 14,
                       border: "none",
-                      background: currentPlan === "starter" ? "rgba(99,102,241,0.2)" : "#6366f1",
+                      background: currentPlan === "starter" ? "rgba(99,102,241,0.2)" : "linear-gradient(135deg, #10b981, #059669)",
                       color: "#fff",
                       fontWeight: 700,
                       fontSize: 14,
@@ -391,10 +383,10 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 8,
-                      boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
+                      boxShadow: "0 4px 16px rgba(16,185,129,0.3)",
                     }}
                   >
-                    {loadingPlan === "starter" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "starter" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$59.99/yr" : "$5.99/mo") : (billingCycle === "yearly" ? "₹4,999/yr" : "₹499/mo")} <ArrowRight size={16} /></>}
+                    {loadingPlan === "starter" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "starter" ? "Active Plan" : <>Start 30-Day Free Trial <ArrowRight size={16} /></>}
                   </button>
                 </div>
 
@@ -412,8 +404,14 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                   }}
                 >
                   <span style={{ position: "absolute", top: -12, right: 20, background: "linear-gradient(135deg,#8b5cf6,#ec4899)", color: "#fff", fontSize: 10, fontWeight: 900, padding: "4px 12px", borderRadius: 99, letterSpacing: 0.5, boxShadow: "0 4px 12px rgba(139,92,246,0.4)" }}>
-                    POPULAR
+                    3-MONTH BUNDLE (2 MONTHS FREE!)
                   </span>
+
+                  {currentPlan === "growth" && (
+                    <span style={{ position: "absolute", top: 16, right: 16, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 99 }}>
+                      CURRENT PLAN
+                    </span>
+                  )}
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <Crown size={20} color="#8b5cf6" />
@@ -421,18 +419,13 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                   </div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
                     <span style={{ fontSize: 32, fontWeight: 900, color: th.txt }}>
-                      {selectedCurrency === "USD"
-                        ? (billingCycle === "yearly" ? "$149.99" : "$14.99")
-                        : (billingCycle === "yearly" ? "₹12,999" : "₹1,299")}
+                      {selectedCurrency === "USD" ? "$14.99" : "₹1,299"}
                     </span>
-                    <span style={{ fontSize: 14, color: th.txt3 }}>{billingCycle === "yearly" ? "/ year" : "/ month"}</span>
+                    <span style={{ fontSize: 14, color: th.txt3 }}>/ 3 Months total</span>
                   </div>
-                  {billingCycle === "yearly" && (
-                    <div style={{ fontSize: 11, color: "#10b981", fontWeight: 700, marginBottom: 10 }}>
-                      Equivalent to {selectedCurrency === "USD" ? "$12.49/mo" : "₹1,083/mo"} (Save 2 months!)
-                    </div>
-                  )}
-                  {billingCycle === "monthly" && <div style={{ marginBottom: 14 }} />}
+                  <div style={{ fontSize: 11, color: "#10b981", fontWeight: 700, marginBottom: 14 }}>
+                    🎉 1st Time Special Offer: Get 3 Months for price of 1 month! (Then {selectedCurrency === "USD" ? "$14.99/mo" : "₹1,299/mo"})
+                  </div>
 
                   <p style={{ fontSize: 13, color: th.txt2, marginBottom: 18, lineHeight: 1.4 }}>
                     Full power startup acceleration with unlimited funding applications, 10 products, and AI matchmaking.
@@ -440,6 +433,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
 
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
                     {[
+                      "3 Months Full Access (2 Months FREE!)",
                       "Everything in Starter Plan",
                       "Up to 10 Products / Services",
                       "Unlimited Funding Applications",
@@ -475,7 +469,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                       boxShadow: "0 4px 16px rgba(139,92,246,0.3)",
                     }}
                   >
-                    {loadingPlan === "growth" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "growth" ? "Active Plan" : <>Upgrade for {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$149.99/yr" : "$14.99/mo") : (billingCycle === "yearly" ? "₹12,999/yr" : "₹1,299/mo")} <ArrowRight size={16} /></>}
+                    {loadingPlan === "growth" ? <Loader2 size={16} className="animate-spin" /> : currentPlan === "growth" ? "Active Plan" : <>Get 3-Month Offer ({selectedCurrency === "USD" ? "$14.99" : "₹1,299"}) <ArrowRight size={16} /></>}
                   </button>
                 </div>
               </div>
@@ -489,10 +483,10 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
                     <th style={{ padding: "12px 16px", textAlign: "left", color: th.txt3, fontWeight: 700 }}>Platform Feature</th>
                     <th style={{ padding: "12px 16px", textAlign: "center", color: th.txt3, fontWeight: 700 }}>Free User</th>
                     <th style={{ padding: "12px 16px", textAlign: "center", color: "#6366f1", fontWeight: 700 }}>
-                      {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$59.99/yr Starter" : "$5.99/mo Starter") : (billingCycle === "yearly" ? "₹4,999/yr Starter" : "₹499 Starter")}
+                      Founder Starter (30 Days Free)
                     </th>
                     <th style={{ padding: "12px 16px", textAlign: "center", color: "#8b5cf6", fontWeight: 700 }}>
-                      {selectedCurrency === "USD" ? (billingCycle === "yearly" ? "$149.99/yr Growth" : "$14.99/mo Growth") : (billingCycle === "yearly" ? "₹12,999/yr Growth" : "₹1,299 Growth")}
+                      {selectedCurrency === "USD" ? "Founder Growth ($14.99 / 3 Months)" : "Founder Growth (₹1,299 / 3 Months)"}
                     </th>
                   </tr>
                 </thead>
@@ -516,7 +510,7 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         <div style={{ padding: "14px 24px", borderTop: `1px solid ${th.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: dk ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)", fontSize: 12, color: th.txt3 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Shield size={14} color="#10b981" />
-            <span>Encrypted payment processing powered by <strong>Cashfree Payments</strong></span>
+            <span>Encrypted payment processing powered by <strong>{selectedCurrency === "USD" ? "PayPal Checkout" : "Cashfree Payments"}</strong></span>
           </div>
           <span>Instant activation after payment confirmation</span>
         </div>
@@ -525,3 +519,4 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
     document.body
   );
 }
+
