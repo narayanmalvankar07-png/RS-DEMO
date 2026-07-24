@@ -2159,7 +2159,12 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
 
               {/* Product Image section: Device Upload or Link */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3, marginBottom: 4, display: "block" }}>Product Image * (Device Upload or Image Link)</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: th.txt3 }}>Product Image * (Device Upload or Image Link)</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "rgba(99,102,241,0.12)", padding: "3px 9px", borderRadius: 99, border: "1px solid rgba(99,102,241,0.25)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    📏 Recommended: 16:9 (1200 × 675 px)
+                  </span>
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <label style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.surf2, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -2168,6 +2173,9 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
                     </label>
                     <span style={{ fontSize: 11, color: th.txt3 }}>or paste URL below</span>
                   </div>
+                  <div style={{ fontSize: 11, color: th.txt3, display: "flex", alignItems: "center", gap: 4 }}>
+                    💡 <span style={{ fontStyle: "italic" }}>Use 16:9 landscape aspect ratio (e.g. 1200×675 px or 800×450 px) so your image doesn't get cropped.</span>
+                  </div>
                   <input
                     value={form.image_url}
                     onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))}
@@ -2175,9 +2183,12 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
                     style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
                   />
                   {form.image_url && (
-                    <div style={{ position: "relative", width: 120, height: 80, borderRadius: 8, overflow: "hidden", border: `1px solid ${th.bdr}`, marginTop: 4 }}>
-                      <img src={form.image_url} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = 'none'; }} />
-                      <button onClick={() => setForm(f => ({ ...f, image_url: "" }))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>✕</button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+                      <div style={{ position: "relative", width: 140, height: 80, borderRadius: 10, overflow: "hidden", border: `1px solid ${th.bdr}`, background: dk ? "#090d16" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <img src={form.image_url} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.target.style.display = 'none'; }} />
+                        <button onClick={() => setForm(f => ({ ...f, image_url: "" }))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✕</button>
+                      </div>
+                      <span style={{ fontSize: 11, color: th.txt3, fontWeight: 600 }}>Image preview (Full fit - No crop)</span>
                     </div>
                   )}
                 </div>
@@ -2235,8 +2246,8 @@ function ProductsServicesSection({ startup, isFounder, me, dk, addNotif, myProfi
             <Card key={prod.id} dk={dk} style={{ padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, overflow: "hidden" }}>
               <div>
                 {prod.image_url && (
-                  <div style={{ width: "100%", height: 140, borderRadius: 10, overflow: "hidden", marginBottom: 12, background: th.surf2, border: `1px solid ${th.bdr}` }}>
-                    <img src={prod.image_url} alt={prod.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = 'none'; }} />
+                  <div style={{ width: "100%", height: 140, borderRadius: 10, overflow: "hidden", marginBottom: 12, background: dk ? "#090d16" : "#f8fafc", border: `1px solid ${th.bdr}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <img src={prod.image_url} alt={prod.title} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.target.style.display = 'none'; }} />
                   </div>
                 )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
