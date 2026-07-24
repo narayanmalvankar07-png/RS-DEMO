@@ -75,6 +75,8 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
       }
 
       if (selectedCurrency === "USD") {
+        const payTab = window.open("about:blank", "_blank");
+
         const res = await fetch("/api/paypal/create-order", {
           method: "POST",
           headers: {
@@ -93,22 +95,32 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         if (contentType.includes("application/json")) {
           data = await res.json();
         } else {
+          if (payTab) payTab.close();
           throw new Error(`PayPal service returned non-JSON response (${res.status}). Server may be restarting.`);
         }
 
         if (!res.ok) {
+          if (payTab) payTab.close();
           throw new Error(data.error || "Failed to create PayPal payment session");
         }
 
-        toast.success(`Redirecting to PayPal Checkout for Founder Growth…`);
+        toast.success(`Opening PayPal Checkout in a new tab…`);
 
-        if (data.approval_url || data.payment_link) {
-          window.location.href = data.approval_url || data.payment_link;
+        const targetUrl = data.approval_url || data.payment_link;
+        if (targetUrl) {
+          if (payTab) {
+            payTab.location.href = targetUrl;
+          } else {
+            window.open(targetUrl, "_blank");
+          }
           return;
         } else {
+          if (payTab) payTab.close();
           throw new Error("PayPal did not return an approval URL. Please try again.");
         }
       } else {
+        const payTab = window.open("about:blank", "_blank");
+
         const res = await fetch("/api/cashfree/create-order", {
           method: "POST",
           headers: {
@@ -131,17 +143,23 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         if (contentType.includes("application/json")) {
           data = await res.json();
         } else {
+          if (payTab) payTab.close();
           throw new Error(`Payment service returned non-JSON response (${res.status}). Server may be restarting.`);
         }
 
         if (!res.ok) {
+          if (payTab) payTab.close();
           throw new Error(data.error || "Failed to create payment session");
         }
 
-        toast.success(`Redirecting to Cashfree checkout for Founder Growth…`);
+        toast.success(`Opening Cashfree Checkout in a new tab…`);
 
         if (data.payment_link) {
-          window.location.href = data.payment_link;
+          if (payTab) {
+            payTab.location.href = data.payment_link;
+          } else {
+            window.open(data.payment_link, "_blank");
+          }
           return;
         }
 
@@ -163,16 +181,27 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
           if (CashfreeSDK) {
             try {
               const cashfree = CashfreeSDK({ mode: checkoutMode });
+              if (payTab) payTab.close();
               cashfree.checkout({
                 paymentSessionId: data.payment_session_id,
-                redirectTarget: "_self"
+                redirectTarget: "_blank"
               });
             } catch (sdkErr) {
-              console.warn("Cashfree SDK Checkout init warning, redirecting:", sdkErr);
-              window.location.href = `https://payments.cashfree.com/order/#${data.payment_session_id}`;
+              console.warn("Cashfree SDK Checkout init warning, opening in new tab:", sdkErr);
+              const fallbackUrl = `https://payments.cashfree.com/order/#${data.payment_session_id}`;
+              if (payTab) {
+                payTab.location.href = fallbackUrl;
+              } else {
+                window.open(fallbackUrl, "_blank");
+              }
             }
           } else {
-            window.location.href = `https://payments.cashfree.com/order/#${data.payment_session_id}`;
+            const fallbackUrl = `https://payments.cashfree.com/order/#${data.payment_session_id}`;
+            if (payTab) {
+              payTab.location.href = fallbackUrl;
+            } else {
+              window.open(fallbackUrl, "_blank");
+            }
           }
         }
       }
