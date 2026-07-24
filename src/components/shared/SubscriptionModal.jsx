@@ -4,6 +4,7 @@ import { X, Sparkles, Shield, Rocket, Crown, ArrowRight, Loader2, CheckCircle2 }
 import { T } from "../../config/constants.js";
 import { toast } from "sonner";
 import { db } from "../../services/supabase.js";
+import RightSignalLogo from "../ui/RightSignalLogo.jsx";
 
 const FEATURE_MATRIX = [
   { feature: "Browse Collab", free: "✅", starter: "✅", growth: "✅" },
@@ -207,10 +208,8 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
       >
         {/* Header */}
         <div style={{ padding: isMobile ? "14px 16px" : "20px 24px", borderBottom: `1px solid ${th.bdr}`, display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center", background: dk ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.04)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 12, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0, boxShadow: "0 4px 14px rgba(99,102,241,0.3)" }}>
-              <Sparkles size={20} />
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <RightSignalLogo size={isMobile ? 36 : 40} showText={false} dk={dk} />
             <div>
               <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 18, fontWeight: 800, color: th.txt, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 RightSignal Subscription
