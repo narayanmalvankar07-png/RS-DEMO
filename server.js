@@ -979,24 +979,48 @@ const CASHFREE_BASE_URL = isSandbox ? "https://sandbox.cashfree.com/pg" : "https
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || (isProductionEnv ? process.env.PAYPAL_PROD_CLIENT_ID : process.env.PAYPAL_TEST_CLIENT_ID) || process.env.PAYPAL_PROD_CLIENT_ID || "";
 const PAYPAL_SECRET = process.env.PAYPAL_SECRET || (isProductionEnv ? process.env.PAYPAL_PROD_SECRET : process.env.PAYPAL_TEST_SECRET) || process.env.PAYPAL_PROD_SECRET || "";
 
-const isPayPalSandbox = process.env.PAYPAL_ENV === "sandbox" || (!isProductionEnv && (PAYPAL_CLIENT_ID || "").startsWith("AfSQ")) || (PAYPAL_CLIENT_ID || "").startsWith("AfSQ");
+const isPayPalSandbox = process.env.PAYPAL_ENV === "sandbox" || (PAYPAL_CLIENT_ID || "").startsWith("AfSQ");
 const PAYPAL_BASE_URL = isPayPalSandbox ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
 
 async function getPayPalAccessToken() {
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString("base64");
-  const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials",
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error_description || data.message || "Failed to authenticate with PayPal");
+  const tryAuth = async (baseUrl, clientId, secret) => {
+    if (!clientId || !secret) {
+      throw new Error("PayPal Client ID or Secret is missing in environment variables.");
+    }
+    const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
+    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials",
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error_description || data.message || "Failed to authenticate with PayPal");
+    }
+    return { token: data.access_token, baseUrl };
+  };
+
+  try {
+    return await tryAuth(PAYPAL_BASE_URL, PAYPAL_CLIENT_ID, PAYPAL_SECRET);
+  } catch (err1) {
+    console.warn(`[PayPal Auth Warning] Primary (${PAYPAL_BASE_URL}) failed: ${err1.message}. Attempting fallback endpoint...`);
+    const altBaseUrl = PAYPAL_BASE_URL.includes("sandbox") ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+    try {
+      return await tryAuth(altBaseUrl, PAYPAL_CLIENT_ID, PAYPAL_SECRET);
+    } catch (err2) {
+      const testClientId = process.env.PAYPAL_TEST_CLIENT_ID;
+      const testSecret = process.env.PAYPAL_TEST_SECRET;
+      if (testClientId && testSecret) {
+        try {
+          return await tryAuth("https://api-m.sandbox.paypal.com", testClientId, testSecret);
+        } catch (err3) {}
+      }
+      throw err1;
+    }
   }
-  return data.access_token;
 }
 
 app.post("/api/cashfree/create-order", async (req, res) => {
@@ -1029,7 +1053,6 @@ app.post("/api/cashfree/create-order", async (req, res) => {
     }
 
     const priceLabel = isUSD ? `$${amount}` : `₹${amount.toLocaleString()}`;
-    const periodLabel = isYearly ? "/yr" : "/mo";
 
     const cfResponse = await fetch(`${CASHFREE_BASE_URL}/orders`, {
       method: "POST",
@@ -1052,7 +1075,7 @@ app.post("/api/cashfree/create-order", async (req, res) => {
         order_meta: {
           return_url: finalReturnUrl,
         },
-        order_note: `RightSignal ${planId === "starter" ? "Founder Starter" : "Founder Growth"} (${cycleTag}) (${priceLabel}${periodLabel})`,
+        order_note: `RightSignal ${planId === "starter" ? "Founder Starter" : "Founder Growth"} (${priceLabel})`,
       }),
     });
 
@@ -1070,7 +1093,6 @@ app.post("/api/cashfree/create-order", async (req, res) => {
       payment_link: data.payment_link || (data.payments?.url),
       amount,
       currency: orderCurrency,
-      billingCycle: cycleTag,
       planId,
       mode: isSandbox ? "sandbox" : "production",
     });
@@ -1191,7 +1213,7 @@ app.post("/api/paypal/create-order", async (req, res) => {
   const amount = planId === "starter" ? "5.99" : "14.99";
 
   try {
-    const accessToken = await getPayPalAccessToken();
+    const { token: accessToken, baseUrl: activeBaseUrl } = await getPayPalAccessToken();
 
     let finalReturnUrl = returnUrl || `https://www.rightsignal.social/?paypal_order_id={order_id}&plan=${planId}`;
 
@@ -1215,7 +1237,7 @@ app.post("/api/paypal/create-order", async (req, res) => {
       },
     };
 
-    const ppResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+    const ppResponse = await fetch(`${activeBaseUrl}/v2/checkout/orders`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
@@ -1241,7 +1263,7 @@ app.post("/api/paypal/create-order", async (req, res) => {
       amount,
       currency: "USD",
       planId,
-      mode: isPayPalSandbox ? "sandbox" : "production",
+      mode: activeBaseUrl.includes("sandbox") ? "sandbox" : "production",
     });
   } catch (err) {
     console.error("[PayPal] Express endpoint exception:", err);
@@ -1256,8 +1278,8 @@ app.post("/api/paypal/capture-order", async (req, res) => {
   if (!orderId) return res.status(400).json({ error: "orderId required" });
 
   try {
-    const accessToken = await getPayPalAccessToken();
-    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
+    const { token: accessToken, baseUrl: activeBaseUrl } = await getPayPalAccessToken();
+    const response = await fetch(`${activeBaseUrl}/v2/checkout/orders/${orderId}/capture`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,

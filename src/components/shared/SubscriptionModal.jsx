@@ -157,14 +157,21 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
             CashfreeSDK = window.Cashfree;
           }
 
-          const isLocal = window.location.hostname.includes("localhost") || window.location.hostname.includes("127.0.0.1");
-          const checkoutMode = data.mode || (isLocal ? "sandbox" : "production");
+          const checkoutMode = data.mode || "production";
 
           if (CashfreeSDK) {
-            const cashfree = CashfreeSDK({ mode: checkoutMode });
-            cashfree.checkout({ paymentSessionId: data.payment_session_id });
+            try {
+              const cashfree = CashfreeSDK({ mode: checkoutMode });
+              cashfree.checkout({
+                paymentSessionId: data.payment_session_id,
+                redirectTarget: "_self"
+              });
+            } catch (sdkErr) {
+              console.warn("Cashfree SDK Checkout init warning, redirecting:", sdkErr);
+              window.location.href = `https://payments.cashfree.com/order/#${data.payment_session_id}`;
+            }
           } else {
-            toast.error("Failed to load Cashfree Payment SDK. Please refresh and try again.");
+            window.location.href = `https://payments.cashfree.com/order/#${data.payment_session_id}`;
           }
         }
       }
