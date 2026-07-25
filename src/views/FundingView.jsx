@@ -1049,11 +1049,22 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       let response;
       if (myApplication?.id && !String(myApplication.id).startsWith("local_")) {
         // Update existing application
-        await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
-        response = { ...myApplication, ...payload };
+        const patched = await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
+        response = patched || { ...myApplication, ...payload };
       } else {
         // Create new application
         response = await db.post("rs_funding_applications", payload);
+      }
+
+      // Fallback if DB insert was blocked by RLS or network error
+      if (!response) {
+        console.warn("Supabase insert returned null for rs_funding_applications. Check table RLS policy.");
+        response = {
+          id: `local_${Date.now()}`,
+          uid: me,
+          data: updatedForm,
+          created_at: new Date().toISOString()
+        };
       }
 
       if (response) {
