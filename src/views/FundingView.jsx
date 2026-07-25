@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 import { 
   Briefcase, DollarSign, Users, MapPin, Globe, CheckCircle2, ChevronRight, 
-  ChevronLeft, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText, 
+  ChevronLeft, ChevronDown, ChevronUp, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText, 
   TrendingUp, BarChart3, AlertCircle, Building2, HelpCircle, Edit2, Mail, Copy
 } from "lucide-react";
 import { T } from "../config/constants.js";
@@ -52,6 +52,146 @@ function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
       textShadow: "0 1px 3px rgba(0,0,0,0.2)"
     }}>
       {finalLogoText}
+    </div>
+  );
+}
+
+// ─── DESCRIPTION FORMATTER & READ MORE HELPER ──────────────────────
+function parseDescriptionBlocks(text) {
+  if (!text) return [];
+
+  const emojiRegex = /[✅✔•📌⚡🚀⭐►▪▫]/;
+
+  if (emojiRegex.test(text)) {
+    const parts = text.split(/(?=[✅✔•📌⚡🚀⭐►▪▫])/g);
+    const blocks = [];
+    parts.forEach(part => {
+      const trimmed = part.trim();
+      if (!trimmed) return;
+      const firstChar = trimmed[0];
+      if (emojiRegex.test(firstChar)) {
+        const content = trimmed.slice(1).trim();
+        blocks.push({ type: "bullet", marker: firstChar, content });
+      } else {
+        blocks.push({ type: "text", content: trimmed });
+      }
+    });
+    return blocks;
+  }
+
+  if (text.includes("\n")) {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    return lines.map(line => {
+      if (/^[-*•]\s+/.test(line)) {
+        return { type: "bullet", marker: "•", content: line.replace(/^[-*•]\s+/, "") };
+      }
+      return { type: "text", content: line };
+    });
+  }
+
+  return [{ type: "text", content: text }];
+}
+
+function FormattedDescription({ text, isExpanded, onToggleExpand, limit = 130, th, dk }) {
+  if (!text) return null;
+
+  const blocks = parseDescriptionBlocks(text);
+  const isLong = text.length > limit || blocks.length > 2;
+
+  if (!isExpanded && isLong) {
+    const snippet = text.slice(0, limit).trim() + "...";
+    return (
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.55 }}>
+          {snippet}{" "}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand?.();
+            }}
+            style={{
+              background: dk ? "rgba(99, 102, 241, 0.15)" : "rgba(99, 102, 241, 0.08)",
+              border: `1px solid ${dk ? "rgba(99, 102, 241, 0.3)" : "rgba(99, 102, 241, 0.2)"}`,
+              color: "#6366f1",
+              fontWeight: 700,
+              fontSize: 11,
+              cursor: "pointer",
+              padding: "2px 8px",
+              borderRadius: 6,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              marginLeft: 4,
+              transition: "all 0.15s"
+            }}
+          >
+            Read more <ChevronDown size={11} />
+          </button>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+      {blocks.map((block, idx) => {
+        if (block.type === "bullet") {
+          return (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                fontSize: 12.5,
+                color: th.txt,
+                lineHeight: 1.5,
+                background: dk ? "rgba(99, 102, 241, 0.08)" : "rgba(99, 102, 241, 0.04)",
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`
+              }}
+            >
+              <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1, color: "#10b981" }}>{block.marker}</span>
+              <span style={{ flex: 1, fontWeight: 500 }}>{block.content}</span>
+            </div>
+          );
+        }
+        return (
+          <p key={idx} style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.55 }}>
+            {block.content}
+          </p>
+        );
+      })}
+
+      {isLong && onToggleExpand && (
+        <div style={{ marginTop: 2 }}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand();
+            }}
+            style={{
+              background: dk ? "rgba(99, 102, 241, 0.15)" : "rgba(99, 102, 241, 0.08)",
+              border: `1px solid ${dk ? "rgba(99, 102, 241, 0.3)" : "rgba(99, 102, 241, 0.2)"}`,
+              color: "#6366f1",
+              fontWeight: 700,
+              fontSize: 11,
+              cursor: "pointer",
+              padding: "2px 8px",
+              borderRadius: 6,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              transition: "all 0.15s"
+            }}
+          >
+            Read less <ChevronUp size={11} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -691,9 +831,30 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // Detailed view modal state
   const [selectedVC, setSelectedVC] = useState(null);
+  const [expandedVCs, setExpandedVCs] = useState({});
 
   // Pending VC apply targets
   const [pendingVCId, setPendingVCId] = useState(null);
+
+  // Helper to fetch RSID from profile
+  const getAutoRSID = () => {
+    const p = myProfile || profiles?.[me] || {};
+    if (p.rsid) return p.rsid;
+    if (p.rs_id) return p.rs_id;
+    if (p.handle) return `RS-${p.handle.replace(/^@/, "").toUpperCase()}`;
+    if (p.ref_code) return `RS-${p.ref_code.toUpperCase()}`;
+    if (me) return `RS-${String(me).replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase()}`;
+    return "RS-1001";
+  };
+
+  // Helper to combine all applied investor IDs safely
+  const getAppliedList = () => {
+    return Array.from(new Set([
+      ...(form.appliedInvestors || []),
+      ...(myApplication?.data?.appliedInvestors || []),
+      ...(myApplication?.appliedInvestors || [])
+    ]));
+  };
 
   // Fetch applications & investors
   useEffect(() => {
@@ -708,15 +869,46 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       const mappedDb = (dbInvestors || []).map(i => ({ ...i, type: i.type || "VCs" }));
       setInvestors(mappedDb);
 
+      const p = myProfile || profiles?.[me] || {};
+      const autoRsid = p.rsid || p.rs_id || (p.handle ? `RS-${p.handle.replace(/^@/, "").toUpperCase()}` : (p.ref_code ? `RS-${p.ref_code.toUpperCase()}` : `RS-${String(me || "1001").replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase()}`));
+      const autoName = p.name || "";
+      const autoEmail = p.email || (typeof me === "string" && me.includes("@") ? me : "");
+
       // 2. Load my application
+      let appData = null;
+      let appRow = null;
       const myRows = await db.get("rs_funding_applications", `uid=eq.${me}`);
       if (myRows && myRows.length > 0) {
-        setMyApplication(myRows[0]);
-        setForm({ ...INITIAL_FORM, ...myRows[0].data });
+        appRow = myRows[0];
+        appData = myRows[0].data;
       } else {
-        localStorage.removeItem(`rs_funding_app_${me}`);
+        const localApp = localStorage.getItem(`rs_funding_app_${me}`);
+        if (localApp) {
+          try {
+            const parsed = JSON.parse(localApp);
+            appRow = parsed;
+            appData = parsed.data;
+          } catch (e) {}
+        }
+      }
+
+      if (appData) {
+        setMyApplication(appRow);
+        setForm(prev => ({
+          ...INITIAL_FORM,
+          founderName: autoName || prev.founderName,
+          founderEmail: autoEmail || prev.founderEmail,
+          ...appData,
+          rsid: appData.rsid || autoRsid
+        }));
+      } else {
         setMyApplication(null);
-        setForm(INITIAL_FORM);
+        setForm(prev => ({
+          ...INITIAL_FORM,
+          rsid: autoRsid,
+          founderName: autoName,
+          founderEmail: autoEmail
+        }));
       }
 
       // 3. Check if user has created a startup profile in collab
@@ -824,6 +1016,16 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     setActiveStep(0);
     setFormErrors({});
     setPendingVCId(initialVCId);
+    
+    const autoRsid = getAutoRSID();
+    const p = myProfile || profiles?.[me] || {};
+    setForm(prev => ({
+      ...prev,
+      rsid: prev.rsid || autoRsid,
+      founderName: prev.founderName || p.name || "",
+      founderEmail: prev.founderEmail || p.email || ""
+    }));
+
     setWizardOpen(true);
   };
 
@@ -929,6 +1131,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // ─── APPLYING TO INVESTOR FLOW ─────────────────────────────────────
   const handleApplyToVC = async (investorId) => {
+    const appliedList = getAppliedList();
+
+    if (appliedList.includes(investorId)) {
+      addNotif?.({ type: "info", msg: "You have already applied to this investor." });
+      return;
+    }
+
     // 1. Subscription Check
     if (!isSubscribed) {
       addNotif?.({ type: "warning", msg: "🔒 A paid subscription (Starter or Growth) is required to access Funding Applications." });
@@ -936,10 +1145,8 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       return;
     }
 
-    const currentApplied = form.appliedInvestors || [];
-
     // 2. Limit Check for Starter plan (max 30 funding applications)
-    if (subPlan === "starter" && currentApplied.length >= 30) {
+    if (subPlan === "starter" && appliedList.length >= 30) {
       addNotif?.({ type: "warning", msg: "⚠️ You have reached your monthly limit of 30 funding applications on Founder Starter. Upgrade to Growth for unlimited applications!" });
       openSubscriptionModal?.();
       return;
@@ -948,20 +1155,51 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     const isCompleted = myApplication !== null;
 
     if (!isCompleted) {
-      addNotif?.({ type: "info", msg: "Please fill out the funding application to apply." });
       handleOpenForm(investorId);
       return;
     }
 
-    if (currentApplied.includes(investorId)) {
-      addNotif?.({ type: "info", msg: "You have already applied to this VC." });
-      return;
-    }
+    // Direct Apply for users who completed their profile form
+    setSubmitting(true);
+    try {
+      const updatedApplied = Array.from(new Set([...appliedList, investorId]));
+      const autoRsid = form.rsid || getAutoRSID();
+      const updatedForm = { ...form, rsid: autoRsid, appliedInvestors: updatedApplied };
+      setForm(updatedForm);
 
-    setPendingVCId(investorId);
-    setActiveStep(0);
-    setFormErrors({});
-    setWizardOpen(true);
+      const payload = {
+        uid: me,
+        data: updatedForm
+      };
+
+      if (myApplication?.id && !String(myApplication.id).startsWith("local_")) {
+        await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
+      } else {
+        await db.post("rs_funding_applications", payload);
+      }
+
+      const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
+      setMyApplication(mockResponse);
+      localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
+
+      const targetInvestor = investors.find(i => i.id === investorId);
+      const investorName = targetInvestor?.name || "Investor";
+      addNotif?.({ type: "success", msg: `🚀 Application submitted to ${investorName}!` });
+
+    } catch (err) {
+      console.error("Failed direct apply:", err);
+      const updatedApplied = Array.from(new Set([...appliedList, investorId]));
+      const autoRsid = form.rsid || getAutoRSID();
+      const updatedForm = { ...form, rsid: autoRsid, appliedInvestors: updatedApplied };
+      setForm(updatedForm);
+      const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
+      setMyApplication(mockResponse);
+      localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
+      const targetInvestor = investors.find(i => i.id === investorId);
+      addNotif?.({ type: "success", msg: `🚀 Application submitted to ${targetInvestor?.name || "Investor"}!` });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleWithdrawVC = async (investorId) => {
@@ -1461,7 +1699,8 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
           {filteredInvestors.map(vc => {
-            const hasApplied = (form.appliedInvestors || []).includes(vc.id);
+            const appliedList = getAppliedList();
+            const hasApplied = appliedList.includes(vc.id);
             return (
               <Card
                 dk={dk}
@@ -1483,12 +1722,6 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.txt }}>{vc.name}</h3>
                       <span style={{ fontSize: 10, background: dk ? "rgba(245,158,11,0.12)" : "rgba(245,158,11,0.06)", color: "#f59e0b", padding: "2px 8px", borderRadius: 99, fontWeight: 600 }}>{vc.type || "VCs"}</span>
                     </div>
-                    {vc.email && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: 11, color: th.txt3 }}>
-                        <Mail size={11} color="#6366f1" />
-                        <span>{vc.email}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1525,7 +1758,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   </div>
                 </div>
 
-                <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.5, flex: 1 }}>{vc.description}</p>
+                <FormattedDescription
+                  text={vc.description}
+                  isExpanded={!!expandedVCs[vc.id]}
+                  onToggleExpand={() => setExpandedVCs(prev => ({ ...prev, [vc.id]: !prev[vc.id] }))}
+                  th={th}
+                  dk={dk}
+                />
 
                 <div style={{
                   display: "flex",
@@ -1548,24 +1787,25 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   <div>
                     {hasApplied ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleWithdrawVC(vc.id); }}
+                        disabled
+                        onClick={(e) => { e.stopPropagation(); }}
                         style={{
-                          background: "rgba(239, 68, 68, 0.12)",
-                          border: "1px solid rgba(239, 68, 68, 0.3)",
-                          color: "#ef4444",
+                          background: "rgba(16, 185, 129, 0.12)",
+                          border: "1px solid rgba(16, 185, 129, 0.3)",
+                          color: "#10b981",
                           padding: "8px 16px",
                           borderRadius: 12,
                           fontWeight: 700,
                           fontSize: 12,
-                          cursor: "pointer",
+                          cursor: "default",
                           display: "flex",
                           alignItems: "center",
                           gap: 6,
-                          transition: "all 0.2s"
+                          opacity: 0.95
                         }}
                       >
                         <CheckCircle2 size={13} style={{ color: "#10b981" }} />
-                        Withdraw
+                        Applied
                       </button>
                     ) : (
                       <button
@@ -1726,7 +1966,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                         <input
                           type="text"
                           placeholder="e.g. RS-1234"
-                          value={form.rsid}
+                          value={form.rsid || getAutoRSID()}
                           onChange={e => setForm({ ...form, rsid: e.target.value })}
                           style={{ width: "100%", padding: 10, borderRadius: 10, border: `1px solid ${formErrors.rsid ? "#ef4444" : th.inpB}`, background: th.inp, color: th.txt, outline: "none", fontSize: 13, boxSizing: "border-box" }}
                         />
@@ -2633,43 +2873,18 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 </div>
               </div>
 
-              {/* Email Contact Card */}
-              {selectedVC.email && (
-                <div style={{ background: dk ? "rgba(99, 102, 241, 0.08)" : "rgba(99, 102, 241, 0.04)", padding: 14, borderRadius: 14, border: `1px solid ${dk ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.1)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-                      <Mail size={18} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>Direct Contact Email</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: th.txt }}>{selectedVC.email}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedVC.email);
-                        addNotif?.({ type: "success", msg: "📋 Email copied to clipboard!" });
-                      }}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${th.bdr}`, background: th.surf, color: th.txt, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
-                    >
-                      <Copy size={12} /> Copy
-                    </button>
-                    <a
-                      href={`mailto:${selectedVC.email}`}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
-                    >
-                      <Mail size={12} /> Mail
-                    </a>
-                  </div>
-                </div>
-              )}
+
 
 
               {/* Description */}
               <div>
                 <h4 style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>About the Firm</h4>
-                <p style={{ margin: 0, fontSize: 13, color: th.txt2, lineHeight: 1.5 }}>{selectedVC.description}</p>
+                <FormattedDescription
+                  text={selectedVC.description}
+                  isExpanded={true}
+                  th={th}
+                  dk={dk}
+                />
               </div>
 
               {/* Sectors */}
@@ -2688,30 +2903,28 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             {/* Footer */}
             <div style={{ padding: isMobile ? "12px 16px" : "14px 24px", borderTop: `1px solid ${th.bdr}`, display: "flex", justifyContent: "flex-end", background: dk ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)" }}>
               {(() => {
-                const hasApplied = (form.appliedInvestors || []).includes(selectedVC.id);
+                const appliedList = getAppliedList();
+                const hasApplied = appliedList.includes(selectedVC.id);
                 return hasApplied ? (
                   <button
-                    onClick={() => {
-                      handleWithdrawVC(selectedVC.id);
-                      setSelectedVC(null);
-                    }}
+                    disabled
                     style={{
-                      background: "rgba(239, 68, 68, 0.12)",
-                      border: "1px solid rgba(239, 68, 68, 0.3)",
-                      color: "#ef4444",
+                      background: "rgba(16, 185, 129, 0.12)",
+                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                      color: "#10b981",
                       padding: "8px 16px",
                       borderRadius: 12,
                       fontWeight: 700,
                       fontSize: 12,
-                      cursor: "pointer",
+                      cursor: "default",
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      transition: "all 0.2s"
+                      opacity: 0.95
                     }}
                   >
                     <CheckCircle2 size={13} style={{ color: "#10b981" }} />
-                    Withdraw Application
+                    Applied
                   </button>
                 ) : (
                   <button
@@ -2736,7 +2949,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                     }}
                   >
                     <Send size={12} />
-                    Apply Now
+                    Apply
                   </button>
                 );
               })()}
