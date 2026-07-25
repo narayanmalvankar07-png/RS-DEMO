@@ -304,14 +304,29 @@ CREATE TABLE IF NOT EXISTS rs_sandbox (
   uid uuid references auth.users(id) on delete cascade,
   title text not null,
   problem text not null,
+  who_experiences text,
+  why_matters text,
   solution text,
+  aim_goal text,
+  why_me text,
   audience text,
+  team_size text,
+  linkedin_url text,
+  demo_url text,
   status text default 'submitted',
   score_w1 numeric,
   score_w2 numeric,
   score_w3 numeric,
   created_at timestamp with time zone default now()
 );
+
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS who_experiences text;
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS why_matters text;
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS aim_goal text;
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS why_me text;
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS team_size text;
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS linkedin_url text;
+ALTER TABLE rs_sandbox ADD COLUMN IF NOT EXISTS demo_url text;
 
 -- ==============================================================================
 -- 8. EVENTS & CONTRIBUTIONS

@@ -75,8 +75,6 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
       }
 
       if (selectedCurrency === "USD") {
-        const payTab = window.open("about:blank", "_blank");
-
         const res = await fetch("/api/paypal/create-order", {
           method: "POST",
           headers: {
@@ -95,27 +93,20 @@ export default function SubscriptionModal({ isOpen, onClose, me, myProfile, dk, 
         if (contentType.includes("application/json")) {
           data = await res.json();
         } else {
-          if (payTab) payTab.close();
           throw new Error(`PayPal service returned non-JSON response (${res.status}). Server may be restarting.`);
         }
 
         if (!res.ok) {
-          if (payTab) payTab.close();
           throw new Error(data.error || "Failed to create PayPal payment session");
         }
 
-        toast.success(`Opening PayPal Checkout in a new tab…`);
+        toast.success("Redirecting to PayPal Checkout…");
 
         const targetUrl = data.approval_url || data.payment_link;
         if (targetUrl) {
-          if (payTab) {
-            payTab.location.href = targetUrl;
-          } else {
-            window.open(targetUrl, "_blank");
-          }
+          window.location.href = targetUrl;
           return;
         } else {
-          if (payTab) payTab.close();
           throw new Error("PayPal did not return an approval URL. Please try again.");
         }
       } else {
