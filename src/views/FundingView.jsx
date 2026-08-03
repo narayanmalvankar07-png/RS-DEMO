@@ -1163,87 +1163,8 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       return;
     }
 
-    const isCompleted = myApplication !== null;
-
-    if (!isCompleted) {
-      handleOpenForm(investorId);
-      return;
-    }
-
-    // Direct Apply for users who completed their profile form
-    setSubmitting(true);
-    try {
-      const updatedApplied = Array.from(new Set([...appliedList, investorId]));
-      const autoRsid = form.rsid || getAutoRSID();
-      const updatedForm = { ...form, rsid: autoRsid, appliedInvestors: updatedApplied };
-      setForm(updatedForm);
-
-      const payload = {
-        uid: me,
-        data: updatedForm
-      };
-
-      if (myApplication?.id && !String(myApplication.id).startsWith("local_")) {
-        await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
-      } else {
-        await db.post("rs_funding_applications", payload);
-      }
-
-      const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
-      setMyApplication(mockResponse);
-      localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
-
-      const targetInvestor = investors.find(i => i.id === investorId);
-      const investorName = targetInvestor?.name || "Investor";
-      const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
-
-      try {
-        await fetch("/api/send-application", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-user-id": me },
-          body: JSON.stringify({
-            investorEmail: targetEmail,
-            investorName: investorName,
-            formData: updatedForm
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to trigger email:", err);
-      }
-
-      addNotif?.({ type: "success", msg: `🚀 Application submitted to ${investorName}!` });
-
-    } catch (err) {
-      console.error("Failed direct apply:", err);
-      const updatedApplied = Array.from(new Set([...appliedList, investorId]));
-      const autoRsid = form.rsid || getAutoRSID();
-      const updatedForm = { ...form, rsid: autoRsid, appliedInvestors: updatedApplied };
-      setForm(updatedForm);
-      const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
-      setMyApplication(mockResponse);
-      localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
-      const targetInvestor = investors.find(i => i.id === investorId);
-      const investorName = targetInvestor?.name || "Investor";
-      const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
-
-      try {
-        await fetch("/api/send-application", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-user-id": me },
-          body: JSON.stringify({
-            investorEmail: targetEmail,
-            investorName: investorName,
-            formData: updatedForm
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to trigger email:", err);
-      }
-
-      addNotif?.({ type: "success", msg: `🚀 Application submitted to ${targetInvestor?.name || "Investor"}!` });
-    } finally {
-      setSubmitting(false);
-    }
+    // Open application form modal (pre-filled with existing details for review/editing)
+    handleOpenForm(investorId);
   };
 
   const handleWithdrawVC = async (investorId) => {
