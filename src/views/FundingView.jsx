@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { 
-  Briefcase, DollarSign, Users, MapPin, Globe, CheckCircle2, ChevronRight, 
-  ChevronLeft, ChevronDown, ChevronUp, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText, 
+import {
+  Briefcase, DollarSign, Users, MapPin, Globe, CheckCircle2, ChevronRight,
+  ChevronLeft, ChevronDown, ChevronUp, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText,
   TrendingUp, BarChart3, AlertCircle, Building2, HelpCircle, Edit2, Mail, Copy
 } from "lucide-react";
 import { T } from "../config/constants.js";
@@ -35,18 +35,18 @@ function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
   const gradient = `linear-gradient(135deg, hsl(${baseHue}, 75%, 55%), hsl(${(baseHue + 35) % 360}, 80%, 45%))`;
 
   return (
-    <div style={{ 
-      width: size, 
-      height: size, 
-      borderRadius: radius, 
-      background: gradient, 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center", 
-      fontSize: initials ? fontSize : fontSize * 0.8, 
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: radius,
+      background: gradient,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: initials ? fontSize : fontSize * 0.8,
       fontWeight: 800,
-      color: "#fff", 
-      flexShrink: 0, 
+      color: "#fff",
+      flexShrink: 0,
       overflow: "hidden",
       boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
       textShadow: "0 1px 3px rgba(0,0,0,0.2)"
@@ -247,12 +247,12 @@ function GlassSelect({ value, onChange, options, formError, dk, th }) {
         }}
       >
         <span>{selectedOpt?.label || value}</span>
-        <span style={{ 
-          transform: open ? "rotate(180deg)" : "rotate(0)", 
-          transition: "transform 0.2s", 
-          fontSize: 8, 
-          color: th.txt3, 
-          display: "inline-block" 
+        <span style={{
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+          transition: "transform 0.2s",
+          fontSize: 8,
+          color: th.txt3,
+          display: "inline-block"
         }}>
           ▼
         </span>
@@ -386,12 +386,12 @@ function GlassSelectPill({ value, onChange, options, placeholder, dk, th }) {
         }}
       >
         <span>{isDefault ? placeholder : selectedOpt.label}</span>
-        <span style={{ 
-          transform: open ? "rotate(180deg)" : "rotate(0)", 
-          transition: "transform 0.2s", 
-          fontSize: 8, 
-          color: !isDefault ? "#6366f1" : th.txt3, 
-          display: "inline-block" 
+        <span style={{
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+          transition: "transform 0.2s",
+          fontSize: 8,
+          color: !isDefault ? "#6366f1" : th.txt3,
+          display: "inline-block"
         }}>
           ▼
         </span>
@@ -810,7 +810,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // Db application records
   const [myApplication, setMyApplication] = useState(null);
-  
+
   // Real investors list loaded from DB
   const [investors, setInvestors] = useState([]);
 
@@ -888,7 +888,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             const parsed = JSON.parse(localApp);
             appRow = parsed;
             appData = parsed.data;
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -932,7 +932,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (typeof sectorsField === "string") {
         return JSON.parse(sectorsField);
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   };
 
@@ -1016,7 +1016,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     setActiveStep(0);
     setFormErrors({});
     setPendingVCId(initialVCId);
-    
+
     const autoRsid = getAutoRSID();
     const p = myProfile || profiles?.[me] || {};
     setForm(prev => ({
@@ -1070,12 +1070,12 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (response) {
         setMyApplication(response);
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(response));
-        
+
         if (pendingVCId) {
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
           const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
-          
+
           try {
             await fetch("/api/send-application", {
               method: "POST",
@@ -1094,7 +1094,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         } else {
           addNotif?.({ type: "success", msg: "✨ Startup Funding Profile updated successfully!" });
         }
-        
+
         setWizardOpen(false);
         setPendingVCId(null);
         loadData();
@@ -1103,12 +1103,12 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
         setMyApplication(mockResponse);
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
-        
+
         if (pendingVCId) {
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
           const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
-          
+
           try {
             await fetch("/api/send-application", {
               method: "POST",
@@ -1195,6 +1195,22 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
       const targetInvestor = investors.find(i => i.id === investorId);
       const investorName = targetInvestor?.name || "Investor";
+      const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
+
+      try {
+        await fetch("/api/send-application", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-user-id": me },
+          body: JSON.stringify({
+            investorEmail: targetEmail,
+            investorName: investorName,
+            formData: updatedForm
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to trigger email:", err);
+      }
+
       addNotif?.({ type: "success", msg: `🚀 Application submitted to ${investorName}!` });
 
     } catch (err) {
@@ -1207,6 +1223,23 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       setMyApplication(mockResponse);
       localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
       const targetInvestor = investors.find(i => i.id === investorId);
+      const investorName = targetInvestor?.name || "Investor";
+      const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
+
+      try {
+        await fetch("/api/send-application", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-user-id": me },
+          body: JSON.stringify({
+            investorEmail: targetEmail,
+            investorName: investorName,
+            formData: updatedForm
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to trigger email:", err);
+      }
+
       addNotif?.({ type: "success", msg: `🚀 Application submitted to ${targetInvestor?.name || "Investor"}!` });
     } finally {
       setSubmitting(false);
@@ -1270,13 +1303,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const matchesTicketSize = (vcCheckSize, selectedSize) => {
     if (selectedSize === "All Ticket Sizes") return true;
     if (!vcCheckSize) return false;
-    
+
     let parts = vcCheckSize.split("-").map(p => p.trim());
     let vcMin = parseVal(parts[0]);
     let vcMax = parts.length > 1 ? parseVal(parts[1]) : vcMin;
-    
+
     if (vcMin === 0 && vcMax === 0) return true;
-    
+
     if (selectedSize === "< $100K") {
       return vcMin < 100000;
     }
@@ -1298,10 +1331,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const matchesStage = (vcStage, selectedStage) => {
     if (selectedStage === "All Stages") return true;
     if (!vcStage) return false;
-    
+
     const vcLower = vcStage.toLowerCase();
     const selLower = selectedStage.toLowerCase();
-    
+
     if (selLower === "idea") {
       return vcLower.includes("idea") || vcLower.includes("prototype") || vcLower.includes("r&d") || vcLower.includes("pre-seed");
     }
@@ -1323,7 +1356,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     if (selLower === "series c") {
       return vcLower.includes("series c") || vcLower.includes("growth");
     }
-    
+
     return vcLower.includes(selLower);
   };
 
@@ -1340,23 +1373,23 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const matchesLocation = (vcLocation, selectedLocation) => {
     if (selectedLocation === "All Countries") return true;
     if (!vcLocation) return true;
-    
+
     const vcLower = vcLocation.toLowerCase();
     const selLower = selectedLocation.toLowerCase();
-    
+
     return vcLower.includes(selLower) || vcLower === "global" || selLower === "global";
   };
 
   const filteredInvestors = investors.filter(vc => {
-    const matchesSearch = 
+    const matchesSearch =
       vc.name.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
     const matchesType = selectedType === "All Profiles" || (vc.type || "VCs") === selectedType;
     const matchesSector = selectedSector === "All Focus Areas" || parseSectors(vc.sectors).includes(selectedSector);
     const stageOk = matchesStage(vc.stage, selectedStage);
     const sizeOk = matchesTicketSize(vc.check_size || vc.checkSize, selectedTicketSize);
     const locOk = matchesLocation(vc.location, selectedLocation);
-    const ftOk = selectedFundingInstrument === "All Instruments" || 
+    const ftOk = selectedFundingInstrument === "All Instruments" ||
       getFundingType(vc).toLowerCase() === selectedFundingInstrument.toLowerCase();
 
     return matchesSearch && matchesType && matchesSector && stageOk && sizeOk && locOk && ftOk;
@@ -1738,15 +1771,15 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
 
                 {/* Structured Details Grid */}
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
-                  gap: "10px 16px", 
-                  background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)", 
-                  padding: 14, 
-                  borderRadius: 14, 
-                  border: `1px solid ${th.bdr}`, 
-                  fontSize: 12 
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  gap: "10px 16px",
+                  background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+                  padding: 14,
+                  borderRadius: 14,
+                  border: `1px solid ${th.bdr}`,
+                  fontSize: 12
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ color: th.txt3 }}>Stage:</span>
@@ -1854,7 +1887,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: isMobile ? "stretch" : "center" }}>
           {/* Backdrop */}
           <div onClick={() => setWizardOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(6px)" }} />
-          
+
           {/* Form Content Card */}
           <div style={{
             position: isMobile ? "fixed" : "relative",
@@ -1880,7 +1913,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 <h3 style={{ margin: 0, fontSize: isMobile ? 14 : 16, fontWeight: 800, color: th.txt }}>Startup Funding Application</h3>
                 <p style={{ margin: 0, fontSize: 10, color: th.txt3 }}>Step {activeStep + 1} of 7: {STAGE_STEPS[activeStep]}</p>
               </div>
-              <button 
+              <button
                 onClick={() => setWizardOpen(false)}
                 style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, padding: "5px 10px", fontSize: 11 }}
               >
@@ -1891,15 +1924,15 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             {/* Stepper Progress Bar */}
             <div style={{ height: 4, background: th.bdr, display: "flex" }}>
               {STAGE_STEPS.map((_, i) => (
-                <div 
-                  key={i} 
-                  style={{ 
-                    flex: 1, 
-                    height: "100%", 
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: "100%",
                     background: i <= activeStep ? "#6366f1" : "transparent",
                     transition: "background 0.3s ease",
                     borderRight: i < STAGE_STEPS.length - 1 ? `1px solid ${th.side}` : "none"
-                  }} 
+                  }}
                 />
               ))}
             </div>
@@ -1934,10 +1967,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                         cursor: "pointer"
                       }}
                     >
-                      <span style={{ 
-                        width: 18, 
-                        height: 18, 
-                        borderRadius: 99, 
+                      <span style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 99,
                         background: activeStep === i ? "#6366f1" : (i < activeStep ? "#10b981" : th.bdr),
                         color: "#fff",
                         fontSize: 9,
@@ -1956,12 +1989,12 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
               {/* Scrollable Form Panel */}
               <div style={{ flex: 1, padding: isMobile ? 16 : 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-                
+
                 {/* ─── SECTION 1: FOUNDER INFORMATION ─── */}
                 {activeStep === 0 && (
                   <>
                     <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: th.txt, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>Primary Founder Details</h4>
-                    
+
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                       <div>
                         <label style={{ fontSize: 11, color: th.txt2, fontWeight: 600, display: "block", marginBottom: 5 }}>Founder Name*</label>
@@ -2006,10 +2039,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                                 value: c.code,
                                 label: (
                                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <img 
-                                      src={`https://flagcdn.com/w20/${c.iso}.png`} 
-                                      style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
-                                      alt="" 
+                                    <img
+                                      src={`https://flagcdn.com/w20/${c.iso}.png`}
+                                      style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }}
+                                      alt=""
                                     />
                                     {c.code}
                                   </span>
@@ -2218,7 +2251,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 {activeStep === 2 && (
                   <>
                     <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: th.txt, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>Business Value Proposition</h4>
-                    
+
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                         <label style={{ fontSize: 11, color: th.txt2, fontWeight: 600 }}>Elevator Pitch*</label>
@@ -2599,7 +2632,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                     </div>
 
                     <h4 style={{ margin: "14px 0 10px", fontSize: 13, fontWeight: 700, color: th.txt, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>Use of Funds (Estimated % Allocation - Should sum up to 100%)</h4>
-                    
+
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr 1fr", gap: 10 }}>
                       <div>
                         <label style={{ fontSize: 10, color: th.txt3 }}>Product Dev %</label>
@@ -2817,7 +2850,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: isMobile ? "stretch" : "center" }}>
           {/* Backdrop */}
           <div onClick={() => setSelectedVC(null)} style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(6px)" }} />
-          
+
           {/* Modal Panel */}
           <div style={{
             position: isMobile ? "fixed" : "relative",
@@ -2854,7 +2887,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   <p style={{ margin: 0, fontSize: 10, color: th.txt3 }}>{selectedVC.type || "VCs"} • Funder Profile</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedVC(null)}
                 style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, padding: "5px 10px", fontSize: 12 }}
               >
