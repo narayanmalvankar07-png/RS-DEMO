@@ -1076,8 +1076,9 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           const investorName = targetInvestor?.name || "Investor";
           const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
 
+          let apiResult = null;
           try {
-            await fetch("/api/send-application", {
+            const apiRes = await fetch("/api/send-application", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-id": me },
               body: JSON.stringify({
@@ -1086,11 +1087,18 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 formData: updatedForm
               }),
             });
+            if (apiRes.ok) {
+              apiResult = await apiRes.json();
+            }
           } catch (err) {
             console.error("Failed to trigger email:", err);
           }
 
-          addNotif?.({ type: "success", msg: `🚀 Application submitted successfully to ${investorName}!` });
+          if (apiResult && apiResult.emailSent === false) {
+            addNotif?.({ type: "success", msg: `🚀 Application submitted to ${investorName}! (Email notice skipped due to sender domain verification)` });
+          } else {
+            addNotif?.({ type: "success", msg: `🚀 Application submitted successfully to ${investorName}!` });
+          }
         } else {
           addNotif?.({ type: "success", msg: "✨ Startup Funding Profile updated successfully!" });
         }

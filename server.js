@@ -384,156 +384,7 @@ app.post("/api/upload-attachment", async (req, res) => {
   }
 });
 
-// ── POST /api/send-application ──────────────────────────────────────
-// Sends email via Resend
-app.post("/api/send-application", async (req, res) => {
-  const userId = getUser(req);
-  if (!userId) return res.status(401).json({ error: "x-user-id header required" });
 
-  const { investorEmail, investorName, formData } = req.body;
-  if (!investorEmail || !formData) {
-    return res.status(400).json({ error: "investorEmail and formData required" });
-  }
-
-  try {
-    const data = await resend.emails.send({
-      from: 'RightSignal <onboarding@rightsignal.social>',
-      to: investorEmail,
-      subject: `New Application from ${formData.startupName}`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #1f2937; line-height: 1.6; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
-          
-          <!-- Header -->
-          <div style="background-color: #111827; padding: 32px 40px; text-align: left;">
-            <p style="color: #9ca3af; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0; font-weight: 600;">New Investment Application</p>
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800;">${formData.startupName || 'Undisclosed Startup'}</h1>
-            <p style="color: #d1d5db; margin: 8px 0 0 0; font-size: 16px;">Applying to: <strong>${investorName}</strong></p>
-          </div>
-
-          <!-- Quick Overview -->
-          <div style="padding: 32px 40px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-            <p style="margin: 0; font-size: 18px; font-style: italic; color: #4b5563; border-left: 4px solid #6366f1; padding-left: 16px;">
-              "${formData.elevatorPitch || 'No elevator pitch provided.'}"
-            </p>
-          </div>
-
-          <div style="padding: 40px;">
-            
-            <!-- Company Profile & Fundraising -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 40px;">
-              <tr>
-                <td width="50%" valign="top" style="padding-right: 20px;">
-                  <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Fundraising Details</h3>
-                  <p style="margin: 4px 0;"><strong>Raising Now:</strong> <span style="color: #059669; font-weight: bold;">${formData.amountRaisingNow || 'N/A'}</span></p>
-                  <p style="margin: 4px 0;"><strong>Round:</strong> ${formData.currentFundraisingRound || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Instrument:</strong> ${formData.fundingInstrument || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Current Valuation:</strong> ${formData.currentValuation || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Runway:</strong> ${formData.runwayRemaining || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Previously Raised:</strong> ${formData.raisedBefore || 'N/A'}</p>
-                </td>
-                <td width="50%" valign="top" style="padding-left: 20px; border-left: 1px solid #e5e7eb;">
-                  <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Company Profile</h3>
-                  <p style="margin: 4px 0;"><strong>Industry:</strong> ${formData.industry || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Website:</strong> <a href="${formData.websiteUrl || '#'}" style="color: #6366f1;">${formData.websiteUrl || 'N/A'}</a></p>
-                  <p style="margin: 4px 0;"><strong>Status:</strong> ${formData.registrationStatus || 'N/A'} ${formData.entityType ? '(' + formData.entityType + ')' : ''}</p>
-                  <p style="margin: 4px 0;"><strong>Incorporated:</strong> ${formData.incorporationDate || 'N/A'} in ${formData.registrationCountry || 'N/A'}</p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Business Overview -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Business Overview</h3>
-            <div style="margin-bottom: 32px;">
-              <p style="margin: 0 0 12px 0;"><strong>Problem:</strong><br><span style="color: #4b5563;">${formData.problemStatement || 'N/A'}</span></p>
-              <p style="margin: 0 0 12px 0;"><strong>Solution:</strong><br><span style="color: #4b5563;">${formData.solution || 'N/A'}</span></p>
-              <p style="margin: 0 0 12px 0;"><strong>Target Customers:</strong><br><span style="color: #4b5563;">${formData.targetCustomers || 'N/A'}</span></p>
-              <p style="margin: 0 0 12px 0;"><strong>Product Status:</strong><br><span style="color: #4b5563;">${formData.currentProductStatus || 'N/A'}</span></p>
-            </div>
-
-            <!-- Market & Competition -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Market & Competition</h3>
-            <div style="margin-bottom: 32px;">
-              <p style="margin: 4px 0;"><strong>TAM:</strong> ${formData.tam || 'N/A'} | <strong>SAM:</strong> ${formData.sam || 'N/A'} | <strong>SOM:</strong> ${formData.som || 'N/A'}</p>
-              <p style="margin: 12px 0 4px 0;"><strong>Competitors:</strong><br><span style="color: #4b5563;">${formData.competitors || 'N/A'}</span></p>
-              <p style="margin: 8px 0 0 0;"><strong>Competitive Advantage:</strong><br><span style="color: #4b5563;">${formData.competitiveAdvantage || 'N/A'}</span></p>
-            </div>
-
-            <!-- Traction & Metrics -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Traction & Metrics</h3>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="33%" style="padding-bottom: 12px;"><strong>Total Users:</strong><br><span style="font-size: 18px; color: #111827;">${formData.totalUsers || 'N/A'}</span></td>
-                  <td width="33%" style="padding-bottom: 12px;"><strong>Active Users:</strong><br><span style="font-size: 18px; color: #111827;">${formData.activeUsers || 'N/A'}</span></td>
-                  <td width="33%" style="padding-bottom: 12px;"><strong>Paying Customers:</strong><br><span style="font-size: 18px; color: #111827;">${formData.payingCustomers || 'N/A'}</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Monthly Rev:</strong><br><span style="font-size: 18px; color: #111827;">${formData.monthlyRevenue || 'N/A'}</span></td>
-                  <td><strong>Annual Rev:</strong><br><span style="font-size: 18px; color: #111827;">${formData.annualRevenue || 'N/A'}</span></td>
-                  <td><strong>MoM Growth:</strong><br><span style="font-size: 18px; color: #111827;">${formData.monthlyGrowth || 'N/A'}</span></td>
-                </tr>
-              </table>
-              <p style="margin: 16px 0 0 0;"><strong>Key Milestones:</strong><br><span style="color: #4b5563;">${formData.keyAchievements || 'N/A'}</span></p>
-            </div>
-
-            <!-- Documents & Links -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Documents & Links</h3>
-            <div style="margin-bottom: 40px;">
-              <p style="margin: 6px 0;">📄 <a href="${formData.pitchDeckUrl || '#'}" style="color: #2563eb; font-weight: bold; text-decoration: none;">View Pitch Deck</a></p>
-              ${formData.financialModelUrl ? '<p style="margin: 6px 0;">📊 <a href="' + formData.financialModelUrl + '" style="color: #2563eb; text-decoration: none;">Financial Model</a></p>' : ''}
-              ${formData.dataRoomUrl ? '<p style="margin: 6px 0;">📁 <a href="' + formData.dataRoomUrl + '" style="color: #2563eb; text-decoration: none;">Data Room</a></p>' : ''}
-              ${formData.investorMemoUrl ? '<p style="margin: 6px 0;">📝 <a href="' + formData.investorMemoUrl + '" style="color: #2563eb; text-decoration: none;">Investor Memo</a></p>' : ''}
-              ${formData.productDemoUrl ? '<p style="margin: 6px 0;">💻 <a href="' + formData.productDemoUrl + '" style="color: #2563eb; text-decoration: none;">Product Demo</a></p>' : ''}
-              ${formData.demoVideoUrl ? '<p style="margin: 6px 0;">▶️ <a href="' + formData.demoVideoUrl + '" style="color: #2563eb; text-decoration: none;">Demo Video</a></p>' : ''}
-              
-              ${formData.additionalNotes ? '<div style="margin-top: 16px; padding: 16px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;"><p style="margin: 0; color: #92400e;"><strong>Additional Notes:</strong><br>' + formData.additionalNotes + '</p></div>' : ''}
-            </div>
-
-            <!-- Use of Funds -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Use of Funds Allocation</h3>
-            <div style="margin-bottom: 32px;">
-              <p style="margin: 4px 0;"><strong>Product Dev:</strong> ${formData.useOfFundsDev || '0'}% | <strong>Hiring:</strong> ${formData.useOfFundsHiring || '0'}% | <strong>Marketing:</strong> ${formData.useOfFundsMarketing || '0'}% | <strong>Operations:</strong> ${formData.useOfFundsOps || '0'}% | <strong>Other:</strong> ${formData.useOfFundsOther || '0'}%</p>
-            </div>
-
-            <!-- Founder Details -->
-            <div style="border-top: 2px solid #e5e7eb; padding-top: 32px;">
-              <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0;">Founding Team</h3>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="50%" valign="top">
-                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #111827;">${formData.founderName || 'N/A'}</p>
-                    <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">${formData.founderDesignation || 'Primary Founder'} • ${formData.founderCity || 'N/A'}, ${formData.founderCountry || 'N/A'}</p>
-                    <p style="margin: 2px 0; font-size: 14px;">🔗 <a href="${formData.founderLinkedin || '#'}" style="color: #2563eb;">LinkedIn Profile</a></p>
-                  </td>
-                  <td width="50%" valign="top">
-                    ${formData.coFounderName ? '<p style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #111827;">' + formData.coFounderName + '</p><p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">' + (formData.coFounderDesignation || 'Co-Founder') + '</p>' : '<p style="color: #9ca3af; font-style: italic;">No Co-Founder specified.</p>'}
-                  </td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- Declaration -->
-            <div style="margin-top: 40px; padding: 24px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; color: #6b7280;">
-              <p style="margin: 0 0 8px 0;">✅ <strong>Founder Declaration:</strong> "I confirm that the information submitted is accurate and can be shared with selected investors through the RightSignal platform."</p>
-              <p style="margin: 0;">Signed by <strong>${formData.declarationName || formData.founderName || 'N/A'}</strong> on <strong>${formData.declarationDate || 'N/A'}</strong></p>
-            </div>
-
-          </div>
-          
-          <!-- Footer -->
-          <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0; font-size: 12px; color: #6b7280;">Securely processed and verified by <a href="https://rightsignal.social" style="color: #6366f1; text-decoration: none; font-weight: bold;">RightSignal</a></p>
-          </div>
-        </div>
-      `,
-    });
-    res.status(200).json(data);
-  } catch (error) {
-    console.error("POST /api/send-application error:", error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // ── Password Reset & Management Maps ────────────────────────────────
 const resetTokens = new Map(); // token -> { email, expiresAt }
@@ -1363,11 +1214,15 @@ app.post("/api/send-application", async (req, res) => {
   try {
     const startupName = formData.startupName || "Startup Application";
     const founderName = formData.founderName || "Founder";
-    const founderEmail = formData.email || "";
+    const founderEmail = formData.founderEmail || formData.email || "";
+    const founderMobile = formData.founderMobile || formData.mobileNumber || "N/A";
+    const mobilePrefix = formData.founderMobilePrefix || formData.countryCode || "";
     const pitchDeck = formData.pitchDeckUrl || "";
     const financialModel = formData.financialModelUrl || "";
     const dataRoom = formData.dataRoomUrl || "";
-    const website = formData.website || "";
+    const productDemo = formData.demoProductUrl || formData.demoWebsiteUrl || formData.productDemoUrl || "";
+    const website = formData.websiteUrl || formData.website || "";
+    const targetAmount = formData.amountRaisingNow || formData.targetAmount || "N/A";
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -1409,13 +1264,13 @@ app.post("/api/send-application", async (req, res) => {
                 <div class="field-val">${formData.industry || "N/A"}</div>
               </div>
             </div>
-            ${formData.tagline ? `<p style="margin: 4px 0 12px; font-size: 13px; color: #cbd5e1; font-style: italic;">"${formData.tagline}"</p>` : ''}
-            <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5; margin: 8px 0;">${formData.description || "No description provided."}</p>
+            ${formData.elevatorPitch ? `<p style="margin: 4px 0 12px; font-size: 13px; color: #cbd5e1; font-style: italic;">"${formData.elevatorPitch}"</p>` : ''}
+            <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5; margin: 8px 0;">${formData.solution || formData.problemStatement || "No problem/solution summary provided."}</p>
 
             <div class="grid" style="margin-top: 12px;">
               <div>
                 <div class="field-label">Location</div>
-                <div class="field-val">${formData.location || "N/A"}</div>
+                <div class="field-val">${formData.founderCity || ''} ${formData.registrationCountry || formData.location || "N/A"}</div>
               </div>
               <div>
                 <div class="field-label">Website</div>
@@ -1439,7 +1294,7 @@ app.post("/api/send-application", async (req, res) => {
               </div>
               <div>
                 <div class="field-label">Phone</div>
-                <div class="field-val">${formData.countryCode || ''} ${formData.mobileNumber || "N/A"}</div>
+                <div class="field-val">${mobilePrefix} ${founderMobile}</div>
               </div>
             </div>
 
@@ -1447,19 +1302,19 @@ app.post("/api/send-application", async (req, res) => {
             <div class="grid">
               <div>
                 <div class="field-label">Target Round</div>
-                <div class="field-val">${formData.currentFundingRound || "N/A"}</div>
+                <div class="field-val">${formData.currentFundingRound || formData.fundingRound || "N/A"}</div>
               </div>
               <div>
                 <div class="field-label">Target Amount</div>
-                <div class="field-val" style="color: #34d399;">${formData.targetAmount || "N/A"}</div>
+                <div class="field-val" style="color: #34d399;">${targetAmount}</div>
               </div>
               <div>
-                <div class="field-label">Pre-Money Valuation</div>
-                <div class="field-val">${formData.preMoneyValuation || "N/A"}</div>
+                <div class="field-label">Current Valuation</div>
+                <div class="field-val">${formData.currentValuation || "N/A"}</div>
               </div>
               <div>
-                <div class="field-label">Min Ticket Size</div>
-                <div class="field-val">${formData.minTicketSize || "N/A"}</div>
+                <div class="field-label">Instrument</div>
+                <div class="field-val">${formData.fundingInstrument || "Equity"}</div>
               </div>
             </div>
 
@@ -1489,6 +1344,7 @@ app.post("/api/send-application", async (req, res) => {
               ${pitchDeck ? `<a href="${pitchDeck}" class="btn" target="_blank">📊 View Pitch Deck</a>` : ''}
               ${financialModel ? `<a href="${financialModel}" class="btn" target="_blank" style="background:#3b82f6;">📈 Financial Model</a>` : ''}
               ${dataRoom ? `<a href="${dataRoom}" class="btn" target="_blank" style="background:#8b5cf6;">📁 Data Room</a>` : ''}
+              ${productDemo ? `<a href="${productDemo}" class="btn" target="_blank" style="background:#10b981;">💻 Product Demo</a>` : ''}
             </div>
             ${formData.additionalNotes ? `<p style="font-size: 12px; color: #94a3b8; margin-top: 14px;"><strong>Note from Founder:</strong> ${formData.additionalNotes}</p>` : ''}
 
@@ -1501,31 +1357,52 @@ app.post("/api/send-application", async (req, res) => {
       </html>
     `;
 
-    let emailRes;
+    let emailRes = null;
+    let emailSent = false;
+    let sendingError = null;
+
+    const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal Funding <business@rightsignal.social>";
+
     try {
       emailRes = await resend.emails.send({
-        from: "RightSignal Funding <business@rightsignal.social>",
+        from: fromDomain,
         to: [investorEmail],
         reply_to: founderEmail || undefined,
-        subject: "RightSignal | Investment Opportunity for Review",
+        subject: `RightSignal | Investment Application from ${startupName}`,
         html: htmlContent,
       });
+      emailSent = true;
     } catch (sendErr) {
       console.warn("[Resend] Primary domain sending failed, retrying with fallback domain:", sendErr.message);
-      emailRes = await resend.emails.send({
-        from: "RightSignal <onboarding@resend.dev>",
-        to: [investorEmail],
-        reply_to: founderEmail || undefined,
-        subject: "RightSignal | Investment Opportunity for Review",
-        html: htmlContent,
-      });
+      try {
+        emailRes = await resend.emails.send({
+          from: "RightSignal <onboarding@resend.dev>",
+          to: [investorEmail],
+          reply_to: founderEmail || undefined,
+          subject: `RightSignal | Investment Application from ${startupName}`,
+          html: htmlContent,
+        });
+        emailSent = true;
+      } catch (fallbackErr) {
+        console.warn("[Resend] Fallback domain sending failed:", fallbackErr.message);
+        sendingError = fallbackErr.message;
+      }
     }
 
-    console.log(`[Send Application] Successfully sent application for ${startupName} to ${investorEmail}`);
-    return res.json({ success: true, emailRes });
+    if (emailSent) {
+      console.log(`[Send Application] Successfully sent application for ${startupName} to ${investorEmail}`);
+      return res.json({ success: true, emailSent: true, emailRes });
+    } else {
+      console.warn(`[Send Application Warning] Application saved, but email could not be delivered to ${investorEmail}: ${sendingError}`);
+      return res.json({
+        success: true,
+        emailSent: false,
+        warning: sendingError || "Email delivery was skipped due to unverified sender domain.",
+      });
+    }
   } catch (err) {
     console.error("[Send Application Error]:", err);
-    return res.status(500).json({ error: err.message || "Failed to send email" });
+    return res.status(500).json({ error: err.message || "Failed to process application request" });
   }
 });
 
