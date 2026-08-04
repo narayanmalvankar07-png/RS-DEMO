@@ -1361,12 +1361,15 @@ app.post("/api/send-application", async (req, res) => {
     let emailSent = false;
     let sendingError = null;
 
+    const recipients = Array.from(new Set([investorEmail, founderEmail].filter(e => e && typeof e === "string" && e.includes("@"))));
+    const targetRecipients = recipients.length > 0 ? recipients : [investorEmail];
+
     const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal Funding <business@rightsignal.social>";
 
     try {
       emailRes = await resend.emails.send({
         from: fromDomain,
-        to: [investorEmail],
+        to: targetRecipients,
         reply_to: founderEmail || undefined,
         subject: `RightSignal | Investment Application from ${startupName}`,
         html: htmlContent,
@@ -1377,7 +1380,7 @@ app.post("/api/send-application", async (req, res) => {
       try {
         emailRes = await resend.emails.send({
           from: "RightSignal <onboarding@resend.dev>",
-          to: [investorEmail],
+          to: founderEmail ? [founderEmail] : [investorEmail],
           reply_to: founderEmail || undefined,
           subject: `RightSignal | Investment Application from ${startupName}`,
           html: htmlContent,

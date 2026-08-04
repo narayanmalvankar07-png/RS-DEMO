@@ -1074,7 +1074,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         if (pendingVCId) {
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
-          const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
+          const targetEmail = targetInvestor?.email || targetInvestor?.contact_email || targetInvestor?.investor_email || "jjatan220@gmail.com";
 
           let apiResult = null;
           try {
