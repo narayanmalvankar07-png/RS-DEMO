@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/rightsignal-1.0.0.apk",
+            "destination": "https://rs-demo-6m55.onrender.com/api/download/apk"
+        },
+        {
             "source": "/api/:path*",
             "destination": "https://rs-demo-6m55.onrender.com/api/:path*"
         }

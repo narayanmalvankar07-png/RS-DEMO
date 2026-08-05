@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import crypto from "crypto";
 import fs from "fs";
+import path from "path";
 
 // Safely load .env locally without crashing if file does not exist in production
 if (fs.existsSync(".env")) {
@@ -36,6 +37,17 @@ app.use("/api/upload-audio", express.raw({ type: "audio/*", limit: "10mb" }));
 app.use("/api/upload-attachment", express.raw({ type: "*/*", limit: "10mb" }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// ── APK Direct Download Endpoint ───────────────────────────────────
+app.get("/api/download/apk", (req, res) => {
+  const apkPath = path.join(process.cwd(), "public", "rightsignal-1.0.0.apk");
+  if (fs.existsSync(apkPath)) {
+    res.setHeader("Content-Type", "application/vnd.android.package-archive");
+    res.setHeader("Content-Disposition", 'attachment; filename="rightsignal-1.0.0.apk"');
+    return res.sendFile(apkPath);
+  }
+  res.status(404).json({ error: "APK file not found on server" });
+});
 
 // ── Anthropic client ────────────────────────────────────────────────
 const anthropic = new Anthropic({

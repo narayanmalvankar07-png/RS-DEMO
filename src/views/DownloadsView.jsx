@@ -179,7 +179,7 @@ export default function DownloadsView({ me, dk, isMobile }) {
 
               {/* Download APK Button */}
               <a
-                href="/rightsignal-1.0.0.apk"
+                href="/api/download/apk"
                 download="rightsignal-1.0.0.apk"
                 style={{
                   display: "inline-flex",
