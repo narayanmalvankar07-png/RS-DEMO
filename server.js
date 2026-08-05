@@ -1212,7 +1212,7 @@ app.post("/api/send-application", async (req, res) => {
   }
 
   try {
-    const startupName = formData.startupName || "Startup Application";
+    const startupName = formData.startupName || formData.startup_name || formData.companyName || formData.company_name || formData.name || "Startup Application";
     const founderName = formData.founderName || "Founder";
     const founderEmail = formData.founderEmail || formData.email || "";
     const founderMobile = formData.founderMobile || formData.mobileNumber || "N/A";
@@ -1229,120 +1229,128 @@ app.post("/api/send-application", async (req, res) => {
       <html>
       <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Startup Investment Opportunities</title>
         <style>
-          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
-          .card { max-width: 620px; margin: 0 auto; background: #1e293b; border: 1px solid #334155; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-          .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 28px 24px; text-align: center; color: #ffffff; }
-          .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-          .header p { margin: 6px 0 0; font-size: 14px; opacity: 0.9; }
-          .body { padding: 24px; }
-          .section-title { color: #818cf8; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; padding-bottom: 6px; margin: 20px 0 12px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-          .field-label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }
-          .field-val { font-size: 14px; color: #f8fafc; font-weight: 600; word-break: break-word; }
-          .badge { display: inline-block; background: rgba(99,102,241,0.2); color: #818cf8; border: 1px solid rgba(99,102,241,0.4); padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; }
-          .btn { display: inline-block; background: #6366f1; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-right: 8px; margin-top: 6px; }
-          .footer { text-align: center; padding: 18px; font-size: 12px; color: #64748b; border-top: 1px solid #334155; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #090d16; color: #f1f5f9; margin: 0; padding: 30px 10px; -webkit-font-smoothing: antialiased; }
+          .wrapper { max-width: 640px; margin: 0 auto; }
+          .card { background-color: #111827; border: 1px solid #1f2937; border-top: 4px solid #6366f1; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+          .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
+          .tag { display: inline-block; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.4); color: #c7d2fe; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; padding: 4px 12px; border-radius: 20px; margin-bottom: 12px; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.25; }
+          .header p { margin: 8px 0 0; font-size: 13px; color: #a5b4fc; font-weight: 500; }
+          .body { padding: 28px; }
+          .section-hdr { border-left: 3px solid #6366f1; padding-left: 10px; margin: 24px 0 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #818cf8; }
+          .section-hdr-first { margin-top: 0; }
+          .grid { display: table; width: 100%; table-layout: fixed; margin-bottom: 10px; border-spacing: 8px 0; border-collapse: separate; }
+          .grid-cell { display: table-cell; width: 50%; vertical-align: top; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 12px 14px; box-sizing: border-box; }
+          .grid-cell-full { display: block; width: 100%; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 12px 14px; box-sizing: border-box; margin-bottom: 10px; }
+          .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-bottom: 4px; }
+          .val { font-size: 14px; font-weight: 600; color: #f9fafb; word-break: break-word; }
+          .val-highlight { color: #34d399; font-size: 16px; font-weight: 700; }
+          .pitch-box { background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 12px 0; font-size: 13px; color: #e2e8f0; font-style: italic; line-height: 1.5; }
+          .desc-box { font-size: 13px; color: #d1d5db; line-height: 1.6; margin: 12px 0; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 14px; }
+          .btn { display: inline-block; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; margin-right: 8px; margin-top: 6px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25); }
+          .footer { text-align: center; padding: 20px 24px; font-size: 12px; color: #6b7280; background: #0f172a; border-top: 1px solid #1f2937; line-height: 1.5; }
+          .footer strong { color: #9ca3af; }
         </style>
       </head>
       <body>
-        <div class="card">
-          <div class="header">
-            <h1>🚀 New Startup Investment Application</h1>
-            <p>Submitted for <strong>${investorName || "Investor"}</strong> via RightSignal Platform</p>
-          </div>
-          <div class="body">
-            
-            <div class="section-title">🏢 Startup Overview</div>
-            <div class="grid">
-              <div>
-                <div class="field-label">Startup Name</div>
-                <div class="field-val">${startupName}</div>
-              </div>
-              <div>
-                <div class="field-label">Industry / Sector</div>
-                <div class="field-val">${formData.industry || "N/A"}</div>
-              </div>
+        <div class="wrapper">
+          <div class="card">
+            <div class="header">
+              <div class="tag">RIGHTSIGNAL FUNDING</div>
+              <h1>New Startup Investment Opportunities</h1>
+              <p>Submitted for <strong>${investorName || "Investor"}</strong> via RightSignal Platform</p>
             </div>
-            ${formData.elevatorPitch ? `<p style="margin: 4px 0 12px; font-size: 13px; color: #cbd5e1; font-style: italic;">"${formData.elevatorPitch}"</p>` : ''}
-            <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5; margin: 8px 0;">${formData.solution || formData.problemStatement || "No problem/solution summary provided."}</p>
+            <div class="body">
+              
+              <div class="section-hdr section-hdr-first">🏢 Startup Overview</div>
+              <div class="grid">
+                <div class="grid-cell">
+                  <div class="lbl">Startup Name</div>
+                  <div class="val">${startupName}</div>
+                </div>
+                <div class="grid-cell">
+                  <div class="lbl">Industry / Sector</div>
+                  <div class="val">${formData.industry || "N/A"}</div>
+                </div>
+              </div>
 
-            <div class="grid" style="margin-top: 12px;">
-              <div>
-                <div class="field-label">Location</div>
-                <div class="field-val">${formData.founderCity || ''} ${formData.registrationCountry || formData.location || "N/A"}</div>
+              ${formData.elevatorPitch ? `<div class="pitch-box">"${formData.elevatorPitch}"</div>` : ''}
+              ${(formData.solution || formData.problemStatement) ? `<div class="desc-box">${formData.solution || formData.problemStatement}</div>` : ''}
+
+              <div class="grid-cell-full" style="margin-top: 8px;">
+                <div class="lbl">Location</div>
+                <div class="val">${[formData.founderCity, formData.registrationCountry || formData.location].filter(Boolean).join(", ") || "N/A"}</div>
               </div>
-              <div>
-                <div class="field-label">Website</div>
-                <div class="field-val">${website ? `<a href="${website}" style="color: #818cf8;">${website}</a>` : "N/A"}</div>
+
+              <div class="section-hdr">👤 Primary Founder Details</div>
+              <div class="grid-cell-full">
+                <div class="lbl">Founder Name</div>
+                <div class="val">${founderName} <span style="font-size: 12px; color: #9ca3af; font-weight: 400;">(${formData.founderDesignation || "Founder"})</span></div>
               </div>
+
+              <div class="section-hdr">💰 Fundraising & Valuation</div>
+              <div class="grid">
+                <div class="grid-cell">
+                  <div class="lbl">Target Round</div>
+                  <div class="val">${formData.currentFundingRound || formData.fundingRound || "N/A"}</div>
+                </div>
+                <div class="grid-cell">
+                  <div class="lbl">Target Amount</div>
+                  <div class="val val-highlight">${targetAmount}</div>
+                </div>
+              </div>
+              <div class="grid" style="margin-top: 8px;">
+                <div class="grid-cell">
+                  <div class="lbl">Current Valuation</div>
+                  <div class="val">${formData.currentValuation || "N/A"}</div>
+                </div>
+                <div class="grid-cell">
+                  <div class="lbl">Instrument</div>
+                  <div class="val">${formData.fundingInstrument || "Equity"}</div>
+                </div>
+              </div>
+
+              <div class="section-hdr">📊 Key Metrics & Achievements</div>
+              <div class="grid">
+                <div class="grid-cell">
+                  <div class="lbl">Monthly Revenue</div>
+                  <div class="val">${formData.monthlyRevenue || "N/A"}</div>
+                </div>
+                <div class="grid-cell">
+                  <div class="lbl">Annual Revenue</div>
+                  <div class="val">${formData.annualRevenue || "N/A"}</div>
+                </div>
+              </div>
+              <div class="grid" style="margin-top: 8px;">
+                <div class="grid-cell">
+                  <div class="lbl">Active Users</div>
+                  <div class="val">${formData.activeUsers || "N/A"}</div>
+                </div>
+                <div class="grid-cell">
+                  <div class="lbl">Paying Customers</div>
+                  <div class="val">${formData.payingCustomers || "N/A"}</div>
+                </div>
+              </div>
+              ${formData.keyAchievements ? `<div class="desc-box" style="margin-top: 10px;"><strong style="color: #818cf8;">Milestones:</strong> ${formData.keyAchievements}</div>` : ''}
+
+              ${(pitchDeck || financialModel || dataRoom || productDemo) ? `
+                <div class="section-hdr">📄 Documents & Links</div>
+                <div style="margin-top: 10px;">
+                  ${pitchDeck ? `<a href="${pitchDeck}" class="btn" target="_blank">📊 View Pitch Deck</a>` : ''}
+                  ${financialModel ? `<a href="${financialModel}" class="btn" target="_blank" style="background: linear-gradient(135deg, #0284c7, #0369a1);">📈 Financial Model</a>` : ''}
+                  ${dataRoom ? `<a href="${dataRoom}" class="btn" target="_blank" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">📁 Data Room</a>` : ''}
+                  ${productDemo ? `<a href="${productDemo}" class="btn" target="_blank" style="background: linear-gradient(135deg, #059669, #047857);">💻 Product Demo</a>` : ''}
+                </div>
+              ` : ''}
+              ${formData.additionalNotes ? `<div class="desc-box" style="margin-top: 12px; border-color: #4b5563;"><strong style="color: #9ca3af;">Note from Founder:</strong> ${formData.additionalNotes}</div>` : ''}
+
             </div>
-
-            <div class="section-title">👤 Primary Founder Details</div>
-            <div class="grid">
-              <div>
-                <div class="field-label">Founder Name</div>
-                <div class="field-val">${founderName} (${formData.founderDesignation || "Founder"})</div>
-              </div>
-              <div>
-                <div class="field-label">RSID</div>
-                <div class="field-val"><span class="badge">${formData.rsid || "N/A"}</span></div>
-              </div>
+            <div class="footer">
+              Sent securely via <strong>RightSignal Platform</strong> • Connecting Founders with Top Investors
             </div>
-
-            <div class="section-title">💰 Fundraising & Valuation</div>
-            <div class="grid">
-              <div>
-                <div class="field-label">Target Round</div>
-                <div class="field-val">${formData.currentFundingRound || formData.fundingRound || "N/A"}</div>
-              </div>
-              <div>
-                <div class="field-label">Target Amount</div>
-                <div class="field-val" style="color: #34d399;">${targetAmount}</div>
-              </div>
-              <div>
-                <div class="field-label">Current Valuation</div>
-                <div class="field-val">${formData.currentValuation || "N/A"}</div>
-              </div>
-              <div>
-                <div class="field-label">Instrument</div>
-                <div class="field-val">${formData.fundingInstrument || "Equity"}</div>
-              </div>
-            </div>
-
-            <div class="section-title">📊 Key Metrics & Achievements</div>
-            <div class="grid">
-              <div>
-                <div class="field-label">Monthly Revenue</div>
-                <div class="field-val">${formData.monthlyRevenue || "N/A"}</div>
-              </div>
-              <div>
-                <div class="field-label">Annual Revenue</div>
-                <div class="field-val">${formData.annualRevenue || "N/A"}</div>
-              </div>
-              <div>
-                <div class="field-label">Active Users</div>
-                <div class="field-val">${formData.activeUsers || "N/A"}</div>
-              </div>
-              <div>
-                <div class="field-label">Paying Customers</div>
-                <div class="field-val">${formData.payingCustomers || "N/A"}</div>
-              </div>
-            </div>
-            ${formData.keyAchievements ? `<p style="font-size: 13px; color: #cbd5e1; margin-top: 8px;"><strong>Milestones:</strong> ${formData.keyAchievements}</p>` : ''}
-
-            <div class="section-title">📄 Documents & Links</div>
-            <div style="margin-top: 8px;">
-              ${pitchDeck ? `<a href="${pitchDeck}" class="btn" target="_blank">📊 View Pitch Deck</a>` : ''}
-              ${financialModel ? `<a href="${financialModel}" class="btn" target="_blank" style="background:#3b82f6;">📈 Financial Model</a>` : ''}
-              ${dataRoom ? `<a href="${dataRoom}" class="btn" target="_blank" style="background:#8b5cf6;">📁 Data Room</a>` : ''}
-              ${productDemo ? `<a href="${productDemo}" class="btn" target="_blank" style="background:#10b981;">💻 Product Demo</a>` : ''}
-            </div>
-            ${formData.additionalNotes ? `<p style="font-size: 12px; color: #94a3b8; margin-top: 14px;"><strong>Note from Founder:</strong> ${formData.additionalNotes}</p>` : ''}
-
-          </div>
-          <div class="footer">
-            Sent securely via <strong>RightSignal Platform</strong> • Connecting Founders with Top Investors
           </div>
         </div>
       </body>
@@ -1353,34 +1361,50 @@ app.post("/api/send-application", async (req, res) => {
     let emailSent = false;
     let sendingError = null;
 
-    const recipients = Array.from(new Set([investorEmail, founderEmail].filter(e => e && typeof e === "string" && e.includes("@"))));
-    const targetRecipients = recipients.length > 0 ? recipients : [investorEmail];
+    const validInvestorEmail = investorEmail && typeof investorEmail === "string" && investorEmail.includes("@") ? investorEmail : null;
+    const validFounderEmail = founderEmail && typeof founderEmail === "string" && founderEmail.includes("@") ? founderEmail : null;
 
-    const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal Funding <business@rightsignal.social>";
+    const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal Funding <onboarding@rightsignal.social>";
+    const fallbackFrom = "RightSignal <onboarding@resend.dev>";
 
-    try {
-      emailRes = await resend.emails.send({
-        from: fromDomain,
-        to: targetRecipients,
-        reply_to: founderEmail || undefined,
-        subject: `RightSignal | Investment Application from ${startupName}`,
-        html: htmlContent,
-      });
-      emailSent = true;
-    } catch (sendErr) {
-      console.warn("[Resend] Primary domain sending failed, retrying with fallback domain:", sendErr.message);
+    const sendSingleMail = async (toEmail) => {
       try {
-        emailRes = await resend.emails.send({
-          from: "RightSignal <onboarding@resend.dev>",
-          to: founderEmail ? [founderEmail] : [investorEmail],
-          reply_to: founderEmail || undefined,
+        return await resend.emails.send({
+          from: fromDomain,
+          to: [toEmail],
           subject: `RightSignal | Investment Application from ${startupName}`,
           html: htmlContent,
         });
+      } catch (sendErr) {
+        console.warn(`[Resend] Primary domain sending failed for ${toEmail}, retrying with fallback domain:`, sendErr.message);
+        return await resend.emails.send({
+          from: fallbackFrom,
+          to: [toEmail],
+          subject: `RightSignal | Investment Application from ${startupName}`,
+          html: htmlContent,
+        });
+      }
+    };
+
+    if (validInvestorEmail) {
+      try {
+        emailRes = await sendSingleMail(validInvestorEmail);
         emailSent = true;
-      } catch (fallbackErr) {
-        console.warn("[Resend] Fallback domain sending failed:", fallbackErr.message);
-        sendingError = fallbackErr.message;
+      } catch (err) {
+        console.warn("[Resend] Failed to send email to investor:", err.message);
+        sendingError = err.message;
+      }
+    }
+
+    // Send separate email copy to founder so founder never sees investor's email address in recipient list
+    if (validFounderEmail && validFounderEmail !== validInvestorEmail) {
+      try {
+        const founderMailRes = await sendSingleMail(validFounderEmail);
+        if (!emailRes) emailRes = founderMailRes;
+        emailSent = true;
+      } catch (err) {
+        console.warn("[Resend] Failed to send email to founder:", err.message);
+        if (!emailSent) sendingError = err.message;
       }
     }
 
