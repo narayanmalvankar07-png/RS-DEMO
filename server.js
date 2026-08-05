@@ -1214,7 +1214,18 @@ app.post("/api/send-application", async (req, res) => {
   try {
     const startupName = formData.startupName || formData.startup_name || formData.companyName || formData.company_name || formData.name || "Startup Application";
     const founderName = formData.founderName || "Founder";
-    const founderEmail = formData.founderEmail || formData.email || "";
+    let founderEmail = formData.founderEmail || formData.email || req.body.founderEmail || "";
+    
+    // Automatically retrieve founder email from DB user profile if not passed in form payload
+    if (!founderEmail && userId) {
+      try {
+        const { data: prof } = await supabase.from("rs_user_profiles").select("email").eq("id", userId).maybeSingle();
+        if (prof?.email) founderEmail = prof.email;
+      } catch (profErr) {
+        console.warn("[Send Application] Could not fetch founder email from DB profile:", profErr.message);
+      }
+    }
+
     const founderMobile = formData.founderMobile || formData.mobileNumber || "N/A";
     const mobilePrefix = formData.founderMobilePrefix || formData.countryCode || "";
     const pitchDeck = formData.pitchDeckUrl || "";
@@ -1230,11 +1241,11 @@ app.post("/api/send-application", async (req, res) => {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>New Application from ${startupName}</title>
+        <title>RightSignal | Investment Application from ${startupName}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px 10px; -webkit-font-smoothing: antialiased; }
-          .wrapper { max-width: 650px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-          .header { background: #111625; padding: 36px 32px; color: #ffffff; }
+          .wrapper { max-width: 800px; width: 100%; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); box-sizing: border-box; }
+          .header { background: #111625; padding: 40px 44px; color: #ffffff; width: 100%; box-sizing: border-box; }
           .top-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; }
           .title { font-size: 28px; font-weight: 800; margin: 0 0 6px 0; color: #ffffff; letter-spacing: -0.02em; }
           .subtitle { font-size: 14px; color: #cbd5e1; font-weight: 500; margin: 0; }
@@ -1280,7 +1291,6 @@ app.post("/api/send-application", async (req, res) => {
               <div class="col">
                 <div class="section-title" style="margin-top:0;">COMPANY PROFILE</div>
                 <div class="field-row"><span class="field-label">Industry:</span> ${formData.industry || "N/A"}</div>
-                <div class="field-row"><span class="field-label">Website:</span> ${website ? `<a href="${website}" class="link-btn" target="_blank">${website}</a>` : "N/A"}</div>
                 <div class="field-row"><span class="field-label">Status:</span> ${formData.companyStatus || formData.legalStructure || "Registered (Pvt Ltd)"}</div>
                 <div class="field-row"><span class="field-label">Incorporated:</span> ${formData.incorporationDate || "N/A"} in ${formData.founderCity || formData.registrationCountry || formData.location || "N/A"}</div>
               </div>
@@ -1387,13 +1397,15 @@ app.post("/api/send-application", async (req, res) => {
 
     const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal <onboarding@rightsignal.social>";
     const fallbackFrom = "RightSignal <onboarding@resend.dev>";
+    const subjectLine = `RightSignal | Investment Application from ${startupName}`;
 
+    // Send isolated email to recipient (no CC/BCC so investor & founder email addresses remain strictly private)
     const sendSingleMail = async (toEmail) => {
       try {
         return await resend.emails.send({
           from: fromDomain,
           to: [toEmail],
-          subject: `New Application from ${startupName}`,
+          subject: subjectLine,
           html: htmlContent,
         });
       } catch (sendErr) {
@@ -1401,7 +1413,7 @@ app.post("/api/send-application", async (req, res) => {
         return await resend.emails.send({
           from: fallbackFrom,
           to: [toEmail],
-          subject: `New Application from ${startupName}`,
+          subject: subjectLine,
           html: htmlContent,
         });
       }
@@ -1417,7 +1429,7 @@ app.post("/api/send-application", async (req, res) => {
       }
     }
 
-    // Send separate email copy to founder so founder never sees investor's email address in recipient list
+    // Send separate isolated email copy to founder so neither investor nor founder sees each other's email ID
     if (validFounderEmail && validFounderEmail !== validInvestorEmail) {
       try {
         const founderMailRes = await sendSingleMail(validFounderEmail);
