@@ -1288,14 +1288,6 @@ app.post("/api/send-application", async (req, res) => {
                 <div class="field-label">RSID</div>
                 <div class="field-val"><span class="badge">${formData.rsid || "N/A"}</span></div>
               </div>
-              <div>
-                <div class="field-label">Email</div>
-                <div class="field-val">${founderEmail ? `<a href="mailto:${founderEmail}" style="color: #818cf8;">${founderEmail}</a>` : "N/A"}</div>
-              </div>
-              <div>
-                <div class="field-label">Phone</div>
-                <div class="field-val">${mobilePrefix} ${founderMobile}</div>
-              </div>
             </div>
 
             <div class="section-title">💰 Fundraising & Valuation</div>
