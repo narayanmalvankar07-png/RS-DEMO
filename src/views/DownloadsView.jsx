@@ -199,7 +199,7 @@ export default function DownloadsView({ me, dk, isMobile }) {
                 }}
               >
                 <ArrowDownToLine size={18} />
-                Download Android APK (85.8 MB)
+                Download Android APK
               </a>
             </div>
 
@@ -218,8 +218,6 @@ export default function DownloadsView({ me, dk, isMobile }) {
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}><ShieldCheck size={14} color="#10b981" /> Verified Safe & Signed</span>
               <span>•</span>
               <span>File: <strong>rightsignal-1.0.0.apk</strong></span>
-              <span>•</span>
-              <span>Size: <strong>85.8 MB</strong></span>
               <span>•</span>
               <span>Requires Android 7.0+</span>
             </div>
