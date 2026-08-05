@@ -936,6 +936,15 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     return [];
   };
 
+  const formatStage = (stageField) => {
+    if (!stageField) return "";
+    if (Array.isArray(stageField)) return stageField.join(", ");
+    if (typeof stageField === "string") {
+      return stageField.split(",").map(s => s.trim()).filter(Boolean).join(", ");
+    }
+    return String(stageField);
+  };
+
   // ─── APPLICATION FORM WIZARD FLOW ────────────────────────────────
   const validateStep = (step, updateState = true) => {
     const errors = {};
@@ -1756,26 +1765,33 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   border: `1px solid ${th.bdr}`,
                   fontSize: 12
                 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: th.txt3 }}>Stage:</span>
-                    <span style={{ fontWeight: 600, color: "#6366f1" }}>{vc.stage || "N/A"}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: th.txt3 }}>Amount:</span>
-                    <span style={{ fontWeight: 600, color: "#10b981" }}>{vc.check_size || vc.checkSize || "N/A"}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: th.txt3 }}>Location:</span>
-                    <span style={{ fontWeight: 600, color: "#3b82f6", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                      <MapPin size={10} />
-                      {vc.location || "Global"}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ color: th.txt3, flexShrink: 0 }}>Stage:</span>
+                    <span title={formatStage(vc.stage)} style={{ fontWeight: 600, color: "#6366f1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
+                      {formatStage(vc.stage) || "N/A"}
                     </span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: th.txt3 }}>Instrument:</span>
-                    <span style={{ fontWeight: 600, color: "#8b5cf6" }}>{getFundingType(vc)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ color: th.txt3, flexShrink: 0 }}>Amount:</span>
+                    <span title={vc.check_size || vc.checkSize || "N/A"} style={{ fontWeight: 600, color: "#10b981", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
+                      {vc.check_size || vc.checkSize || "N/A"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ color: th.txt3, flexShrink: 0 }}>Location:</span>
+                    <span title={vc.location || "Global"} style={{ fontWeight: 600, color: "#3b82f6", display: "inline-flex", alignItems: "center", gap: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MapPin size={10} style={{ flexShrink: 0 }} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{vc.location || "Global"}</span>
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ color: th.txt3, flexShrink: 0 }}>Instrument:</span>
+                    <span title={getFundingType(vc)} style={{ fontWeight: 600, color: "#8b5cf6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
+                      {getFundingType(vc)}
+                    </span>
                   </div>
                 </div>
+
 
                 <FormattedDescription
                   text={vc.description}
@@ -1789,14 +1805,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  flexWrap: "wrap",
                   gap: 12,
-                  marginTop: 4,
+                  marginTop: "auto",
                   borderTop: `1px solid ${th.bdr}`,
                   paddingTop: 12
                 }}>
                   {/* Left: Sectors */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center", flex: 1, overflow: "hidden" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center", flex: 1, minWidth: 0, overflow: "hidden" }}>
                     {(() => {
                       const allSectors = parseSectors(vc.sectors);
                       const visibleSectors = allSectors.slice(0, 3);
@@ -1804,10 +1819,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                       return (
                         <>
                           {visibleSectors.map(s => (
-                            <span key={s} style={{ fontSize: 10, border: `1px solid ${th.bdr}`, color: th.txt3, padding: "1px 6px", borderRadius: 6, fontWeight: 500 }}>{s}</span>
+                            <span key={s} style={{ fontSize: 10, border: `1px solid ${th.bdr}`, color: th.txt3, padding: "1px 6px", borderRadius: 6, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{s}</span>
                           ))}
                           {remainingCount > 0 && (
-                            <span style={{ fontSize: 10, background: dk ? "rgba(99, 102, 241, 0.12)" : "rgba(99, 102, 241, 0.06)", border: `1px solid ${th.bdr}`, color: "#6366f1", padding: "1px 6px", borderRadius: 6, fontWeight: 600 }}>
+                            <span style={{ fontSize: 10, background: dk ? "rgba(99, 102, 241, 0.12)" : "rgba(99, 102, 241, 0.06)", border: `1px solid ${th.bdr}`, color: "#6366f1", padding: "1px 6px", borderRadius: 6, fontWeight: 600, flexShrink: 0 }}>
                               +{remainingCount} more
                             </span>
                           )}
@@ -1817,7 +1832,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   </div>
 
                   {/* Right: Button */}
-                  <div>
+                  <div style={{ flexShrink: 0 }}>
                     {hasApplied ? (
                       <button
                         disabled
@@ -2894,7 +2909,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div style={{ background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)", padding: 12, borderRadius: 12, border: `1px solid ${th.bdr}` }}>
                   <div style={{ fontSize: 10, color: th.txt3, fontWeight: 600, textTransform: "uppercase", marginBottom: 3 }}>Investment Stage</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1" }}>{selectedVC.stage || "N/A"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1", wordBreak: "break-word" }}>{formatStage(selectedVC.stage) || "N/A"}</div>
                 </div>
                 <div style={{ background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)", padding: 12, borderRadius: 12, border: `1px solid ${th.bdr}` }}>
                   <div style={{ fontSize: 10, color: th.txt3, fontWeight: 600, textTransform: "uppercase", marginBottom: 3 }}>Check Size</div>
