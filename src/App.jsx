@@ -42,6 +42,7 @@ import FundingView from "./views/FundingView";
 import SubscriptionModal from "./components/shared/SubscriptionModal";
 import PaymentSuccessModal from "./components/shared/PaymentSuccessModal";
 import ScholarshipsView from "./views/ScholarshipsView.jsx";
+import DownloadsView from "./views/DownloadsView.jsx";
 
 // ─── OAUTH TOKEN DETECTION (runs before React) ────────────────────
 (function detectOAuthReturn() {
@@ -751,6 +752,7 @@ export default function App() {
       case "funding": return <FundingView me={me} dk={dk} myProfile={myProfile} profiles={profiles} addNotif={addNotif} isMobile={isMobile} onProfile={openProfile} openSubscriptionModal={openSubscriptionModal} onNavigate={navTo} />;
       case "notifications": return <NotificationsView notifs={notifs} setNotifs={setNotifs} me={me} dk={dk} profiles={profiles} onProfile={openProfile} onSelect={handleNotificationClick} onMarkRead={markNotifsReadInDB} />;
       case "scholarships": return <ScholarshipsView me={me} dk={dk} profiles={profiles} addNotif={addNotif} isMobile={isMobile} myProfile={myProfile} onProfile={openProfile} />;
+      case "downloads": return <DownloadsView me={me} dk={dk} isMobile={isMobile} />;
       default: return <FeedView {...common} myProfile={myProfile} onProfile={openProfile} bookmarks={bookmarks} onBookmark={toggleBookmark} focusPostId={notifFocus?.postId} focusCommentId={notifFocus?.commentId} onFocusHandled={() => setNotifFocus(null)} activeTag={activeTag} setActiveTag={setActiveTag} />;
     }
   };
@@ -839,7 +841,7 @@ export default function App() {
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
           <div style={{ flex: 1, minHeight: 0, overflowY: ["messages", "network", "feed"].includes(view) ? "hidden" : "auto", padding: view === "messages" ? 0 : (isMobile ? "10px 10px 96px" : "12px 16px 16px"), display: "flex", flexDirection: "column" }}>
             {(() => {
-              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox", "profile", "funding", "scholarships"].includes(view);
+              const isFullWidth = ["messages", "network", "feed", "notifications", "contribute", "wallet", "colab", "events", "sandbox", "profile", "funding", "scholarships", "downloads"].includes(view);
               const hasInternalScroll = ["messages", "network", "feed"].includes(view);
               return (
                 <div key={view} className="rs-page-in" style={{ display: hasInternalScroll ? "flex" : "block", flexDirection: "column", width: isFullWidth ? "100%" : "auto", maxWidth: isFullWidth ? "none" : 640, margin: isFullWidth ? 0 : "0 auto", flex: hasInternalScroll ? 1 : "auto", overflow: hasInternalScroll ? "hidden" : "visible" }}>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign, Crown, Award, Settings } from "lucide-react";
+import { Home, Users, MessageCircle, Calendar, Lightbulb, FileText, Wallet, Megaphone, FlaskConical, X, Bell, DollarSign, Crown, Award, Settings, Download } from "lucide-react";
 import { T } from "../../config/constants.js";
 import { canManageAds, hasRole } from "../../utils/helpers.js";
 import Av from "../ui/Av.jsx";
@@ -13,8 +13,8 @@ const NAV_LINKS = [
   { id: "colab", icon: Lightbulb, label: "Colab" },
   { id: "funding", icon: DollarSign, label: "Funding" },
   { id: "events", icon: Calendar, label: "Events" },
-
   { id: "sandbox", icon: FlaskConical, label: "Sandbox" },
+  { id: "downloads", icon: Download, label: "Downloads" },
   // Admin‑only navigation item
   { id: "user-management", icon: Settings, label: "User Management", adminOnly: true },
   { id: "wallet", icon: Wallet, label: "Wallet", walletBadge: true },
