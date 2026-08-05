@@ -384,156 +384,7 @@ app.post("/api/upload-attachment", async (req, res) => {
   }
 });
 
-// ── POST /api/send-application ──────────────────────────────────────
-// Sends email via Resend
-app.post("/api/send-application", async (req, res) => {
-  const userId = getUser(req);
-  if (!userId) return res.status(401).json({ error: "x-user-id header required" });
 
-  const { investorEmail, investorName, formData } = req.body;
-  if (!investorEmail || !formData) {
-    return res.status(400).json({ error: "investorEmail and formData required" });
-  }
-
-  try {
-    const data = await resend.emails.send({
-      from: 'RightSignal <onboarding@rightsignal.social>',
-      to: investorEmail,
-      subject: `New Application from ${formData.startupName}`,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; color: #1f2937; line-height: 1.6; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
-          
-          <!-- Header -->
-          <div style="background-color: #111827; padding: 32px 40px; text-align: left;">
-            <p style="color: #9ca3af; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0; font-weight: 600;">New Investment Application</p>
-            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800;">${formData.startupName || 'Undisclosed Startup'}</h1>
-            <p style="color: #d1d5db; margin: 8px 0 0 0; font-size: 16px;">Applying to: <strong>${investorName}</strong></p>
-          </div>
-
-          <!-- Quick Overview -->
-          <div style="padding: 32px 40px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-            <p style="margin: 0; font-size: 18px; font-style: italic; color: #4b5563; border-left: 4px solid #6366f1; padding-left: 16px;">
-              "${formData.elevatorPitch || 'No elevator pitch provided.'}"
-            </p>
-          </div>
-
-          <div style="padding: 40px;">
-            
-            <!-- Company Profile & Fundraising -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 40px;">
-              <tr>
-                <td width="50%" valign="top" style="padding-right: 20px;">
-                  <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Fundraising Details</h3>
-                  <p style="margin: 4px 0;"><strong>Raising Now:</strong> <span style="color: #059669; font-weight: bold;">${formData.amountRaisingNow || 'N/A'}</span></p>
-                  <p style="margin: 4px 0;"><strong>Round:</strong> ${formData.currentFundraisingRound || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Instrument:</strong> ${formData.fundingInstrument || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Current Valuation:</strong> ${formData.currentValuation || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Runway:</strong> ${formData.runwayRemaining || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Previously Raised:</strong> ${formData.raisedBefore || 'N/A'}</p>
-                </td>
-                <td width="50%" valign="top" style="padding-left: 20px; border-left: 1px solid #e5e7eb;">
-                  <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 0;">Company Profile</h3>
-                  <p style="margin: 4px 0;"><strong>Industry:</strong> ${formData.industry || 'N/A'}</p>
-                  <p style="margin: 4px 0;"><strong>Website:</strong> <a href="${formData.websiteUrl || '#'}" style="color: #6366f1;">${formData.websiteUrl || 'N/A'}</a></p>
-                  <p style="margin: 4px 0;"><strong>Status:</strong> ${formData.registrationStatus || 'N/A'} ${formData.entityType ? '(' + formData.entityType + ')' : ''}</p>
-                  <p style="margin: 4px 0;"><strong>Incorporated:</strong> ${formData.incorporationDate || 'N/A'} in ${formData.registrationCountry || 'N/A'}</p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Business Overview -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Business Overview</h3>
-            <div style="margin-bottom: 32px;">
-              <p style="margin: 0 0 12px 0;"><strong>Problem:</strong><br><span style="color: #4b5563;">${formData.problemStatement || 'N/A'}</span></p>
-              <p style="margin: 0 0 12px 0;"><strong>Solution:</strong><br><span style="color: #4b5563;">${formData.solution || 'N/A'}</span></p>
-              <p style="margin: 0 0 12px 0;"><strong>Target Customers:</strong><br><span style="color: #4b5563;">${formData.targetCustomers || 'N/A'}</span></p>
-              <p style="margin: 0 0 12px 0;"><strong>Product Status:</strong><br><span style="color: #4b5563;">${formData.currentProductStatus || 'N/A'}</span></p>
-            </div>
-
-            <!-- Market & Competition -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Market & Competition</h3>
-            <div style="margin-bottom: 32px;">
-              <p style="margin: 4px 0;"><strong>TAM:</strong> ${formData.tam || 'N/A'} | <strong>SAM:</strong> ${formData.sam || 'N/A'} | <strong>SOM:</strong> ${formData.som || 'N/A'}</p>
-              <p style="margin: 12px 0 4px 0;"><strong>Competitors:</strong><br><span style="color: #4b5563;">${formData.competitors || 'N/A'}</span></p>
-              <p style="margin: 8px 0 0 0;"><strong>Competitive Advantage:</strong><br><span style="color: #4b5563;">${formData.competitiveAdvantage || 'N/A'}</span></p>
-            </div>
-
-            <!-- Traction & Metrics -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Traction & Metrics</h3>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="33%" style="padding-bottom: 12px;"><strong>Total Users:</strong><br><span style="font-size: 18px; color: #111827;">${formData.totalUsers || 'N/A'}</span></td>
-                  <td width="33%" style="padding-bottom: 12px;"><strong>Active Users:</strong><br><span style="font-size: 18px; color: #111827;">${formData.activeUsers || 'N/A'}</span></td>
-                  <td width="33%" style="padding-bottom: 12px;"><strong>Paying Customers:</strong><br><span style="font-size: 18px; color: #111827;">${formData.payingCustomers || 'N/A'}</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Monthly Rev:</strong><br><span style="font-size: 18px; color: #111827;">${formData.monthlyRevenue || 'N/A'}</span></td>
-                  <td><strong>Annual Rev:</strong><br><span style="font-size: 18px; color: #111827;">${formData.annualRevenue || 'N/A'}</span></td>
-                  <td><strong>MoM Growth:</strong><br><span style="font-size: 18px; color: #111827;">${formData.monthlyGrowth || 'N/A'}</span></td>
-                </tr>
-              </table>
-              <p style="margin: 16px 0 0 0;"><strong>Key Milestones:</strong><br><span style="color: #4b5563;">${formData.keyAchievements || 'N/A'}</span></p>
-            </div>
-
-            <!-- Documents & Links -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Documents & Links</h3>
-            <div style="margin-bottom: 40px;">
-              <p style="margin: 6px 0;">📄 <a href="${formData.pitchDeckUrl || '#'}" style="color: #2563eb; font-weight: bold; text-decoration: none;">View Pitch Deck</a></p>
-              ${formData.financialModelUrl ? '<p style="margin: 6px 0;">📊 <a href="' + formData.financialModelUrl + '" style="color: #2563eb; text-decoration: none;">Financial Model</a></p>' : ''}
-              ${formData.dataRoomUrl ? '<p style="margin: 6px 0;">📁 <a href="' + formData.dataRoomUrl + '" style="color: #2563eb; text-decoration: none;">Data Room</a></p>' : ''}
-              ${formData.investorMemoUrl ? '<p style="margin: 6px 0;">📝 <a href="' + formData.investorMemoUrl + '" style="color: #2563eb; text-decoration: none;">Investor Memo</a></p>' : ''}
-              ${formData.productDemoUrl ? '<p style="margin: 6px 0;">💻 <a href="' + formData.productDemoUrl + '" style="color: #2563eb; text-decoration: none;">Product Demo</a></p>' : ''}
-              ${formData.demoVideoUrl ? '<p style="margin: 6px 0;">▶️ <a href="' + formData.demoVideoUrl + '" style="color: #2563eb; text-decoration: none;">Demo Video</a></p>' : ''}
-              
-              ${formData.additionalNotes ? '<div style="margin-top: 16px; padding: 16px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;"><p style="margin: 0; color: #92400e;"><strong>Additional Notes:</strong><br>' + formData.additionalNotes + '</p></div>' : ''}
-            </div>
-
-            <!-- Use of Funds -->
-            <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Use of Funds Allocation</h3>
-            <div style="margin-bottom: 32px;">
-              <p style="margin: 4px 0;"><strong>Product Dev:</strong> ${formData.useOfFundsDev || '0'}% | <strong>Hiring:</strong> ${formData.useOfFundsHiring || '0'}% | <strong>Marketing:</strong> ${formData.useOfFundsMarketing || '0'}% | <strong>Operations:</strong> ${formData.useOfFundsOps || '0'}% | <strong>Other:</strong> ${formData.useOfFundsOther || '0'}%</p>
-            </div>
-
-            <!-- Founder Details -->
-            <div style="border-top: 2px solid #e5e7eb; padding-top: 32px;">
-              <h3 style="color: #111827; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0;">Founding Team</h3>
-              
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td width="50%" valign="top">
-                    <p style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #111827;">${formData.founderName || 'N/A'}</p>
-                    <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">${formData.founderDesignation || 'Primary Founder'} • ${formData.founderCity || 'N/A'}, ${formData.founderCountry || 'N/A'}</p>
-                    <p style="margin: 2px 0; font-size: 14px;">🔗 <a href="${formData.founderLinkedin || '#'}" style="color: #2563eb;">LinkedIn Profile</a></p>
-                  </td>
-                  <td width="50%" valign="top">
-                    ${formData.coFounderName ? '<p style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold; color: #111827;">' + formData.coFounderName + '</p><p style="margin: 0 0 12px 0; color: #6b7280; font-size: 14px;">' + (formData.coFounderDesignation || 'Co-Founder') + '</p>' : '<p style="color: #9ca3af; font-style: italic;">No Co-Founder specified.</p>'}
-                  </td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- Declaration -->
-            <div style="margin-top: 40px; padding: 24px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; color: #6b7280;">
-              <p style="margin: 0 0 8px 0;">✅ <strong>Founder Declaration:</strong> "I confirm that the information submitted is accurate and can be shared with selected investors through the RightSignal platform."</p>
-              <p style="margin: 0;">Signed by <strong>${formData.declarationName || formData.founderName || 'N/A'}</strong> on <strong>${formData.declarationDate || 'N/A'}</strong></p>
-            </div>
-
-          </div>
-          
-          <!-- Footer -->
-          <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0; font-size: 12px; color: #6b7280;">Securely processed and verified by <a href="https://rightsignal.social" style="color: #6366f1; text-decoration: none; font-weight: bold;">RightSignal</a></p>
-          </div>
-        </div>
-      `,
-    });
-    res.status(200).json(data);
-  } catch (error) {
-    console.error("POST /api/send-application error:", error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // ── Password Reset & Management Maps ────────────────────────────────
 const resetTokens = new Map(); // token -> { email, expiresAt }
@@ -1350,7 +1201,265 @@ app.post("/api/paypal/capture-order", async (req, res) => {
   }
 });
 
+// ── POST /api/send-application ───────────────────────────────────────
+// Sends VC funding application email via Resend
+app.post("/api/send-application", async (req, res) => {
+  const userId = getUser(req) || req.body.userId;
+  const { investorEmail, investorName, formData } = req.body;
+
+  if (!investorEmail || !formData) {
+    return res.status(400).json({ error: "investorEmail and formData are required" });
+  }
+
+  try {
+    const startupName = formData.startupName || formData.startup_name || formData.companyName || formData.company_name || formData.name || "Startup Application";
+    const founderName = formData.founderName || "Founder";
+    let founderEmail = formData.founderEmail || formData.email || req.body.founderEmail || "";
+    
+    // Automatically retrieve founder email from DB user profile if not passed in form payload
+    if (!founderEmail && userId) {
+      try {
+        const { data: prof } = await supabase.from("rs_user_profiles").select("email").eq("id", userId).maybeSingle();
+        if (prof?.email) founderEmail = prof.email;
+      } catch (profErr) {
+        console.warn("[Send Application] Could not fetch founder email from DB profile:", profErr.message);
+      }
+    }
+
+    const founderMobile = formData.founderMobile || formData.mobileNumber || "N/A";
+    const mobilePrefix = formData.founderMobilePrefix || formData.countryCode || "";
+    const pitchDeck = formData.pitchDeckUrl || "";
+    const financialModel = formData.financialModelUrl || "";
+    const dataRoom = formData.dataRoomUrl || "";
+    const productDemo = formData.demoProductUrl || formData.demoWebsiteUrl || formData.productDemoUrl || "";
+    const website = formData.websiteUrl || formData.website || "";
+    const targetAmount = formData.amountRaisingNow || formData.targetAmount || "N/A";
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RightSignal | Investment Application from ${startupName}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px 10px; -webkit-font-smoothing: antialiased; }
+          .wrapper { max-width: 800px; width: 100%; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); box-sizing: border-box; }
+          .header { background: #111625; padding: 40px 44px; color: #ffffff; width: 100%; box-sizing: border-box; }
+          .top-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; }
+          .title { font-size: 28px; font-weight: 800; margin: 0 0 6px 0; color: #ffffff; letter-spacing: -0.02em; }
+          .subtitle { font-size: 14px; color: #cbd5e1; font-weight: 500; margin: 0; }
+          .body { padding: 32px; }
+          .pitch-box { background: #f8fafc; border-left: 3px solid #3b82f6; padding: 14px 18px; margin: 0 0 28px 0; font-size: 14px; color: #334155; font-style: italic; line-height: 1.5; }
+          .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin: 28px 0 16px 0; }
+          .two-col { display: table; width: 100%; table-layout: fixed; }
+          .col { display: table-cell; width: 50%; vertical-align: top; padding-right: 12px; box-sizing: border-box; }
+          .col:last-child { padding-right: 0; padding-left: 12px; border-left: 1px solid #f1f5f9; }
+          .field-row { margin-bottom: 8px; font-size: 13px; color: #475569; line-height: 1.5; }
+          .field-label { font-weight: 700; color: #1e293b; }
+          .green-val { color: #10b981; font-weight: 800; }
+          .link-btn { display: inline-block; color: #2563eb; text-decoration: none; font-weight: 600; font-size: 13px; }
+          .metrics-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-top: 12px; }
+          .metrics-grid { display: table; width: 100%; table-layout: fixed; margin-bottom: 12px; }
+          .metric-cell { display: table-cell; width: 33.33%; vertical-align: top; padding: 4px; box-sizing: border-box; }
+          .metric-lbl { font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+          .metric-val { font-size: 16px; font-weight: 600; color: #334155; }
+          .declaration-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 24px; font-size: 12px; color: #475569; line-height: 1.6; }
+          .footer { background: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+        </style>
+      </head>
+      <body>
+        <div class="wrapper">
+          <div class="header">
+            <div class="top-label">NEW INVESTMENT APPLICATION</div>
+            <h1 class="title">${startupName}</h1>
+            <p class="subtitle">Applying to: <strong>${investorName || "Investor"}</strong></p>
+          </div>
+          <div class="body">
+            ${formData.elevatorPitch ? `<div class="pitch-box">"${formData.elevatorPitch}"</div>` : ''}
+
+            <div class="two-col">
+              <div class="col">
+                <div class="section-title" style="margin-top:0;">FUNDRAISING DETAILS</div>
+                <div class="field-row"><span class="field-label">Raising Now:</span> <span class="green-val">${targetAmount}</span></div>
+                <div class="field-row"><span class="field-label">Round:</span> ${formData.currentFundingRound || formData.fundingRound || "N/A"}</div>
+                <div class="field-row"><span class="field-label">Instrument:</span> ${formData.fundingInstrument || "Equity"}</div>
+                <div class="field-row"><span class="field-label">Current Valuation:</span> ${formData.currentValuation || "N/A"}</div>
+                <div class="field-row"><span class="field-label">Runway:</span> ${formData.runway || "6-12 Months"}</div>
+                <div class="field-row"><span class="field-label">Previously Raised:</span> ${formData.previouslyRaised || "N/A"}</div>
+              </div>
+              <div class="col">
+                <div class="section-title" style="margin-top:0;">COMPANY PROFILE</div>
+                <div class="field-row"><span class="field-label">Industry:</span> ${formData.industry || "N/A"}</div>
+                <div class="field-row"><span class="field-label">Status:</span> ${formData.companyStatus || formData.legalStructure || "Registered (Pvt Ltd)"}</div>
+                <div class="field-row"><span class="field-label">Incorporated:</span> ${formData.incorporationDate || "N/A"} in ${formData.founderCity || formData.registrationCountry || formData.location || "N/A"}</div>
+              </div>
+            </div>
+
+            <div class="section-title">BUSINESS OVERVIEW</div>
+            <div class="field-row"><div class="field-label">Problem:</div><div style="margin-top:2px;">${formData.problemStatement || formData.problem || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Solution:</div><div style="margin-top:2px;">${formData.solution || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Target Customers:</div><div style="margin-top:2px;">${formData.targetCustomers || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Product Status:</div><div style="margin-top:2px;">${formData.productStatus || "N/A"}</div></div>
+
+            <div class="section-title">MARKET & COMPETITION</div>
+            <div class="field-row"><span class="field-label">TAM:</span> ${formData.tam || "N/A"} &nbsp;|&nbsp; <span class="field-label">SAM:</span> ${formData.sam || "N/A"} &nbsp;|&nbsp; <span class="field-label">SOM:</span> ${formData.som || "N/A"}</div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Competitors:</div><div style="margin-top:2px;">${formData.competitors || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Competitive Advantage:</div><div style="margin-top:2px;">${formData.competitiveAdvantage || "N/A"}</div></div>
+
+            <div class="section-title">TRACTION & METRICS</div>
+            <div class="metrics-box">
+              <div class="metrics-grid">
+                <div class="metric-cell">
+                  <div class="metric-lbl">Total Users:</div>
+                  <div class="metric-val">${formData.totalUsers || "N/A"}</div>
+                </div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">Active Users:</div>
+                  <div class="metric-val">${formData.activeUsers || "N/A"}</div>
+                </div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">Paying Customers:</div>
+                  <div class="metric-val">${formData.payingCustomers || "N/A"}</div>
+                </div>
+              </div>
+              <div class="metrics-grid">
+                <div class="metric-cell">
+                  <div class="metric-lbl">Monthly Rev:</div>
+                  <div class="metric-val">${formData.monthlyRevenue || "N/A"}</div>
+                </div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">Annual Rev:</div>
+                  <div class="metric-val">${formData.annualRevenue || "N/A"}</div>
+                </div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">MoM Growth:</div>
+                  <div class="metric-val">${formData.momGrowth || "N/A"}</div>
+                </div>
+              </div>
+              <div style="margin-top:8px; font-size:12px;">
+                <span class="field-label">Key Milestones:</span><br/>
+                <span style="color:#475569;">${formData.keyAchievements || "N/A"}</span>
+              </div>
+            </div>
+
+            <div class="section-title">DOCUMENTS & LINKS</div>
+            <div style="margin-top:8px;">
+              ${pitchDeck ? `<div style="margin-bottom:6px;"><a href="${pitchDeck}" class="link-btn" target="_blank">📄 View Pitch Deck</a></div>` : ''}
+              ${financialModel ? `<div style="margin-bottom:6px;"><a href="${financialModel}" class="link-btn" target="_blank">📈 View Financial Model</a></div>` : ''}
+              ${dataRoom ? `<div style="margin-bottom:6px;"><a href="${dataRoom}" class="link-btn" target="_blank">📁 View Data Room</a></div>` : ''}
+              ${productDemo ? `<div style="margin-bottom:6px;"><a href="${productDemo}" class="link-btn" target="_blank">💻 View Product Demo</a></div>` : ''}
+              ${(!pitchDeck && !financialModel && !dataRoom && !productDemo) ? '<div style="font-size:13px; color:#94a3b8;">No document links provided.</div>' : ''}
+            </div>
+
+            <div class="section-title">USE OF FUNDS ALLOCATION</div>
+            <div class="field-row">
+              <span class="field-label">Product Dev:</span> ${formData.productDevUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Hiring:</span> ${formData.hiringUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Marketing:</span> ${formData.marketingUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Operations:</span> ${formData.operationsUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Other:</span> ${formData.otherUse || "0"}%
+            </div>
+
+            <div class="section-title">FOUNDING TEAM</div>
+            <div class="two-col">
+              <div class="col">
+                <div style="font-weight:700; font-size:15px; color:#0f172a;">${founderName}</div>
+                <div style="font-size:13px; color:#64748b; margin-top:2px;">Founder • ${formData.founderBio || formData.founderCity || ''}</div>
+              </div>
+              <div class="col">
+                ${formData.coFounderName ? `
+                  <div style="font-weight:700; font-size:15px; color:#0f172a;">${formData.coFounderName}</div>
+                  <div style="font-size:13px; color:#64748b; margin-top:2px;">Co-Founder</div>
+                ` : '<div style="font-size:13px; color:#94a3b8; font-style:italic;">No Co-Founder specified.</div>'}
+              </div>
+            </div>
+
+            <div class="declaration-box">
+              <strong>✅ Founder Declaration:</strong> "I confirm that the information submitted is accurate and can be shared with selected investors through the RightSignal platform."
+              <div style="margin-top:6px; color:#64748b; font-size:11px;">Signed by <strong>${formData.signedBy || founderName}</strong> on <strong>${new Date().toISOString().split('T')[0]}</strong></div>
+            </div>
+          </div>
+          <div class="footer">
+            Securely processed and verified by <strong>RightSignal</strong>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    let emailRes = null;
+    let emailSent = false;
+    let sendingError = null;
+
+    const validInvestorEmail = investorEmail && typeof investorEmail === "string" && investorEmail.includes("@") ? investorEmail : null;
+    const validFounderEmail = founderEmail && typeof founderEmail === "string" && founderEmail.includes("@") ? founderEmail : null;
+
+    const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal <onboarding@rightsignal.social>";
+    const fallbackFrom = "RightSignal <onboarding@resend.dev>";
+    const subjectLine = `RightSignal | Investment Application from ${startupName}`;
+
+    // Send isolated email to recipient (no CC/BCC so investor & founder email addresses remain strictly private)
+    const sendSingleMail = async (toEmail) => {
+      try {
+        return await resend.emails.send({
+          from: fromDomain,
+          to: [toEmail],
+          subject: subjectLine,
+          html: htmlContent,
+        });
+      } catch (sendErr) {
+        console.warn(`[Resend] Primary domain sending failed for ${toEmail}, retrying with fallback domain:`, sendErr.message);
+        return await resend.emails.send({
+          from: fallbackFrom,
+          to: [toEmail],
+          subject: subjectLine,
+          html: htmlContent,
+        });
+      }
+    };
+
+    if (validInvestorEmail) {
+      try {
+        emailRes = await sendSingleMail(validInvestorEmail);
+        emailSent = true;
+      } catch (err) {
+        console.warn("[Resend] Failed to send email to investor:", err.message);
+        sendingError = err.message;
+      }
+    }
+
+    // Send separate isolated email copy to founder so neither investor nor founder sees each other's email ID
+    if (validFounderEmail && validFounderEmail !== validInvestorEmail) {
+      try {
+        const founderMailRes = await sendSingleMail(validFounderEmail);
+        if (!emailRes) emailRes = founderMailRes;
+        emailSent = true;
+      } catch (err) {
+        console.warn("[Resend] Failed to send email to founder:", err.message);
+        if (!emailSent) sendingError = err.message;
+      }
+    }
+
+    if (emailSent) {
+      console.log(`[Send Application] Successfully sent application for ${startupName} to ${investorEmail}`);
+      return res.json({ success: true, emailSent: true, emailRes });
+    } else {
+      console.warn(`[Send Application Warning] Application saved, but email could not be delivered to ${investorEmail}: ${sendingError}`);
+      return res.json({
+        success: true,
+        emailSent: false,
+        warning: sendingError || "Email delivery was skipped due to unverified sender domain.",
+      });
+    }
+  } catch (err) {
+    console.error("[Send Application Error]:", err);
+    return res.status(500).json({ error: err.message || "Failed to process application request" });
+  }
+});
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`API server running on port ${PORT}`);
 });
+
 

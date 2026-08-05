@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { 
-  Briefcase, DollarSign, Users, MapPin, Globe, CheckCircle2, ChevronRight, 
-  ChevronLeft, ChevronDown, ChevronUp, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText, 
+import {
+  Briefcase, DollarSign, Users, MapPin, Globe, CheckCircle2, ChevronRight,
+  ChevronLeft, ChevronDown, ChevronUp, Search, SlidersHorizontal, Lock, Check, Send, Sparkles, FileText,
   TrendingUp, BarChart3, AlertCircle, Building2, HelpCircle, Edit2, Mail, Copy
 } from "lucide-react";
 import { T } from "../config/constants.js";
@@ -35,18 +35,18 @@ function Logo({ name, src, size = 56, radius = 16, fontSize = 28 }) {
   const gradient = `linear-gradient(135deg, hsl(${baseHue}, 75%, 55%), hsl(${(baseHue + 35) % 360}, 80%, 45%))`;
 
   return (
-    <div style={{ 
-      width: size, 
-      height: size, 
-      borderRadius: radius, 
-      background: gradient, 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center", 
-      fontSize: initials ? fontSize : fontSize * 0.8, 
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: radius,
+      background: gradient,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: initials ? fontSize : fontSize * 0.8,
       fontWeight: 800,
-      color: "#fff", 
-      flexShrink: 0, 
+      color: "#fff",
+      flexShrink: 0,
       overflow: "hidden",
       boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
       textShadow: "0 1px 3px rgba(0,0,0,0.2)"
@@ -247,12 +247,12 @@ function GlassSelect({ value, onChange, options, formError, dk, th }) {
         }}
       >
         <span>{selectedOpt?.label || value}</span>
-        <span style={{ 
-          transform: open ? "rotate(180deg)" : "rotate(0)", 
-          transition: "transform 0.2s", 
-          fontSize: 8, 
-          color: th.txt3, 
-          display: "inline-block" 
+        <span style={{
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+          transition: "transform 0.2s",
+          fontSize: 8,
+          color: th.txt3,
+          display: "inline-block"
         }}>
           ▼
         </span>
@@ -386,12 +386,12 @@ function GlassSelectPill({ value, onChange, options, placeholder, dk, th }) {
         }}
       >
         <span>{isDefault ? placeholder : selectedOpt.label}</span>
-        <span style={{ 
-          transform: open ? "rotate(180deg)" : "rotate(0)", 
-          transition: "transform 0.2s", 
-          fontSize: 8, 
-          color: !isDefault ? "#6366f1" : th.txt3, 
-          display: "inline-block" 
+        <span style={{
+          transform: open ? "rotate(180deg)" : "rotate(0)",
+          transition: "transform 0.2s",
+          fontSize: 8,
+          color: !isDefault ? "#6366f1" : th.txt3,
+          display: "inline-block"
         }}>
           ▼
         </span>
@@ -810,7 +810,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // Db application records
   const [myApplication, setMyApplication] = useState(null);
-  
+
   // Real investors list loaded from DB
   const [investors, setInvestors] = useState([]);
 
@@ -888,7 +888,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             const parsed = JSON.parse(localApp);
             appRow = parsed;
             appData = parsed.data;
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -932,7 +932,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (typeof sectorsField === "string") {
         return JSON.parse(sectorsField);
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   };
 
@@ -991,34 +991,48 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     if (updateState) {
       setFormErrors(errors);
     }
-    return Object.keys(errors).length === 0;
+    const isValid = Object.keys(errors).length === 0;
+    console.log(`[FundingView:ApplyFlow] 🔍 Step ${step} (${STAGE_STEPS[step] || "Step " + step}) validation:`, {
+      isValid,
+      errors,
+      formValues: form
+    });
+    return isValid;
   };
 
   const handleNextStep = () => {
+    console.log(`[FundingView:ApplyFlow] ▶️ 'Next' clicked on step ${activeStep} (${STAGE_STEPS[activeStep]})`);
     if (validateStep(activeStep)) {
       if (activeStep < STAGE_STEPS.length - 1) {
+        console.log(`[FundingView:ApplyFlow] ➡️ Step ${activeStep} valid. Advancing to step ${activeStep + 1} (${STAGE_STEPS[activeStep + 1]})`);
         setActiveStep(prev => prev + 1);
       } else {
+        console.log("[FundingView:ApplyFlow] 🏁 Final step reached! Triggering handleSubmitApplication()...");
         handleSubmitApplication();
       }
     } else {
+      console.warn(`[FundingView:ApplyFlow] ❌ Step ${activeStep} validation failed. Highlighted required fields.`);
       addNotif?.({ type: "error", msg: "Please fill out all required fields marked with *" });
     }
   };
 
   const handlePrevStep = () => {
+    console.log(`[FundingView:ApplyFlow] ◀️ 'Back' clicked. Moving from step ${activeStep} (${STAGE_STEPS[activeStep]}) to step ${activeStep - 1}`);
     if (activeStep > 0) {
       setActiveStep(prev => prev - 1);
     }
   };
 
   const handleOpenForm = (initialVCId = null) => {
+    console.log("--------------------------------------------------");
+    console.log("[FundingView:ApplyFlow] 📋 handleOpenForm triggered with initialVCId:", initialVCId);
     setActiveStep(0);
     setFormErrors({});
     setPendingVCId(initialVCId);
-    
+
     const autoRsid = getAutoRSID();
     const p = myProfile || profiles?.[me] || {};
+    console.log("[FundingView:ApplyFlow] ⚙️ Pre-filling form with profile data:", { autoRsid, founderName: p.name, founderEmail: p.email });
     setForm(prev => ({
       ...prev,
       rsid: prev.rsid || autoRsid,
@@ -1026,10 +1040,17 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       founderEmail: prev.founderEmail || p.email || ""
     }));
 
+    console.log("[FundingView:ApplyFlow] 🚀 Opening application form wizard modal.");
     setWizardOpen(true);
   };
 
   const handleSubmitApplication = async () => {
+    console.log("--------------------------------------------------");
+    console.log("[FundingView:ApplyFlow] 📤 handleSubmitApplication STARTED", {
+      pendingVCId,
+      userUID: me,
+      currentFormData: form
+    });
     setSubmitting(true);
     try {
       // Append pending VC application to the list of applied VCs
@@ -1037,6 +1058,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (pendingVCId && !updatedApplied.includes(pendingVCId)) {
         updatedApplied.push(pendingVCId);
       }
+      console.log("[FundingView:ApplyFlow] 📝 Updated appliedInvestors list:", updatedApplied);
 
       const updatedForm = { ...form, appliedInvestors: updatedApplied };
       setForm(updatedForm);
@@ -1045,20 +1067,22 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         uid: me,
         data: updatedForm
       };
+      console.log("[FundingView:ApplyFlow] 📦 DB Payload created:", payload);
 
       let response;
       if (myApplication?.id && !String(myApplication.id).startsWith("local_")) {
-        // Update existing application
+        console.log("[FundingView:ApplyFlow] 🔄 Patching existing database application id:", myApplication.id);
         const patched = await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
         response = patched || { ...myApplication, ...payload };
       } else {
-        // Create new application
+        console.log("[FundingView:ApplyFlow] ➕ Inserting new application record into DB...");
         response = await db.post("rs_funding_applications", payload);
       }
+      console.log("[FundingView:ApplyFlow] 📥 DB Response:", response);
 
       // Fallback if DB insert was blocked by RLS or network error
       if (!response) {
-        console.warn("Supabase insert returned null for rs_funding_applications. Check table RLS policy.");
+        console.warn("[FundingView:ApplyFlow] ⚠️ Supabase insert returned null. Creating local fallback application object.");
         response = {
           id: `local_${Date.now()}`,
           uid: me,
@@ -1070,14 +1094,17 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (response) {
         setMyApplication(response);
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(response));
-        
+        console.log("[FundingView:ApplyFlow] 💾 Saved application response to state and localStorage.");
+
         if (pendingVCId) {
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
-          const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
-          
+          const targetEmail = targetInvestor?.email || targetInvestor?.contact_email || targetInvestor?.investor_email || "jjatan220@gmail.com";
+          console.log("[FundingView:ApplyFlow] 📧 Sending application email to investor:", { targetEmail, investorName, pendingVCId });
+
+          let apiResult = null;
           try {
-            await fetch("/api/send-application", {
+            const apiRes = await fetch("/api/send-application", {
               method: "POST",
               headers: { "Content-Type": "application/json", "x-user-id": me },
               body: JSON.stringify({
@@ -1086,29 +1113,40 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 formData: updatedForm
               }),
             });
+            if (apiRes.ok) {
+              apiResult = await apiRes.json();
+            }
+            console.log("[FundingView:ApplyFlow] 📨 Email API response:", apiResult);
           } catch (err) {
-            console.error("Failed to trigger email:", err);
+            console.error("[FundingView:ApplyFlow] ❌ Failed to trigger email:", err);
           }
 
-          addNotif?.({ type: "success", msg: `🚀 Application submitted successfully to ${investorName}!` });
+          if (apiResult && apiResult.emailSent === false) {
+            addNotif?.({ type: "success", msg: `🚀 Application submitted to ${investorName}! (Email notice skipped due to sender domain verification)` });
+          } else {
+            addNotif?.({ type: "success", msg: `🚀 Application submitted successfully to ${investorName}!` });
+          }
         } else {
           addNotif?.({ type: "success", msg: "✨ Startup Funding Profile updated successfully!" });
         }
-        
+
+        console.log("[FundingView:ApplyFlow] 🎉 SUBMIT & APPLY FINISHED SUCCESSFULLY!");
         setWizardOpen(false);
         setPendingVCId(null);
         loadData();
       } else {
+        console.warn("[FundingView:ApplyFlow] ⚠️ Using local storage fallback path.");
         // Fallback to local storage if API call fails
         const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
         setMyApplication(mockResponse);
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
-        
+
         if (pendingVCId) {
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
           const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
-          
+          console.log("[FundingView:ApplyFlow] 📧 Sending fallback application email to investor:", { targetEmail, investorName });
+
           try {
             await fetch("/api/send-application", {
               method: "POST",
@@ -1120,7 +1158,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
               }),
             });
           } catch (err) {
-            console.error("Failed to trigger email:", err);
+            console.error("[FundingView:ApplyFlow] ❌ Failed to trigger fallback email:", err);
           }
 
           addNotif?.({ type: "success", msg: `🚀 Application saved locally & submitted to ${investorName}!` });
@@ -1128,12 +1166,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           addNotif?.({ type: "success", msg: "✨ Saved Funding Profile locally!" });
         }
 
+        console.log("[FundingView:ApplyFlow] 🎉 Local fallback submission finished.");
         setWizardOpen(false);
         setPendingVCId(null);
         loadData();
       }
     } catch (e) {
-      console.error(e);
+      console.error("[FundingView:ApplyFlow] 💥 Exception in handleSubmitApplication:", e);
       addNotif?.({ type: "error", msg: "Failed to submit. Check your database connections." });
     } finally {
       setSubmitting(false);
@@ -1142,15 +1181,26 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // ─── APPLYING TO INVESTOR FLOW ─────────────────────────────────────
   const handleApplyToVC = async (investorId) => {
+    console.log("--------------------------------------------------");
+    const targetInvestor = investors.find(i => i.id === investorId);
+    console.log("[FundingView:ApplyFlow] 🟢 Apply button clicked!", {
+      investorId,
+      investorName: targetInvestor?.name || "Unknown Investor"
+    });
+
     const appliedList = getAppliedList();
+    console.log("[FundingView:ApplyFlow] 📋 Currently applied investor IDs:", appliedList);
 
     if (appliedList.includes(investorId)) {
+      console.warn("[FundingView:ApplyFlow] ⚠️ User has already applied to investor:", investorId);
       addNotif?.({ type: "info", msg: "You have already applied to this investor." });
       return;
     }
 
     // 1. Subscription Check
+    console.log("[FundingView:ApplyFlow] 🔒 Checking subscription status:", { isSubscribed, subPlan });
     if (!isSubscribed) {
+      console.warn("[FundingView:ApplyFlow] ⚠️ Application blocked: User is not subscribed.");
       addNotif?.({ type: "warning", msg: "🔒 A paid subscription (Starter or Growth) is required to access Funding Applications." });
       openSubscriptionModal?.();
       return;
@@ -1158,62 +1208,19 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
     // 2. Limit Check for Starter plan (max 30 funding applications)
     if (subPlan === "starter" && appliedList.length >= 30) {
+      console.warn("[FundingView:ApplyFlow] ⚠️ Application blocked: Starter plan monthly application limit (30) reached.");
       addNotif?.({ type: "warning", msg: "⚠️ You have reached your monthly limit of 30 funding applications on Founder Starter. Upgrade to Growth for unlimited applications!" });
       openSubscriptionModal?.();
       return;
     }
 
-    const isCompleted = myApplication !== null;
-
-    if (!isCompleted) {
-      handleOpenForm(investorId);
-      return;
-    }
-
-    // Direct Apply for users who completed their profile form
-    setSubmitting(true);
-    try {
-      const updatedApplied = Array.from(new Set([...appliedList, investorId]));
-      const autoRsid = form.rsid || getAutoRSID();
-      const updatedForm = { ...form, rsid: autoRsid, appliedInvestors: updatedApplied };
-      setForm(updatedForm);
-
-      const payload = {
-        uid: me,
-        data: updatedForm
-      };
-
-      if (myApplication?.id && !String(myApplication.id).startsWith("local_")) {
-        await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
-      } else {
-        await db.post("rs_funding_applications", payload);
-      }
-
-      const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
-      setMyApplication(mockResponse);
-      localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
-
-      const targetInvestor = investors.find(i => i.id === investorId);
-      const investorName = targetInvestor?.name || "Investor";
-      addNotif?.({ type: "success", msg: `🚀 Application submitted to ${investorName}!` });
-
-    } catch (err) {
-      console.error("Failed direct apply:", err);
-      const updatedApplied = Array.from(new Set([...appliedList, investorId]));
-      const autoRsid = form.rsid || getAutoRSID();
-      const updatedForm = { ...form, rsid: autoRsid, appliedInvestors: updatedApplied };
-      setForm(updatedForm);
-      const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
-      setMyApplication(mockResponse);
-      localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(mockResponse));
-      const targetInvestor = investors.find(i => i.id === investorId);
-      addNotif?.({ type: "success", msg: `🚀 Application submitted to ${targetInvestor?.name || "Investor"}!` });
-    } finally {
-      setSubmitting(false);
-    }
+    console.log("[FundingView:ApplyFlow] ✅ All checks passed. Proceeding to handleOpenForm.");
+    // Open application form modal (pre-filled with existing details for review/editing)
+    handleOpenForm(investorId);
   };
 
   const handleWithdrawVC = async (investorId) => {
+    console.log("[FundingView:ApplyFlow] 🗑️ handleWithdrawVC clicked for investorId:", investorId);
     try {
       const updatedApplied = (form.appliedInvestors || []).filter(id => id !== investorId);
       const updatedForm = { ...form, appliedInvestors: updatedApplied };
@@ -1236,9 +1243,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       }
 
       const investorName = investors.find(i => i.id === investorId)?.name || "Investor";
+      console.log(`[FundingView:ApplyFlow] ✅ Successfully withdrew application from ${investorName}`);
       addNotif?.({ type: "success", msg: `Withdrew application from ${investorName}.` });
     } catch (e) {
-      console.error(e);
+      console.error("[FundingView:ApplyFlow] ❌ Failed to withdraw application:", e);
       addNotif?.({ type: "error", msg: "Failed to withdraw application." });
     }
   };
@@ -1270,13 +1278,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const matchesTicketSize = (vcCheckSize, selectedSize) => {
     if (selectedSize === "All Ticket Sizes") return true;
     if (!vcCheckSize) return false;
-    
+
     let parts = vcCheckSize.split("-").map(p => p.trim());
     let vcMin = parseVal(parts[0]);
     let vcMax = parts.length > 1 ? parseVal(parts[1]) : vcMin;
-    
+
     if (vcMin === 0 && vcMax === 0) return true;
-    
+
     if (selectedSize === "< $100K") {
       return vcMin < 100000;
     }
@@ -1298,10 +1306,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const matchesStage = (vcStage, selectedStage) => {
     if (selectedStage === "All Stages") return true;
     if (!vcStage) return false;
-    
+
     const vcLower = vcStage.toLowerCase();
     const selLower = selectedStage.toLowerCase();
-    
+
     if (selLower === "idea") {
       return vcLower.includes("idea") || vcLower.includes("prototype") || vcLower.includes("r&d") || vcLower.includes("pre-seed");
     }
@@ -1323,7 +1331,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     if (selLower === "series c") {
       return vcLower.includes("series c") || vcLower.includes("growth");
     }
-    
+
     return vcLower.includes(selLower);
   };
 
@@ -1340,23 +1348,23 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
   const matchesLocation = (vcLocation, selectedLocation) => {
     if (selectedLocation === "All Countries") return true;
     if (!vcLocation) return true;
-    
+
     const vcLower = vcLocation.toLowerCase();
     const selLower = selectedLocation.toLowerCase();
-    
+
     return vcLower.includes(selLower) || vcLower === "global" || selLower === "global";
   };
 
   const filteredInvestors = investors.filter(vc => {
-    const matchesSearch = 
+    const matchesSearch =
       vc.name.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
     const matchesType = selectedType === "All Profiles" || (vc.type || "VCs") === selectedType;
     const matchesSector = selectedSector === "All Focus Areas" || parseSectors(vc.sectors).includes(selectedSector);
     const stageOk = matchesStage(vc.stage, selectedStage);
     const sizeOk = matchesTicketSize(vc.check_size || vc.checkSize, selectedTicketSize);
     const locOk = matchesLocation(vc.location, selectedLocation);
-    const ftOk = selectedFundingInstrument === "All Instruments" || 
+    const ftOk = selectedFundingInstrument === "All Instruments" ||
       getFundingType(vc).toLowerCase() === selectedFundingInstrument.toLowerCase();
 
     return matchesSearch && matchesType && matchesSector && stageOk && sizeOk && locOk && ftOk;
@@ -1738,15 +1746,15 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
 
                 {/* Structured Details Grid */}
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", 
-                  gap: "10px 16px", 
-                  background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)", 
-                  padding: 14, 
-                  borderRadius: 14, 
-                  border: `1px solid ${th.bdr}`, 
-                  fontSize: 12 
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  gap: "10px 16px",
+                  background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
+                  padding: 14,
+                  borderRadius: 14,
+                  border: `1px solid ${th.bdr}`,
+                  fontSize: 12
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ color: th.txt3 }}>Stage:</span>
@@ -1868,7 +1876,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: isMobile ? "stretch" : "center" }}>
           {/* Backdrop */}
           <div onClick={() => setWizardOpen(false)} style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(6px)" }} />
-          
+
           {/* Form Content Card */}
           <div style={{
             position: isMobile ? "fixed" : "relative",
@@ -1894,8 +1902,11 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 <h3 style={{ margin: 0, fontSize: isMobile ? 14 : 16, fontWeight: 800, color: th.txt }}>Startup Funding Application</h3>
                 <p style={{ margin: 0, fontSize: 10, color: th.txt3 }}>Step {activeStep + 1} of 7: {STAGE_STEPS[activeStep]}</p>
               </div>
-              <button 
-                onClick={() => setWizardOpen(false)}
+              <button
+                onClick={() => {
+                  console.log("[FundingView:ApplyFlow] ❌ Cancel clicked. Closing application wizard.");
+                  setWizardOpen(false);
+                }}
                 style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, padding: "5px 10px", fontSize: 11 }}
               >
                 Cancel
@@ -1905,15 +1916,15 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             {/* Stepper Progress Bar */}
             <div style={{ height: 4, background: th.bdr, display: "flex" }}>
               {STAGE_STEPS.map((_, i) => (
-                <div 
-                  key={i} 
-                  style={{ 
-                    flex: 1, 
-                    height: "100%", 
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: "100%",
                     background: i <= activeStep ? "#6366f1" : "transparent",
                     transition: "background 0.3s ease",
                     borderRight: i < STAGE_STEPS.length - 1 ? `1px solid ${th.side}` : "none"
-                  }} 
+                  }}
                 />
               ))}
             </div>
@@ -1928,6 +1939,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                       key={i}
                       disabled={i > activeStep && !validateStep(activeStep, false)}
                       onClick={() => {
+                        console.log(`[FundingView:ApplyFlow] 📍 Sidebar step ${i} (${stepName}) clicked from current step ${activeStep}`);
                         if (validateStep(activeStep) || i < activeStep) {
                           setActiveStep(i);
                         }
@@ -1948,10 +1960,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                         cursor: "pointer"
                       }}
                     >
-                      <span style={{ 
-                        width: 18, 
-                        height: 18, 
-                        borderRadius: 99, 
+                      <span style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 99,
                         background: activeStep === i ? "#6366f1" : (i < activeStep ? "#10b981" : th.bdr),
                         color: "#fff",
                         fontSize: 9,
@@ -1970,12 +1982,12 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
               {/* Scrollable Form Panel */}
               <div style={{ flex: 1, padding: isMobile ? 16 : 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-                
+
                 {/* ─── SECTION 1: FOUNDER INFORMATION ─── */}
                 {activeStep === 0 && (
                   <>
                     <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: th.txt, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>Primary Founder Details</h4>
-                    
+
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                       <div>
                         <label style={{ fontSize: 11, color: th.txt2, fontWeight: 600, display: "block", marginBottom: 5 }}>Founder Name*</label>
@@ -2020,10 +2032,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                                 value: c.code,
                                 label: (
                                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <img 
-                                      src={`https://flagcdn.com/w20/${c.iso}.png`} 
-                                      style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }} 
-                                      alt="" 
+                                    <img
+                                      src={`https://flagcdn.com/w20/${c.iso}.png`}
+                                      style={{ width: 16, height: 12, objectFit: "cover", borderRadius: 2 }}
+                                      alt=""
                                     />
                                     {c.code}
                                   </span>
@@ -2232,7 +2244,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 {activeStep === 2 && (
                   <>
                     <h4 style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: th.txt, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>Business Value Proposition</h4>
-                    
+
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                         <label style={{ fontSize: 11, color: th.txt2, fontWeight: 600 }}>Elevator Pitch*</label>
@@ -2613,7 +2625,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                     </div>
 
                     <h4 style={{ margin: "14px 0 10px", fontSize: 13, fontWeight: 700, color: th.txt, borderBottom: `1px solid ${th.bdr}`, paddingBottom: 6 }}>Use of Funds (Estimated % Allocation - Should sum up to 100%)</h4>
-                    
+
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr 1fr", gap: 10 }}>
                       <div>
                         <label style={{ fontSize: 10, color: th.txt3 }}>Product Dev %</label>
@@ -2831,7 +2843,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: isMobile ? "stretch" : "center" }}>
           {/* Backdrop */}
           <div onClick={() => setSelectedVC(null)} style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(6px)" }} />
-          
+
           {/* Modal Panel */}
           <div style={{
             position: isMobile ? "fixed" : "relative",
@@ -2868,7 +2880,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   <p style={{ margin: 0, fontSize: 10, color: th.txt3 }}>{selectedVC.type || "VCs"} • Funder Profile</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedVC(null)}
                 style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, padding: "5px 10px", fontSize: 12 }}
               >
