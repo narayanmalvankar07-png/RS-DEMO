@@ -991,34 +991,48 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
     if (updateState) {
       setFormErrors(errors);
     }
-    return Object.keys(errors).length === 0;
+    const isValid = Object.keys(errors).length === 0;
+    console.log(`[FundingView:ApplyFlow] 🔍 Step ${step} (${STAGE_STEPS[step] || "Step " + step}) validation:`, {
+      isValid,
+      errors,
+      formValues: form
+    });
+    return isValid;
   };
 
   const handleNextStep = () => {
+    console.log(`[FundingView:ApplyFlow] ▶️ 'Next' clicked on step ${activeStep} (${STAGE_STEPS[activeStep]})`);
     if (validateStep(activeStep)) {
       if (activeStep < STAGE_STEPS.length - 1) {
+        console.log(`[FundingView:ApplyFlow] ➡️ Step ${activeStep} valid. Advancing to step ${activeStep + 1} (${STAGE_STEPS[activeStep + 1]})`);
         setActiveStep(prev => prev + 1);
       } else {
+        console.log("[FundingView:ApplyFlow] 🏁 Final step reached! Triggering handleSubmitApplication()...");
         handleSubmitApplication();
       }
     } else {
+      console.warn(`[FundingView:ApplyFlow] ❌ Step ${activeStep} validation failed. Highlighted required fields.`);
       addNotif?.({ type: "error", msg: "Please fill out all required fields marked with *" });
     }
   };
 
   const handlePrevStep = () => {
+    console.log(`[FundingView:ApplyFlow] ◀️ 'Back' clicked. Moving from step ${activeStep} (${STAGE_STEPS[activeStep]}) to step ${activeStep - 1}`);
     if (activeStep > 0) {
       setActiveStep(prev => prev - 1);
     }
   };
 
   const handleOpenForm = (initialVCId = null) => {
+    console.log("--------------------------------------------------");
+    console.log("[FundingView:ApplyFlow] 📋 handleOpenForm triggered with initialVCId:", initialVCId);
     setActiveStep(0);
     setFormErrors({});
     setPendingVCId(initialVCId);
 
     const autoRsid = getAutoRSID();
     const p = myProfile || profiles?.[me] || {};
+    console.log("[FundingView:ApplyFlow] ⚙️ Pre-filling form with profile data:", { autoRsid, founderName: p.name, founderEmail: p.email });
     setForm(prev => ({
       ...prev,
       rsid: prev.rsid || autoRsid,
@@ -1026,10 +1040,17 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       founderEmail: prev.founderEmail || p.email || ""
     }));
 
+    console.log("[FundingView:ApplyFlow] 🚀 Opening application form wizard modal.");
     setWizardOpen(true);
   };
 
   const handleSubmitApplication = async () => {
+    console.log("--------------------------------------------------");
+    console.log("[FundingView:ApplyFlow] 📤 handleSubmitApplication STARTED", {
+      pendingVCId,
+      userUID: me,
+      currentFormData: form
+    });
     setSubmitting(true);
     try {
       // Append pending VC application to the list of applied VCs
@@ -1037,6 +1058,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (pendingVCId && !updatedApplied.includes(pendingVCId)) {
         updatedApplied.push(pendingVCId);
       }
+      console.log("[FundingView:ApplyFlow] 📝 Updated appliedInvestors list:", updatedApplied);
 
       const updatedForm = { ...form, appliedInvestors: updatedApplied };
       setForm(updatedForm);
@@ -1045,20 +1067,22 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
         uid: me,
         data: updatedForm
       };
+      console.log("[FundingView:ApplyFlow] 📦 DB Payload created:", payload);
 
       let response;
       if (myApplication?.id && !String(myApplication.id).startsWith("local_")) {
-        // Update existing application
+        console.log("[FundingView:ApplyFlow] 🔄 Patching existing database application id:", myApplication.id);
         const patched = await db.patch("rs_funding_applications", `id=eq.${myApplication.id}`, payload);
         response = patched || { ...myApplication, ...payload };
       } else {
-        // Create new application
+        console.log("[FundingView:ApplyFlow] ➕ Inserting new application record into DB...");
         response = await db.post("rs_funding_applications", payload);
       }
+      console.log("[FundingView:ApplyFlow] 📥 DB Response:", response);
 
       // Fallback if DB insert was blocked by RLS or network error
       if (!response) {
-        console.warn("Supabase insert returned null for rs_funding_applications. Check table RLS policy.");
+        console.warn("[FundingView:ApplyFlow] ⚠️ Supabase insert returned null. Creating local fallback application object.");
         response = {
           id: `local_${Date.now()}`,
           uid: me,
@@ -1070,11 +1094,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       if (response) {
         setMyApplication(response);
         localStorage.setItem(`rs_funding_app_${me}`, JSON.stringify(response));
+        console.log("[FundingView:ApplyFlow] 💾 Saved application response to state and localStorage.");
 
         if (pendingVCId) {
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
           const targetEmail = targetInvestor?.email || targetInvestor?.contact_email || targetInvestor?.investor_email || "jjatan220@gmail.com";
+          console.log("[FundingView:ApplyFlow] 📧 Sending application email to investor:", { targetEmail, investorName, pendingVCId });
 
           let apiResult = null;
           try {
@@ -1090,8 +1116,9 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
             if (apiRes.ok) {
               apiResult = await apiRes.json();
             }
+            console.log("[FundingView:ApplyFlow] 📨 Email API response:", apiResult);
           } catch (err) {
-            console.error("Failed to trigger email:", err);
+            console.error("[FundingView:ApplyFlow] ❌ Failed to trigger email:", err);
           }
 
           if (apiResult && apiResult.emailSent === false) {
@@ -1103,10 +1130,12 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           addNotif?.({ type: "success", msg: "✨ Startup Funding Profile updated successfully!" });
         }
 
+        console.log("[FundingView:ApplyFlow] 🎉 SUBMIT & APPLY FINISHED SUCCESSFULLY!");
         setWizardOpen(false);
         setPendingVCId(null);
         loadData();
       } else {
+        console.warn("[FundingView:ApplyFlow] ⚠️ Using local storage fallback path.");
         // Fallback to local storage if API call fails
         const mockResponse = { id: myApplication?.id || `local_${Math.random()}`, uid: me, data: updatedForm, created_at: new Date().toISOString() };
         setMyApplication(mockResponse);
@@ -1116,6 +1145,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           const targetInvestor = investors.find(i => i.id === pendingVCId);
           const investorName = targetInvestor?.name || "Investor";
           const targetEmail = targetInvestor?.email || "jjatan220@gmail.com";
+          console.log("[FundingView:ApplyFlow] 📧 Sending fallback application email to investor:", { targetEmail, investorName });
 
           try {
             await fetch("/api/send-application", {
@@ -1128,7 +1158,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
               }),
             });
           } catch (err) {
-            console.error("Failed to trigger email:", err);
+            console.error("[FundingView:ApplyFlow] ❌ Failed to trigger fallback email:", err);
           }
 
           addNotif?.({ type: "success", msg: `🚀 Application saved locally & submitted to ${investorName}!` });
@@ -1136,12 +1166,13 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
           addNotif?.({ type: "success", msg: "✨ Saved Funding Profile locally!" });
         }
 
+        console.log("[FundingView:ApplyFlow] 🎉 Local fallback submission finished.");
         setWizardOpen(false);
         setPendingVCId(null);
         loadData();
       }
     } catch (e) {
-      console.error(e);
+      console.error("[FundingView:ApplyFlow] 💥 Exception in handleSubmitApplication:", e);
       addNotif?.({ type: "error", msg: "Failed to submit. Check your database connections." });
     } finally {
       setSubmitting(false);
@@ -1150,15 +1181,26 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
   // ─── APPLYING TO INVESTOR FLOW ─────────────────────────────────────
   const handleApplyToVC = async (investorId) => {
+    console.log("--------------------------------------------------");
+    const targetInvestor = investors.find(i => i.id === investorId);
+    console.log("[FundingView:ApplyFlow] 🟢 Apply button clicked!", {
+      investorId,
+      investorName: targetInvestor?.name || "Unknown Investor"
+    });
+
     const appliedList = getAppliedList();
+    console.log("[FundingView:ApplyFlow] 📋 Currently applied investor IDs:", appliedList);
 
     if (appliedList.includes(investorId)) {
+      console.warn("[FundingView:ApplyFlow] ⚠️ User has already applied to investor:", investorId);
       addNotif?.({ type: "info", msg: "You have already applied to this investor." });
       return;
     }
 
     // 1. Subscription Check
+    console.log("[FundingView:ApplyFlow] 🔒 Checking subscription status:", { isSubscribed, subPlan });
     if (!isSubscribed) {
+      console.warn("[FundingView:ApplyFlow] ⚠️ Application blocked: User is not subscribed.");
       addNotif?.({ type: "warning", msg: "🔒 A paid subscription (Starter or Growth) is required to access Funding Applications." });
       openSubscriptionModal?.();
       return;
@@ -1166,16 +1208,19 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
 
     // 2. Limit Check for Starter plan (max 30 funding applications)
     if (subPlan === "starter" && appliedList.length >= 30) {
+      console.warn("[FundingView:ApplyFlow] ⚠️ Application blocked: Starter plan monthly application limit (30) reached.");
       addNotif?.({ type: "warning", msg: "⚠️ You have reached your monthly limit of 30 funding applications on Founder Starter. Upgrade to Growth for unlimited applications!" });
       openSubscriptionModal?.();
       return;
     }
 
+    console.log("[FundingView:ApplyFlow] ✅ All checks passed. Proceeding to handleOpenForm.");
     // Open application form modal (pre-filled with existing details for review/editing)
     handleOpenForm(investorId);
   };
 
   const handleWithdrawVC = async (investorId) => {
+    console.log("[FundingView:ApplyFlow] 🗑️ handleWithdrawVC clicked for investorId:", investorId);
     try {
       const updatedApplied = (form.appliedInvestors || []).filter(id => id !== investorId);
       const updatedForm = { ...form, appliedInvestors: updatedApplied };
@@ -1198,9 +1243,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
       }
 
       const investorName = investors.find(i => i.id === investorId)?.name || "Investor";
+      console.log(`[FundingView:ApplyFlow] ✅ Successfully withdrew application from ${investorName}`);
       addNotif?.({ type: "success", msg: `Withdrew application from ${investorName}.` });
     } catch (e) {
-      console.error(e);
+      console.error("[FundingView:ApplyFlow] ❌ Failed to withdraw application:", e);
       addNotif?.({ type: "error", msg: "Failed to withdraw application." });
     }
   };
@@ -1843,7 +1889,10 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                 <p style={{ margin: 0, fontSize: 10, color: th.txt3 }}>Step {activeStep + 1} of 7: {STAGE_STEPS[activeStep]}</p>
               </div>
               <button
-                onClick={() => setWizardOpen(false)}
+                onClick={() => {
+                  console.log("[FundingView:ApplyFlow] ❌ Cancel clicked. Closing application wizard.");
+                  setWizardOpen(false);
+                }}
                 style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${th.bdr}`, borderRadius: 8, cursor: "pointer", color: th.txt2, padding: "5px 10px", fontSize: 11 }}
               >
                 Cancel
@@ -1876,6 +1925,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                       key={i}
                       disabled={i > activeStep && !validateStep(activeStep, false)}
                       onClick={() => {
+                        console.log(`[FundingView:ApplyFlow] 📍 Sidebar step ${i} (${stepName}) clicked from current step ${activeStep}`);
                         if (validateStep(activeStep) || i < activeStep) {
                           setActiveStep(i);
                         }
