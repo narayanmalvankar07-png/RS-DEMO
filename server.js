@@ -1230,127 +1230,148 @@ app.post("/api/send-application", async (req, res) => {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>New Startup Investment Opportunities</title>
+        <title>New Application from ${startupName}</title>
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #090d16; color: #f1f5f9; margin: 0; padding: 30px 10px; -webkit-font-smoothing: antialiased; }
-          .wrapper { max-width: 640px; margin: 0 auto; }
-          .card { background-color: #111827; border: 1px solid #1f2937; border-top: 4px solid #6366f1; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
-          .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
-          .tag { display: inline-block; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.4); color: #c7d2fe; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; padding: 4px 12px; border-radius: 20px; margin-bottom: 12px; }
-          .header h1 { margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; line-height: 1.25; }
-          .header p { margin: 8px 0 0; font-size: 13px; color: #a5b4fc; font-weight: 500; }
-          .body { padding: 28px; }
-          .section-hdr { border-left: 3px solid #6366f1; padding-left: 10px; margin: 24px 0 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #818cf8; }
-          .section-hdr-first { margin-top: 0; }
-          .grid { display: table; width: 100%; table-layout: fixed; margin-bottom: 10px; border-spacing: 8px 0; border-collapse: separate; }
-          .grid-cell { display: table-cell; width: 50%; vertical-align: top; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 12px 14px; box-sizing: border-box; }
-          .grid-cell-full { display: block; width: 100%; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 12px 14px; box-sizing: border-box; margin-bottom: 10px; }
-          .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-bottom: 4px; }
-          .val { font-size: 14px; font-weight: 600; color: #f9fafb; word-break: break-word; }
-          .val-highlight { color: #34d399; font-size: 16px; font-weight: 700; }
-          .pitch-box { background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1; border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 12px 0; font-size: 13px; color: #e2e8f0; font-style: italic; line-height: 1.5; }
-          .desc-box { font-size: 13px; color: #d1d5db; line-height: 1.6; margin: 12px 0; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 14px; }
-          .btn { display: inline-block; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; margin-right: 8px; margin-top: 6px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25); }
-          .footer { text-align: center; padding: 20px 24px; font-size: 12px; color: #6b7280; background: #0f172a; border-top: 1px solid #1f2937; line-height: 1.5; }
-          .footer strong { color: #9ca3af; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px 10px; -webkit-font-smoothing: antialiased; }
+          .wrapper { max-width: 650px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+          .header { background: #111625; padding: 36px 32px; color: #ffffff; }
+          .top-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; }
+          .title { font-size: 28px; font-weight: 800; margin: 0 0 6px 0; color: #ffffff; letter-spacing: -0.02em; }
+          .subtitle { font-size: 14px; color: #cbd5e1; font-weight: 500; margin: 0; }
+          .body { padding: 32px; }
+          .pitch-box { background: #f8fafc; border-left: 3px solid #3b82f6; padding: 14px 18px; margin: 0 0 28px 0; font-size: 14px; color: #334155; font-style: italic; line-height: 1.5; }
+          .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin: 28px 0 16px 0; }
+          .two-col { display: table; width: 100%; table-layout: fixed; }
+          .col { display: table-cell; width: 50%; vertical-align: top; padding-right: 12px; box-sizing: border-box; }
+          .col:last-child { padding-right: 0; padding-left: 12px; border-left: 1px solid #f1f5f9; }
+          .field-row { margin-bottom: 8px; font-size: 13px; color: #475569; line-height: 1.5; }
+          .field-label { font-weight: 700; color: #1e293b; }
+          .green-val { color: #10b981; font-weight: 800; }
+          .link-btn { display: inline-block; color: #2563eb; text-decoration: none; font-weight: 600; font-size: 13px; }
+          .metrics-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-top: 12px; }
+          .metrics-grid { display: table; width: 100%; table-layout: fixed; margin-bottom: 12px; }
+          .metric-cell { display: table-cell; width: 33.33%; vertical-align: top; padding: 4px; box-sizing: border-box; }
+          .metric-lbl { font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+          .metric-val { font-size: 16px; font-weight: 600; color: #334155; }
+          .declaration-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 24px; font-size: 12px; color: #475569; line-height: 1.6; }
+          .footer { background: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
         </style>
       </head>
       <body>
         <div class="wrapper">
-          <div class="card">
-            <div class="header">
-              <div class="tag">RIGHTSIGNAL FUNDING</div>
-              <h1>New Startup Investment Opportunities</h1>
-              <p>Submitted for <strong>${investorName || "Investor"}</strong> via RightSignal Platform</p>
+          <div class="header">
+            <div class="top-label">NEW INVESTMENT APPLICATION</div>
+            <h1 class="title">${startupName}</h1>
+            <p class="subtitle">Applying to: <strong>${investorName || "Investor"}</strong></p>
+          </div>
+          <div class="body">
+            ${formData.elevatorPitch ? `<div class="pitch-box">"${formData.elevatorPitch}"</div>` : ''}
+
+            <div class="two-col">
+              <div class="col">
+                <div class="section-title" style="margin-top:0;">FUNDRAISING DETAILS</div>
+                <div class="field-row"><span class="field-label">Raising Now:</span> <span class="green-val">${targetAmount}</span></div>
+                <div class="field-row"><span class="field-label">Round:</span> ${formData.currentFundingRound || formData.fundingRound || "N/A"}</div>
+                <div class="field-row"><span class="field-label">Instrument:</span> ${formData.fundingInstrument || "Equity"}</div>
+                <div class="field-row"><span class="field-label">Current Valuation:</span> ${formData.currentValuation || "N/A"}</div>
+                <div class="field-row"><span class="field-label">Runway:</span> ${formData.runway || "6-12 Months"}</div>
+                <div class="field-row"><span class="field-label">Previously Raised:</span> ${formData.previouslyRaised || "N/A"}</div>
+              </div>
+              <div class="col">
+                <div class="section-title" style="margin-top:0;">COMPANY PROFILE</div>
+                <div class="field-row"><span class="field-label">Industry:</span> ${formData.industry || "N/A"}</div>
+                <div class="field-row"><span class="field-label">Website:</span> ${website ? `<a href="${website}" class="link-btn" target="_blank">${website}</a>` : "N/A"}</div>
+                <div class="field-row"><span class="field-label">Status:</span> ${formData.companyStatus || formData.legalStructure || "Registered (Pvt Ltd)"}</div>
+                <div class="field-row"><span class="field-label">Incorporated:</span> ${formData.incorporationDate || "N/A"} in ${formData.founderCity || formData.registrationCountry || formData.location || "N/A"}</div>
+              </div>
             </div>
-            <div class="body">
-              
-              <div class="section-hdr section-hdr-first">🏢 Startup Overview</div>
-              <div class="grid">
-                <div class="grid-cell">
-                  <div class="lbl">Startup Name</div>
-                  <div class="val">${startupName}</div>
+
+            <div class="section-title">BUSINESS OVERVIEW</div>
+            <div class="field-row"><div class="field-label">Problem:</div><div style="margin-top:2px;">${formData.problemStatement || formData.problem || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Solution:</div><div style="margin-top:2px;">${formData.solution || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Target Customers:</div><div style="margin-top:2px;">${formData.targetCustomers || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Product Status:</div><div style="margin-top:2px;">${formData.productStatus || "N/A"}</div></div>
+
+            <div class="section-title">MARKET & COMPETITION</div>
+            <div class="field-row"><span class="field-label">TAM:</span> ${formData.tam || "N/A"} &nbsp;|&nbsp; <span class="field-label">SAM:</span> ${formData.sam || "N/A"} &nbsp;|&nbsp; <span class="field-label">SOM:</span> ${formData.som || "N/A"}</div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Competitors:</div><div style="margin-top:2px;">${formData.competitors || "N/A"}</div></div>
+            <div class="field-row" style="margin-top:10px;"><div class="field-label">Competitive Advantage:</div><div style="margin-top:2px;">${formData.competitiveAdvantage || "N/A"}</div></div>
+
+            <div class="section-title">TRACTION & METRICS</div>
+            <div class="metrics-box">
+              <div class="metrics-grid">
+                <div class="metric-cell">
+                  <div class="metric-lbl">Total Users:</div>
+                  <div class="metric-val">${formData.totalUsers || "N/A"}</div>
                 </div>
-                <div class="grid-cell">
-                  <div class="lbl">Industry / Sector</div>
-                  <div class="val">${formData.industry || "N/A"}</div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">Active Users:</div>
+                  <div class="metric-val">${formData.activeUsers || "N/A"}</div>
+                </div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">Paying Customers:</div>
+                  <div class="metric-val">${formData.payingCustomers || "N/A"}</div>
                 </div>
               </div>
-
-              ${formData.elevatorPitch ? `<div class="pitch-box">"${formData.elevatorPitch}"</div>` : ''}
-              ${(formData.solution || formData.problemStatement) ? `<div class="desc-box">${formData.solution || formData.problemStatement}</div>` : ''}
-
-              <div class="grid-cell-full" style="margin-top: 8px;">
-                <div class="lbl">Location</div>
-                <div class="val">${[formData.founderCity, formData.registrationCountry || formData.location].filter(Boolean).join(", ") || "N/A"}</div>
-              </div>
-
-              <div class="section-hdr">👤 Primary Founder Details</div>
-              <div class="grid-cell-full">
-                <div class="lbl">Founder Name</div>
-                <div class="val">${founderName} <span style="font-size: 12px; color: #9ca3af; font-weight: 400;">(${formData.founderDesignation || "Founder"})</span></div>
-              </div>
-
-              <div class="section-hdr">💰 Fundraising & Valuation</div>
-              <div class="grid">
-                <div class="grid-cell">
-                  <div class="lbl">Target Round</div>
-                  <div class="val">${formData.currentFundingRound || formData.fundingRound || "N/A"}</div>
+              <div class="metrics-grid">
+                <div class="metric-cell">
+                  <div class="metric-lbl">Monthly Rev:</div>
+                  <div class="metric-val">${formData.monthlyRevenue || "N/A"}</div>
                 </div>
-                <div class="grid-cell">
-                  <div class="lbl">Target Amount</div>
-                  <div class="val val-highlight">${targetAmount}</div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">Annual Rev:</div>
+                  <div class="metric-val">${formData.annualRevenue || "N/A"}</div>
+                </div>
+                <div class="metric-cell">
+                  <div class="metric-lbl">MoM Growth:</div>
+                  <div class="metric-val">${formData.momGrowth || "N/A"}</div>
                 </div>
               </div>
-              <div class="grid" style="margin-top: 8px;">
-                <div class="grid-cell">
-                  <div class="lbl">Current Valuation</div>
-                  <div class="val">${formData.currentValuation || "N/A"}</div>
-                </div>
-                <div class="grid-cell">
-                  <div class="lbl">Instrument</div>
-                  <div class="val">${formData.fundingInstrument || "Equity"}</div>
-                </div>
+              <div style="margin-top:8px; font-size:12px;">
+                <span class="field-label">Key Milestones:</span><br/>
+                <span style="color:#475569;">${formData.keyAchievements || "N/A"}</span>
               </div>
-
-              <div class="section-hdr">📊 Key Metrics & Achievements</div>
-              <div class="grid">
-                <div class="grid-cell">
-                  <div class="lbl">Monthly Revenue</div>
-                  <div class="val">${formData.monthlyRevenue || "N/A"}</div>
-                </div>
-                <div class="grid-cell">
-                  <div class="lbl">Annual Revenue</div>
-                  <div class="val">${formData.annualRevenue || "N/A"}</div>
-                </div>
-              </div>
-              <div class="grid" style="margin-top: 8px;">
-                <div class="grid-cell">
-                  <div class="lbl">Active Users</div>
-                  <div class="val">${formData.activeUsers || "N/A"}</div>
-                </div>
-                <div class="grid-cell">
-                  <div class="lbl">Paying Customers</div>
-                  <div class="val">${formData.payingCustomers || "N/A"}</div>
-                </div>
-              </div>
-              ${formData.keyAchievements ? `<div class="desc-box" style="margin-top: 10px;"><strong style="color: #818cf8;">Milestones:</strong> ${formData.keyAchievements}</div>` : ''}
-
-              ${(pitchDeck || financialModel || dataRoom || productDemo) ? `
-                <div class="section-hdr">📄 Documents & Links</div>
-                <div style="margin-top: 10px;">
-                  ${pitchDeck ? `<a href="${pitchDeck}" class="btn" target="_blank">📊 View Pitch Deck</a>` : ''}
-                  ${financialModel ? `<a href="${financialModel}" class="btn" target="_blank" style="background: linear-gradient(135deg, #0284c7, #0369a1);">📈 Financial Model</a>` : ''}
-                  ${dataRoom ? `<a href="${dataRoom}" class="btn" target="_blank" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">📁 Data Room</a>` : ''}
-                  ${productDemo ? `<a href="${productDemo}" class="btn" target="_blank" style="background: linear-gradient(135deg, #059669, #047857);">💻 Product Demo</a>` : ''}
-                </div>
-              ` : ''}
-              ${formData.additionalNotes ? `<div class="desc-box" style="margin-top: 12px; border-color: #4b5563;"><strong style="color: #9ca3af;">Note from Founder:</strong> ${formData.additionalNotes}</div>` : ''}
-
             </div>
-            <div class="footer">
-              Sent securely via <strong>RightSignal Platform</strong> • Connecting Founders with Top Investors
+
+            <div class="section-title">DOCUMENTS & LINKS</div>
+            <div style="margin-top:8px;">
+              ${pitchDeck ? `<div style="margin-bottom:6px;"><a href="${pitchDeck}" class="link-btn" target="_blank">📄 View Pitch Deck</a></div>` : ''}
+              ${financialModel ? `<div style="margin-bottom:6px;"><a href="${financialModel}" class="link-btn" target="_blank">📈 View Financial Model</a></div>` : ''}
+              ${dataRoom ? `<div style="margin-bottom:6px;"><a href="${dataRoom}" class="link-btn" target="_blank">📁 View Data Room</a></div>` : ''}
+              ${productDemo ? `<div style="margin-bottom:6px;"><a href="${productDemo}" class="link-btn" target="_blank">💻 View Product Demo</a></div>` : ''}
+              ${(!pitchDeck && !financialModel && !dataRoom && !productDemo) ? '<div style="font-size:13px; color:#94a3b8;">No document links provided.</div>' : ''}
             </div>
+
+            <div class="section-title">USE OF FUNDS ALLOCATION</div>
+            <div class="field-row">
+              <span class="field-label">Product Dev:</span> ${formData.productDevUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Hiring:</span> ${formData.hiringUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Marketing:</span> ${formData.marketingUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Operations:</span> ${formData.operationsUse || "0"}% &nbsp;|&nbsp;
+              <span class="field-label">Other:</span> ${formData.otherUse || "0"}%
+            </div>
+
+            <div class="section-title">FOUNDING TEAM</div>
+            <div class="two-col">
+              <div class="col">
+                <div style="font-weight:700; font-size:15px; color:#0f172a;">${founderName}</div>
+                <div style="font-size:13px; color:#64748b; margin-top:2px;">Founder • ${formData.founderBio || formData.founderCity || ''}</div>
+              </div>
+              <div class="col">
+                ${formData.coFounderName ? `
+                  <div style="font-weight:700; font-size:15px; color:#0f172a;">${formData.coFounderName}</div>
+                  <div style="font-size:13px; color:#64748b; margin-top:2px;">Co-Founder</div>
+                ` : '<div style="font-size:13px; color:#94a3b8; font-style:italic;">No Co-Founder specified.</div>'}
+              </div>
+            </div>
+
+            <div class="declaration-box">
+              <strong>✅ Founder Declaration:</strong> "I confirm that the information submitted is accurate and can be shared with selected investors through the RightSignal platform."
+              <div style="margin-top:6px; color:#64748b; font-size:11px;">Signed by <strong>${formData.signedBy || founderName}</strong> on <strong>${new Date().toISOString().split('T')[0]}</strong></div>
+            </div>
+          </div>
+          <div class="footer">
+            Securely processed and verified by <strong>RightSignal</strong>
           </div>
         </div>
       </body>
@@ -1364,7 +1385,7 @@ app.post("/api/send-application", async (req, res) => {
     const validInvestorEmail = investorEmail && typeof investorEmail === "string" && investorEmail.includes("@") ? investorEmail : null;
     const validFounderEmail = founderEmail && typeof founderEmail === "string" && founderEmail.includes("@") ? founderEmail : null;
 
-    const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal Funding <onboarding@rightsignal.social>";
+    const fromDomain = process.env.RESEND_FROM_EMAIL || "RightSignal <onboarding@rightsignal.social>";
     const fallbackFrom = "RightSignal <onboarding@resend.dev>";
 
     const sendSingleMail = async (toEmail) => {
@@ -1372,7 +1393,7 @@ app.post("/api/send-application", async (req, res) => {
         return await resend.emails.send({
           from: fromDomain,
           to: [toEmail],
-          subject: `RightSignal | Investment Application from ${startupName}`,
+          subject: `New Application from ${startupName}`,
           html: htmlContent,
         });
       } catch (sendErr) {
@@ -1380,7 +1401,7 @@ app.post("/api/send-application", async (req, res) => {
         return await resend.emails.send({
           from: fallbackFrom,
           to: [toEmail],
-          subject: `RightSignal | Investment Application from ${startupName}`,
+          subject: `New Application from ${startupName}`,
           html: htmlContent,
         });
       }
