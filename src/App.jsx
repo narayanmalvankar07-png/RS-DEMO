@@ -124,7 +124,42 @@ export default function App() {
     } catch (e) { }
   }, [dk]);
 
-  const [view, setView] = useState("feed");
+  const getInitialView = () => {
+    try {
+      const p = window.location.pathname.replace(/^\/+|\/+$/g, "").toLowerCase();
+      if (p === "downloads" || p === "download") return "downloads";
+      if (p === "wallet") return "wallet";
+      if (p === "network") return "network";
+      if (p === "messages" || p === "messenger") return "messages";
+      if (p === "events") return "events";
+      if (p === "sandbox") return "sandbox";
+      if (p === "funding") return "funding";
+      if (p === "colab") return "colab";
+      if (p === "notifications") return "notifications";
+      if (p === "ads") return "ads";
+      if (p === "scholarships") return "scholarships";
+    } catch (e) {}
+    return "feed";
+  };
+
+  const [view, setViewState] = useState(getInitialView);
+
+  const setView = useCallback((newView) => {
+    setViewState(newView);
+    const targetPath = newView === "feed" ? "/" : `/${newView}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, "", targetPath);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setViewState(getInitialView());
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const [profUid, setProfUid] = useState(null);
   const [subModalOpen, setSubModalOpen] = useState(false);
 

@@ -7,6 +7,10 @@
         {
             "source": "/api/:path*",
             "destination": "https://rs-demo-6m55.onrender.com/api/:path*"
+        },
+        {
+            "source": "/:path*",
+            "destination": "/index.html"
         }
     ]
 } 
