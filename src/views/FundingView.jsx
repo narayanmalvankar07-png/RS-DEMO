@@ -1788,10 +1788,24 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
                   paddingTop: 12
                 }}>
                   {/* Left: Sectors */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center", flex: 1 }}>
-                    {parseSectors(vc.sectors).map(s => (
-                      <span key={s} style={{ fontSize: 10, border: `1px solid ${th.bdr}`, color: th.txt3, padding: "1px 6px", borderRadius: 6, fontWeight: 500 }}>{s}</span>
-                    ))}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center", flex: 1, overflow: "hidden" }}>
+                    {(() => {
+                      const allSectors = parseSectors(vc.sectors);
+                      const visibleSectors = allSectors.slice(0, 3);
+                      const remainingCount = allSectors.length - visibleSectors.length;
+                      return (
+                        <>
+                          {visibleSectors.map(s => (
+                            <span key={s} style={{ fontSize: 10, border: `1px solid ${th.bdr}`, color: th.txt3, padding: "1px 6px", borderRadius: 6, fontWeight: 500 }}>{s}</span>
+                          ))}
+                          {remainingCount > 0 && (
+                            <span style={{ fontSize: 10, background: dk ? "rgba(99, 102, 241, 0.12)" : "rgba(99, 102, 241, 0.06)", border: `1px solid ${th.bdr}`, color: "#6366f1", padding: "1px 6px", borderRadius: 6, fontWeight: 600 }}>
+                              +{remainingCount} more
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Right: Button */}
@@ -2901,7 +2915,7 @@ export default function FundingView({ me, dk, addNotif, isMobile, profiles, onPr
               {/* Sectors */}
               <div>
                 <h4 style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: th.txt3, textTransform: "uppercase" }}>Target Sectors</h4>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 110, overflowY: "auto", paddingRight: 4 }}>
                   {parseSectors(selectedVC.sectors).map(s => (
                     <span key={s} style={{ fontSize: 11, border: `1px solid ${th.bdr}`, background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)", color: th.txt2, padding: "3px 8px", borderRadius: 6, fontWeight: 600 }}>
                       {s}
