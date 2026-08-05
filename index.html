@@ -44,6 +44,13 @@
     content="The professional network for founders, investors, and builders. Share signal, not noise." />
   <meta name="twitter:image" content="https://rightsignal.social/opengraph.jpg" />
 
+  <!-- Web App Manifest & PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RightSignal" />
+
   <!-- Google Analytics is initialized dynamically via VITE_GA_MEASUREMENT_ID in src/main.jsx -->
 </head>
 
@@ -51,6 +58,15 @@
   <div id="root"></div>
   <div id="portal-root"></div>
   <script type="module" src="/src/main.jsx"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('PWA Service Worker registered:', reg.scope))
+          .catch(err => console.error('PWA Service Worker registration failed:', err));
+      });
+    }
+  </script>
 </body>
 
 </html>
